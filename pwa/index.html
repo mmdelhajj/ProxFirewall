@@ -3117,54 +3117,101 @@ function openFamilyMemberSheet(famId) {
     if (m.id === famId) continue;
     for (const mac of (m.device_macs || [])) otherOwner[mac.toLowerCase()] = m.name;
   }
-  const assignedHtml = (fam.device_macs || []).length
-    ? (fam.device_macs || []).map(mac => {
-        const dev = state.devices.find(d => d.mac && d.mac.toLowerCase() === mac.toLowerCase());
+  const roleColor = fam.role === 'Kid' ? 'warn' : fam.role === 'Teen' ? 'info' : 'ok';
+  const assignedDevices = (fam.device_macs || []).map(mac => {
+    const dev = state.devices.find(d => d.mac && d.mac.toLowerCase() === mac.toLowerCase());
+    return { mac, dev };
+  });
+  const assignedHtml = assignedDevices.length
+    ? assignedDevices.map(({ mac, dev }) => {
         const label = dev ? (dev.name || dev.hostname || mac) : mac;
         const ic = dev ? (dev.icon || deviceIcon(dev.device_type) || '💻') : '📱';
+        const onlineDot = dev ? `<div class="online ${dev.online?'':'off'}" style="width:8px;height:8px;border-radius:50%;background:${dev.online?'var(--accent)':'var(--mute)'};display:inline-block;margin-right:6px"></div>` : '';
         return `<div class="list-row">
           <div class="avatar">${ic}</div>
-          <div class="lr-meta"><div class="nm">${esc(label)}</div><div class="sub mono">${esc(mac)}</div></div>
-          <button class="btn sm ghost" data-rm="${esc(mac)}">✕</button>
+          <div class="lr-meta">
+            <div class="nm">${onlineDot}${esc(label)}</div>
+            <div class="sub mono" style="font-size:11px">${esc(mac)}${dev?.ip ? ' · ' + esc(dev.ip) : ''}</div>
+          </div>
+          <button class="btn sm ghost" data-rm="${esc(mac)}" title="Remove from ${esc(fam.name)}">✕</button>
         </div>`;
       }).join('')
-    : '<div class="empty">No devices assigned yet.</div>';
+    : `<div class="empty" style="padding:14px"><div class="em" style="font-size:32px">📱</div>No devices yet — assign one below to apply ${esc(fam.name)}'s schedules to it.</div>`;
   const unassigned = (state.devices || []).filter(d => d.mac && !assignedSet.has(d.mac.toLowerCase()) && !otherOwner[d.mac.toLowerCase()]);
-  const optionsHtml = unassigned.map(d => `<option value="${esc(d.mac)}">${esc(d.name || d.hostname || d.mac)} — ${esc(d.mac)}</option>`).join('');
+  const optionsHtml = unassigned.map(d => `<option value="${esc(d.mac)}">${esc(d.name || d.hostname || d.mac)}${d.ip?' · '+esc(d.ip):''}</option>`).join('');
   const pickHtml = unassigned.length
-    ? `<div class="field" style="margin-top:14px"><label>Assign device</label>
-        <div class="row gap-8">
-          <select id="fa-dev-pick" style="flex:1;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)">
-            <option value="">— pick a device —</option>${optionsHtml}
-          </select>
-          <button class="btn sm primary" id="fa-dev-add" style="width:auto;height:50px;flex-shrink:0">＋</button>
-        </div></div>`
-    : '<div class="hint" style="margin-top:14px">No more unassigned devices.</div>';
-  const html = `<div class="list">${assignedHtml}</div>${pickHtml}
-    <div class="btn-row" style="margin-top:14px">
-      <button class="btn ghost" id="fa-close">Close</button>
-      <button class="btn ghost" id="fa-edit">Edit member</button>
+    ? `<div style="display:flex;gap:8px;align-items:stretch">
+        <select id="fa-dev-pick" style="flex:1;height:44px;padding:0 12px;background:var(--bg-elev-2);border:1px solid var(--line);border-radius:var(--r-btn);color:var(--text);font-size:14px">
+          <option value="">＋ Pick a device to assign…</option>${optionsHtml}
+        </select>
+        <button class="btn primary" id="fa-dev-add" style="width:auto;height:44px;padding:0 16px">Assign</button>
+      </div>
+      <div class="hint" style="margin-top:6px">Schedules + caps applied to ${esc(fam.name)} will hit the assigned device(s).</div>`
+    : `<div class="empty" style="padding:10px"><div class="dim" style="font-size:12px">All your devices are already assigned to someone.</div></div>`;
+  // Big header card + clearly sectioned content
+  const html = `
+    <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg-elev-2);border-radius:var(--r-card);margin-bottom:14px">
+      <div style="font-size:48px;width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:var(--bg-elev);border-radius:50%;border:1px solid var(--line)">${esc(fam.icon || '👤')}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:18px;font-weight:700;line-height:1.2">${esc(fam.name)}</div>
+        <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span class="chip ${roleColor}">${esc(fam.role || 'Member')}</span>
+          <span class="dim" style="font-size:12px">${(fam.device_macs||[]).length} device(s)</span>
+        </div>
+      </div>
+      <button class="btn sm ghost" id="fa-edit" title="Edit name/role/icon">✏️</button>
+    </div>
+
+    <div class="card-title" style="padding:0 4px;margin-bottom:6px">Assigned devices</div>
+    <div class="list" style="margin-bottom:14px">${assignedHtml}</div>
+
+    <div class="card-title" style="padding:0 4px;margin-bottom:6px">Assign a device</div>
+    ${pickHtml}
+
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn ghost" id="fa-close" style="flex:1">Done</button>
+      <button class="btn danger" id="fa-delete" style="flex:1">Remove ${esc(fam.name)}</button>
     </div>`;
-  sheet(`${esc(fam.icon || '👤')} ${esc(fam.name)}`, `${esc(fam.role)} · ${(fam.device_macs||[]).length} device(s)`, html, body => {
+  sheet('Family member', '', html, body => {
     body.querySelector('#fa-close').onclick = closeSheet;
     body.querySelector('#fa-edit').onclick = () => { closeSheet(); editFamilyMember(famId); };
+    body.querySelector('#fa-delete').onclick = async () => {
+      if (!await confirmSheet(`Remove ${fam.name} from your family?`, { okLabel: 'Remove', danger: true })) return;
+      try {
+        await api('/customer/family/delete', { method: 'POST', body: JSON.stringify({ id: famId }) });
+        _famCache = _famCache.filter(x => x.id !== famId);
+        closeSheet();
+        _renderFamilyList();
+        toast(`${fam.name} removed`, 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
     body.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
       try {
         await api('/customer/family/assign-device', { method: 'POST', body: JSON.stringify({ member_id: '', mac: b.dataset.rm }) });
-        closeSheet(); await renderFamilySub();
-        // Re-open with fresh data
-        const fresh = _famCache.find(x => x.id === famId);
-        if (fresh) openFamilyMemberSheet(famId);
+        // Optimistic update: remove from local cache then re-open
+        const f = _famCache.find(x => x.id === famId);
+        if (f) f.device_macs = (f.device_macs || []).filter(m => m.toLowerCase() !== b.dataset.rm.toLowerCase());
+        closeSheet();
+        _renderFamilyList();
+        openFamilyMemberSheet(famId);
       } catch (e) { toast(e.message || 'Failed', 'bad'); }
     });
     const addBtn = body.querySelector('#fa-dev-add');
     if (addBtn) addBtn.onclick = async () => {
       const mac = body.querySelector('#fa-dev-pick').value;
-      if (!mac) return;
+      if (!mac) { toast('Pick a device first', 'warn'); return; }
       try {
         await api('/customer/family/assign-device', { method: 'POST', body: JSON.stringify({ member_id: famId, mac }) });
-        closeSheet(); await renderFamilySub();
+        // Optimistic update
+        const f = _famCache.find(x => x.id === famId);
+        if (f) {
+          f.device_macs = f.device_macs || [];
+          if (!f.device_macs.find(m => m.toLowerCase() === mac.toLowerCase())) f.device_macs.push(mac);
+        }
+        closeSheet();
+        _renderFamilyList();
         openFamilyMemberSheet(famId);
+        toast('Device assigned', 'info');
       } catch (e) { toast(e.message || 'Failed', 'bad'); }
     };
   });
