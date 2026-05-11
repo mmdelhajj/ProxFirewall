@@ -2959,63 +2959,149 @@ let _schedCache = [];
 let _schedPresets = [];
 
 /* ──────── Family sub-view ──────── */
+function _renderFamilyList() {
+  const el = document.getElementById('fam-list');
+  if (!el) return;
+  if (!_famCache.length) {
+    el.innerHTML = `<div class="empty"><div class="em">👨‍👩‍👧</div>No family members yet — tap ＋ Add to create one.</div>`;
+    return;
+  }
+  el.innerHTML = _famCache.map(f => {
+    const role = f.role || 'Member';
+    const roleBadge = role === 'Kid' ? 'warn' : role === 'Teen' ? 'info' : 'ok';
+    return `<div class="list-row" data-fid="${esc(f.id)}">
+      <div class="avatar" style="font-size:22px">${esc(f.icon || '👤')}</div>
+      <div class="lr-meta">
+        <div class="nm">${esc(f.name)}</div>
+        <div class="sub"><span class="chip ${roleBadge}">${esc(role)}</span><span>${(f.device_macs||[]).length} device(s)</span></div>
+      </div>
+      <button class="btn sm ghost" data-fdel="${esc(f.id)}">✕</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.list-row').forEach(row => row.addEventListener('click', e => {
+    if (e.target.closest('[data-fdel]')) return;
+    openFamilyMemberSheet(row.dataset.fid);
+  }));
+  el.querySelectorAll('[data-fdel]').forEach(b => b.onclick = async (e) => {
+    e.stopPropagation();
+    if (!await confirmSheet('Remove this family member?', { okLabel: 'Remove', danger: true })) return;
+    try {
+      await api('/customer/family/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.fdel }) });
+      _famCache = _famCache.filter(x => x.id !== b.dataset.fdel);
+      _renderFamilyList();
+      toast('Removed', 'info');
+    } catch (e2) { toast(e2.message || 'Failed', 'bad'); }
+  });
+}
 async function renderFamilySub() {
   const el = document.getElementById('fam-list');
-  el.innerHTML = '<div class="empty">Loading…</div>';
+  // Render from cache immediately if we have it (no "Loading…" flicker)
+  if (_famCache && _famCache.length) {
+    _renderFamilyList();
+  } else {
+    el.innerHTML = '<div class="empty">Loading…</div>';
+  }
   try {
     const r = await api('/customer/family');
     _famCache = r.family || [];
-    if (!_famCache.length) {
-      el.innerHTML = `<div class="empty"><div class="em">👨‍👩‍👧</div>No family members yet — tap ＋ Add to create one.</div>`;
-      return;
-    }
-    el.innerHTML = _famCache.map(f => {
-      const role = f.role || 'Member';
-      const roleBadge = role === 'Kid' ? 'warn' : role === 'Teen' ? 'info' : 'ok';
-      return `<div class="list-row" data-fid="${esc(f.id)}">
-        <div class="avatar" style="font-size:22px">${esc(f.icon || '👤')}</div>
-        <div class="lr-meta">
-          <div class="nm">${esc(f.name)}</div>
-          <div class="sub"><span class="chip ${roleBadge}">${esc(role)}</span><span>${(f.device_macs||[]).length} device(s)</span></div>
-        </div>
-        <button class="btn sm ghost" data-fdel="${esc(f.id)}">✕</button>
-      </div>`;
-    }).join('');
-    el.querySelectorAll('.list-row').forEach(row => row.addEventListener('click', e => {
-      if (e.target.closest('[data-fdel]')) return;
-      openFamilyMemberSheet(row.dataset.fid);
-    }));
-    el.querySelectorAll('[data-fdel]').forEach(b => b.onclick = async (e) => {
-      e.stopPropagation();
-      if (!await confirmSheet('Remove this family member?', { okLabel: 'Remove', danger: true })) return;
-      try {
-        await api('/customer/family/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.fdel }) });
-        toast('Removed', 'info'); renderFamilySub();
-      } catch (e) { toast(e.message || 'Failed', 'bad'); }
-    });
+    _renderFamilyList();
   } catch (e) {
     el.innerHTML = `<div class="empty">Failed to load: ${esc(e.message || '')}</div>`;
   }
 }
 
+const _FAMILY_ICONS = ['👨','👩','👧','👦','🧒','👶','🧑','👴','👵','🧔','👱','👸','🤴','👮','👨‍🚀','🦸'];
+const _FAMILY_ROLES = [
+  { id: 'Admin', icon: '👨‍💼', desc: 'Full control · no restrictions' },
+  { id: 'Adult', icon: '👤', desc: 'No restrictions by default' },
+  { id: 'Teen',  icon: '👦', desc: 'Light schedule + content filters' },
+  { id: 'Kid',   icon: '👧', desc: 'Bedtime · school hours · adult-block' },
+];
 document.getElementById('fam-add-btn').onclick = () => {
-  const html = `<div class="field"><label>Name</label><input id="fa-name" maxlength="40" placeholder="e.g. Sarah"></div>
-    <div class="field"><label>Role</label>
-      <select id="fa-role">
-        <option value="Adult">Adult</option><option value="Teen">Teen</option>
-        <option value="Kid">Kid</option><option value="Member">Member</option>
-      </select>
+  // Default selections — pick icon based on role
+  let pickedRole = 'Kid';
+  let pickedIcon = '👧';
+  const roleCardsHtml = _FAMILY_ROLES.map(r => `
+    <div class="role-card${r.id === pickedRole ? ' selected' : ''}" data-r="${r.id}"
+         style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--bg-elev);cursor:pointer;transition:.15s">
+      <div style="font-size:24px">${r.icon}</div>
+      <div style="flex:1">
+        <div style="font-weight:600">${r.id}</div>
+        <div class="dim" style="font-size:11px">${r.desc}</div>
+      </div>
+      <div class="role-check" style="opacity:${r.id === pickedRole ? 1 : 0};transition:.15s;color:var(--accent);font-size:18px">✓</div>
+    </div>`).join('');
+  const iconGridHtml = _FAMILY_ICONS.map(ic => `
+    <button type="button" class="ico-btn${ic === pickedIcon ? ' selected' : ''}" data-i="${ic}"
+            style="width:44px;height:44px;font-size:24px;background:${ic === pickedIcon ? 'var(--brand-soft)' : 'var(--bg-elev)'};border:1px solid ${ic === pickedIcon ? 'var(--brand)' : 'var(--line)'};border-radius:var(--r-btn);cursor:pointer;transition:.12s">${ic}</button>`).join('');
+  const html = `
+    <div class="field" style="margin-bottom:14px">
+      <label>Name</label>
+      <input id="fa-name" maxlength="40" placeholder="e.g. Sarah" autocomplete="off">
     </div>
-    <div class="btn-row"><button class="btn ghost" id="fa-x">${t('sheet.cancel')}</button><button class="btn primary" id="fa-go">Add</button></div>`;
-  sheet('Add family member', '', html, body => {
+    <div class="field" style="margin-bottom:14px">
+      <label>Role</label>
+      <div id="fa-role-cards" style="display:flex;flex-direction:column;gap:6px">${roleCardsHtml}</div>
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <label>Pick an icon</label>
+      <div id="fa-icon-grid" style="display:flex;flex-wrap:wrap;gap:6px">${iconGridHtml}</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="fa-x">${t('sheet.cancel')}</button>
+      <button class="btn primary" id="fa-go">＋ Add member</button>
+    </div>`;
+  sheet('Add family member', 'They show up under Family · Schedules can target them', html, body => {
     body.querySelector('#fa-x').onclick = closeSheet;
+    // Role-card picker
+    body.querySelectorAll('.role-card').forEach(c => c.onclick = () => {
+      pickedRole = c.dataset.r;
+      body.querySelectorAll('.role-card').forEach(x => {
+        const on = x.dataset.r === pickedRole;
+        x.classList.toggle('selected', on);
+        x.style.borderColor = on ? 'var(--brand)' : 'var(--line)';
+        x.style.background = on ? 'var(--brand-soft)' : 'var(--bg-elev)';
+        x.querySelector('.role-check').style.opacity = on ? 1 : 0;
+      });
+      // Auto-suggest icon if user hasn't manually picked
+      if (!body._iconPickedManually) {
+        const def = pickedRole === 'Kid' ? '👧' : pickedRole === 'Teen' ? '👦' : pickedRole === 'Admin' ? '👨‍💼' : '👤';
+        if (_FAMILY_ICONS.includes(def)) {
+          pickedIcon = def;
+          body.querySelectorAll('.ico-btn').forEach(b => {
+            const on = b.dataset.i === pickedIcon;
+            b.classList.toggle('selected', on);
+            b.style.borderColor = on ? 'var(--brand)' : 'var(--line)';
+            b.style.background = on ? 'var(--brand-soft)' : 'var(--bg-elev)';
+          });
+        }
+      }
+    });
+    // Icon picker
+    body.querySelectorAll('.ico-btn').forEach(b => b.onclick = () => {
+      pickedIcon = b.dataset.i;
+      body._iconPickedManually = true;
+      body.querySelectorAll('.ico-btn').forEach(x => {
+        const on = x.dataset.i === pickedIcon;
+        x.classList.toggle('selected', on);
+        x.style.borderColor = on ? 'var(--brand)' : 'var(--line)';
+        x.style.background = on ? 'var(--brand-soft)' : 'var(--bg-elev)';
+      });
+    });
     body.querySelector('#fa-go').onclick = async () => {
       const name = body.querySelector('#fa-name').value.trim();
-      const role = body.querySelector('#fa-role').value;
-      if (!name) { toast('Name required', 'warn'); return; }
+      if (!name) { toast('Name required', 'warn'); body.querySelector('#fa-name').focus(); return; }
       try {
-        await api('/customer/family/add', { method: 'POST', body: JSON.stringify({ name, role }) });
-        closeSheet(); toast('Added', 'info'); renderFamilySub();
+        const r = await api('/customer/family/add', { method: 'POST', body: JSON.stringify({ name, role: pickedRole, icon: pickedIcon }) });
+        // Optimistic insert — push returned member to local cache so it shows
+        // instantly without waiting for the next GET round-trip
+        if (r && r.member) {
+          _famCache = _famCache || [];
+          _famCache.unshift(r.member);
+        }
+        closeSheet();
+        toast(`${pickedIcon} ${esc(name)} added`, 'info');
+        renderFamilySub();   // refresh from cloud + re-render
       } catch (e) { toast(e.message || 'Failed', 'bad'); }
     };
     setTimeout(() => body.querySelector('#fa-name').focus(), 200);
