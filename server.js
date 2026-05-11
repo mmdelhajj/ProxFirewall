@@ -3566,11 +3566,20 @@ app.get('/api/customer/devices', customerAuth, (req, res) => {
   const now = Date.now();
   let devices;
   if (realDevices.length) {
-    // online = device was seen by the box within the last 10 minutes. ARP-cache
-    // freshness (the box's raw `online` flag) flaps every ~30s as kernel ages
-    // entries to STALE — that doesn't mean the device is offline. last_seen
-    // updates on every actual traffic event, so it's the stable signal.
     const ONLINE_CUTOFF_MS = 10 * 60 * 1000;
+    // Build set of MAC-blocked addresses from rules. The PWA "Block" button
+    // creates `{type:'mac', action:'block'}` rules — they don't flip the
+    // `box_devices[].blocked` field, so the device list needs to check both
+    // signals. (Previously: device blocked via rule → didn't show as blocked
+    // in the list / filter chip, even though enforcement was working.)
+    const blockedMacsFromRules = new Set();
+    for (const r of (state.rules[c.id] || [])) {
+      if (r.action === 'block' && r.type === 'mac' && r.value && r.enabled !== false) {
+        if (!r.expires_at || r.expires_at > now) {
+          blockedMacsFromRules.add(String(r.value).toLowerCase());
+        }
+      }
+    }
     devices = realDevices.map(d => ({
       name:    d.hostname || d.device_label || d.vendor || d.mac,
       icon:    d.device_icon || (d.device_type === 'phone' ? '📱' : d.device_type === 'tv' ? '📺' : d.device_type === 'console' ? '🎮' : d.device_type === 'iot' ? '💡' : d.device_type === 'router' ? '📡' : '💻'),
@@ -3580,7 +3589,7 @@ app.get('/api/customer/devices', customerAuth, (req, res) => {
       hostname: d.hostname || '',
       online:  d.last_seen ? (now - d.last_seen) < ONLINE_CUTOFF_MS : (d.online !== false),
       last:    d.last_seen ? fmtAge(now - d.last_seen) : 'now',
-      blocked: !!d.blocked,
+      blocked: !!d.blocked || blockedMacsFromRules.has((d.mac || '').toLowerCase()),
       weight:  1.0,
     }));
   } else {

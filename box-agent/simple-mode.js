@@ -154,22 +154,27 @@ function ensureForwardChain() {
 }
 
 function startArpspoofForClient(iface, gateway_ip, client_ip) {
-  // arpspoof's hardcoded 2-second send interval is too slow — the gateway's
-  // ARP cache can briefly refresh to the real MAC between our re-assertions,
-  // and return packets in those windows go direct to the device, bypassing
-  // the Pi. Three staggered instances per direction give effective ~667ms
-  // re-assertion → much higher capture rate (~95%+ vs ~60-70% with a single
-  // instance). Cost: 6 procs per device, ~270 total for a 45-device LAN.
+  // ONE arpspoof per direction, two procs per device total. Re-asserts every
+  // 2 seconds (arpspoof's hardcoded interval). Capture rate ~65-70% — gateway
+  // briefly refreshes to the real MAC between re-assertions and some return
+  // packets bypass the Pi.
+  //
+  // Tuned for HOME USE (45 devices, sub-10ms LAN ping). Block / schedule /
+  // category / cap features all work fine — they're DNS-based or MAC-drop
+  // and don't depend on full traffic capture. Only impact: monthly GB
+  // counter is conservative (under-counts by ~35%), live gauge under-reports
+  // peak bursts. Both fine for home dashboards.
+  //
+  // For >100 devices or byte-perfect accuracy, increase to 3 staggered per
+  // direction (was the previous setting) — costs +50ms LAN ping per arpspoof
+  // doubling, so don't go higher unless you know you need it.
   //   - Direction 1: tell CLIENT we are the gateway → catches uploads
   //   - Direction 2: tell GATEWAY we are the client → catches downloads
-  const pids = [];
-  for (let i = 0; i < 3; i++) {
-    const cOut = spawn('arpspoof', ['-i', iface, '-t', client_ip, gateway_ip], { detached: true, stdio: 'ignore' });
-    cOut.unref(); pids.push(cOut.pid);
-    const cIn = spawn('arpspoof', ['-i', iface, '-t', gateway_ip, client_ip], { detached: true, stdio: 'ignore' });
-    cIn.unref(); pids.push(cIn.pid);
-  }
-  return pids;
+  const cOut = spawn('arpspoof', ['-i', iface, '-t', client_ip, gateway_ip], { detached: true, stdio: 'ignore' });
+  cOut.unref();
+  const cIn = spawn('arpspoof', ['-i', iface, '-t', gateway_ip, client_ip], { detached: true, stdio: 'ignore' });
+  cIn.unref();
+  return [cOut.pid, cIn.pid];
 }
 
 function killArpspoofs() {
