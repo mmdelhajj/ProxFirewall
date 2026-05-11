@@ -1172,6 +1172,14 @@ a { color: var(--brand); text-decoration: none; }
           <h3 data-i="flows.recent">Recent activity</h3>
           <button class="more" id="more-flows" data-i="common.more">See all</button>
         </div>
+        <div class="chip-row" id="flow-cat-filter" style="margin-bottom:8px;flex-wrap:wrap">
+          <button class="chip-pill on" data-cat="all">All</button>
+          <button class="chip-pill" data-cat="video">📺 Video</button>
+          <button class="chip-pill" data-cat="gaming">🎮 Gaming</button>
+          <button class="chip-pill" data-cat="social">💬 Social</button>
+          <button class="chip-pill" data-cat="adult">🔞 Adult</button>
+          <button class="chip-pill" data-cat="vpn">🛡 VPN</button>
+        </div>
         <div id="flow-list"></div>
       </div>
     </section>
@@ -1905,11 +1913,14 @@ function renderHome() {
       </div>`).join('');
   }
 
-  // flows (last 5)
+  // flows — category-filtered, last 5
   const fl = document.getElementById('flow-list');
-  const recent = state.flows.slice(0, 5);
+  const cat = state.flowCatFilter || 'all';
+  const recent = (state.flows || []).filter(f =>
+    cat === 'all' ? true : (f.category === cat)
+  ).slice(0, 5);
   if (recent.length === 0) {
-    fl.innerHTML = `<div class="empty">No traffic yet.</div>`;
+    fl.innerHTML = `<div class="empty">No ${cat === 'all' ? 'traffic' : cat + ' traffic'} yet.</div>`;
   } else {
     fl.innerHTML = recent.map(f => {
       const dev = state.devices.find(d => d.mac === f.src_mac);
@@ -2147,6 +2158,18 @@ function renderDevices() {
       _devState.filter = b.dataset.flt;
       filter.querySelectorAll('[data-flt]').forEach(x => x.classList.toggle('on', x === b));
       renderDevices();
+    });
+  }
+  // Home tab — category chips on Recent Activity (Firewalla parity)
+  const flowCat = document.getElementById('flow-cat-filter');
+  if (flowCat && !flowCat._wired) {
+    flowCat._wired = true;
+    flowCat.addEventListener('click', e => {
+      const b = e.target.closest('[data-cat]');
+      if (!b) return;
+      state.flowCatFilter = b.dataset.cat;
+      flowCat.querySelectorAll('[data-cat]').forEach(x => x.classList.toggle('on', x === b));
+      renderHome();
     });
   }
 })();
@@ -2572,21 +2595,44 @@ function renderAlarms() {
       list.map(a => {
         const sev = a.severity || 'info';
         const av = avMap[sev] || 'av-info';
-        return `<div class="list-row">
+        const target = a.dst_domain || a.dst_ip || a.device_mac;
+        const canBlock = !!target && !a.archived;
+        return `<div class="list-row" style="align-items:flex-start">
           <div class="avatar ${av}">⚠</div>
-          <div class="lr-meta">
-            <div class="nm">${esc(a.title || a.type || 'Alarm')}</div>
-            <div class="sub">${esc(a.message || a.desc || '')} ${ts(a) ? `· ${ts(a)}` : ''}</div>
-          </div>
-          <div class="lr-right">
-            ${a.ack ? `<span class="badge ok">✓</span>` : `<button class="btn sm primary" data-ack="${esc(a.id)}">Ack</button>`}
+          <div class="lr-meta" style="flex:1">
+            <div class="nm">${esc(a.title || a.type || 'Alarm')} ${a.archived?'<span class="chip" style="font-size:10px">archived</span>':''}</div>
+            <div class="sub">${esc(a.message || a.body || a.desc || '')} ${ts(a) ? `· ${ts(a)}` : ''}</div>
+            ${target ? `<div class="sub mono" style="font-size:11px;margin-top:2px">↪ ${esc(target)}</div>` : ''}
+            ${(!a.acked && !a.archived) ? `
+              <div class="row gap-8" style="margin-top:6px">
+                ${canBlock ? `<button class="btn sm danger" data-block="${esc(a.id)}">🚫 Block source</button>` : ''}
+                <button class="btn sm ghost" data-ack="${esc(a.id)}">✓ Ack</button>
+                <button class="btn sm ghost" data-archive="${esc(a.id)}">📁 Archive</button>
+              </div>` : ''}
           </div>
         </div>`;
       }).join('');
   };
   el.innerHTML = renderGroup('Today', groups.Today) + renderGroup('Yesterday', groups.Yesterday) + renderGroup('Earlier', groups.Earlier);
+  el.querySelectorAll('[data-block]').forEach(b => b.onclick = async () => {
+    if (!await confirmSheet('Block this source for ALL devices?', { okLabel: 'Block', danger: true })) return;
+    try {
+      const r = await api('/customer/alarms/block-source', { method: 'POST', body: JSON.stringify({ id: b.dataset.block }) });
+      const a = state.alarms.find(x => String(x.id) === b.dataset.block);
+      if (a) { a.archived = true; a.acked = true; a.action_taken = r.blocked ? `block-${r.blocked.type}:${r.blocked.value}` : ''; }
+      renderAlarms(); updateBell();
+      toast(r.already_existed ? 'Already blocked' : `Blocked ${r.blocked.value}`, 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+  el.querySelectorAll('[data-archive]').forEach(b => b.onclick = async () => {
+    try {
+      await api('/customer/alarms/archive', { method: 'POST', body: JSON.stringify({ id: b.dataset.archive }) });
+      const a = state.alarms.find(x => String(x.id) === b.dataset.archive); if (a) { a.archived = true; a.acked = true; }
+      renderAlarms(); updateBell(); toast('Archived', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
   el.querySelectorAll('[data-ack]').forEach(b => b.onclick = async () => {
-    try { await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids: [b.dataset.ack] }) });
+    try { await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids: [b.dataset.ack], id: b.dataset.ack }) });
       const a = state.alarms.find(x => String(x.id) === b.dataset.ack); if (a) a.ack = true;
       renderAlarms(); updateBell(); renderHome(); toast('Acknowledged', 'info');
     } catch (e) { toast(e.message || 'Failed', 'bad'); }

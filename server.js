@@ -9164,7 +9164,10 @@ app.get('/admin/api/alarms', adminAuth, (req, res) => {
   res.json({ alarms: state.alarms.slice(0, limit) });
 });
 app.get('/api/customer/alarms', customerAuth, (req, res) => {
-  const out = state.alarms.filter(a => a.customer_id === req.customer.id).slice(0, 500);
+  // By default exclude archived (Firewalla "Archive" = soft delete from default
+  // view but kept queryable). Pass ?include_archived=1 to see them.
+  const incArch = req.query.include_archived === '1';
+  const out = state.alarms.filter(a => a.customer_id === req.customer.id && (incArch || !a.archived)).slice(0, 500);
   res.json({ alarms: out });
 });
 app.post('/api/customer/alarms/ack', customerAuth, (req, res) => {
@@ -9173,6 +9176,44 @@ app.post('/api/customer/alarms/ack', customerAuth, (req, res) => {
   a.acked = true;
   saveState();
   res.json({ ok: true });
+});
+// Firewalla parity: Archive (soft-delete from view but keep history)
+app.post('/api/customer/alarms/archive', customerAuth, (req, res) => {
+  const a = state.alarms.find(x => x.id === req.body.id && x.customer_id === req.customer.id);
+  if (!a) return res.status(404).json({ error: 'not found' });
+  a.archived = true; a.acked = true;
+  saveState();
+  res.json({ ok: true });
+});
+// One-tap "Block this source" — creates a rule from an alarm. Best-effort
+// inference: prefer dst_domain (DNS block) over dst_ip (IP block) over
+// device_mac (block the device itself).
+app.post('/api/customer/alarms/block-source', customerAuth, (req, res) => {
+  const a = state.alarms.find(x => x.id === req.body.id && x.customer_id === req.customer.id);
+  if (!a) return res.status(404).json({ error: 'not found' });
+  const c = req.customer;
+  if (!state.rules[c.id]) state.rules[c.id] = [];
+  let type, value;
+  if (a.dst_domain) { type = 'domain'; value = a.dst_domain; }
+  else if (a.dst_ip) { type = 'ip'; value = a.dst_ip; }
+  else if (a.device_mac) { type = 'mac'; value = a.device_mac.toLowerCase(); }
+  else return res.status(400).json({ error: 'alarm has no blockable target' });
+  // Avoid duplicate rule
+  const exists = state.rules[c.id].some(r => r.type === type && (r.value || '').toLowerCase() === value.toLowerCase() && r.action === 'block' && r.enabled !== false);
+  let rule = null;
+  if (!exists) {
+    rule = {
+      id: shortId(12), type, value, action: 'block',
+      scope: 'all', target: '', enabled: true,
+      note: `from-alarm:${a.kind}`, created_at: Date.now(),
+    };
+    state.rules[c.id].push(rule);
+  }
+  a.archived = true; a.acked = true;
+  a.action_taken = `block-${type}:${value}`;
+  if (typeof bumpPolicyEtag === 'function') bumpPolicyEtag(c.id, 'alarm-block-source');
+  saveState();
+  res.json({ ok: true, rule, blocked: { type, value }, already_existed: exists });
 });
 
 // ───── Box fleet (admin view)
@@ -11436,6 +11477,84 @@ function tallyFlow(f) {
       if (d < cutoff) delete state.usage_daily[cid][d];
     }
   }
+  // Firewalla parity: emit per-category activity alarms when a device crosses
+  // a threshold on a watched category (Gaming, Video, Porn, VPN, Social, …).
+  // Each (customer, device, category) tracks bytes + first_seen + last_alarm
+  // within a 1-hour sliding window. Alarm fires on first crossing only — the
+  // 30-min dedupe in fireSyntheticAlarm prevents spam.
+  tallyCategoryActivity(cid, f);
+}
+
+// Per-category activity tracker for Firewalla-style alarms
+//   gaming_activity  → device using gaming traffic
+//   video_activity   → streaming video detected
+//   porn_activity    → adult content (high severity)
+//   vpn_activity     → device using a VPN service (cloud-bound)
+//   large_upload     → >50 MB upload to one destination
+//   social_activity  → social media (optional, low severity)
+const _ACTIVITY_THRESHOLDS = {
+  gaming:   { bytes: 5 * 1024 * 1024,  sev: 'low',    kind: 'gaming_activity',  label: 'gaming session' },
+  video:    { bytes: 20 * 1024 * 1024, sev: 'low',    kind: 'video_activity',   label: 'video streaming' },
+  adult:    { bytes: 256 * 1024,       sev: 'high',   kind: 'porn_activity',    label: 'adult content access' },
+  vpn:      { bytes: 1 * 1024 * 1024,  sev: 'medium', kind: 'vpn_activity',     label: 'VPN connection' },
+  social:   { bytes: 50 * 1024 * 1024, sev: 'low',    kind: 'social_activity',  label: 'heavy social media use' },
+};
+const _ACTIVITY_WINDOW_MS = 60 * 60 * 1000;   // 1h rolling window
+const _LARGE_UPLOAD_THRESHOLD = 50 * 1024 * 1024;   // 50 MB
+function tallyCategoryActivity(cid, f) {
+  if (!cid || !f.src_mac) return;
+  const cat = f.category;
+  const total = (f.bytes_up || 0) + (f.bytes_down || 0);
+  if (total <= 0) return;
+  state.category_activity = state.category_activity || {};
+  state.category_activity[cid] = state.category_activity[cid] || {};
+  const bucket = state.category_activity[cid];
+  const now = Date.now();
+
+  // Per-category sliding window
+  if (cat && _ACTIVITY_THRESHOLDS[cat]) {
+    const cfg = _ACTIVITY_THRESHOLDS[cat];
+    const key = `${f.src_mac}|${cat}`;
+    const e = bucket[key] = bucket[key] || { bytes: 0, first_seen: now, last_alarm: 0 };
+    if ((now - e.first_seen) > _ACTIVITY_WINDOW_MS) { e.bytes = 0; e.first_seen = now; }
+    e.bytes += total;
+    if (e.bytes >= cfg.bytes && (now - e.last_alarm) > _ACTIVITY_WINDOW_MS) {
+      e.last_alarm = now;
+      const devName = _deviceNameForMac(cid, f.src_mac) || f.src_mac;
+      if (typeof fireSyntheticAlarm === 'function') {
+        fireSyntheticAlarm(cid, f.box_mac, cfg.sev, cfg.kind,
+          `${devName} — ${cfg.label}`,
+          `${devName} crossed ${Math.round(cfg.bytes/1024/1024)} MB of ${cat} traffic in the last hour. Tap to block this category for this device.`,
+          { device_mac: f.src_mac, dst_domain: f.dst_domain, dst_ip: f.dst_ip, category: cat });
+      }
+    }
+  }
+  // Large single-flow upload (Firewalla alarm type 16)
+  if ((f.bytes_up || 0) >= _LARGE_UPLOAD_THRESHOLD) {
+    const key = `${f.src_mac}|upload|${f.dst_ip || f.dst_domain || 'x'}`;
+    const e = bucket[key] = bucket[key] || { last_alarm: 0 };
+    if ((now - e.last_alarm) > _ACTIVITY_WINDOW_MS) {
+      e.last_alarm = now;
+      const devName = _deviceNameForMac(cid, f.src_mac) || f.src_mac;
+      if (typeof fireSyntheticAlarm === 'function') {
+        fireSyntheticAlarm(cid, f.box_mac, 'medium', 'large_upload',
+          `${devName} large upload`,
+          `${(f.bytes_up/1024/1024).toFixed(1)} MB uploaded to ${f.dst_domain || f.dst_ip || 'unknown'} in a single flow.`,
+          { device_mac: f.src_mac, dst_domain: f.dst_domain, dst_ip: f.dst_ip });
+      }
+    }
+  }
+}
+function _deviceNameForMac(cid, mac) {
+  if (!mac) return null;
+  const renames = (state.device_renames && state.device_renames[cid]) || {};
+  if (renames[mac]) return renames[mac];
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === cid);
+  for (const b of myBoxes) {
+    const d = (state.box_devices[b.mac] || {})[mac];
+    if (d) return d.hostname || d.vendor || d.device_label || null;
+  }
+  return null;
 }
 
 // Per-rule hit counter — when a flow is blocked, find matching rules and bump.
@@ -12830,7 +12949,7 @@ function runAnomalyScan() {
   }
 }
 if (!state.anomaly_dedup) state.anomaly_dedup = {};  // { "cust|kind": last_ts }
-function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body) {
+function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body, extras = {}) {
   // Per-kind mute (set by /api/customer/alarm-mutes/set) suppresses the entire alarm path.
   // Caller note: critical-severity alarms still fire (we can't be silenced into missing real emergencies).
   if (severity !== 'critical' && typeof alarmKindMutedFor === 'function' && alarmKindMutedFor(customer_id, kind)) {
@@ -12852,7 +12971,11 @@ function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body) {
     id: shortId(16), ts: Date.now(),
     customer_id, box_mac: box_mac || null,
     severity, kind, title, body,
-    device_mac: '', acked: false, source: 'cloud_anomaly',
+    device_mac: extras.device_mac || '',
+    dst_domain: extras.dst_domain || '',
+    dst_ip:     extras.dst_ip     || '',
+    category:   extras.category   || '',
+    acked: false, archived: false, source: 'cloud_anomaly',
   };
   state.alarms.unshift(a);
   if (state.alarms.length > 5000) state.alarms.length = 5000;
