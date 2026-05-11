@@ -145,29 +145,70 @@ function setDevicePriority({ mac, class: cls } = {}) {
 function setDeviceCap({ mac, down_kbps, up_kbps } = {}) {
   const m = normMac(mac);
   if (!m) return { ok: false, error: 'bad_mac' };
-  if (!have('tc')) return { ok: false, error: 'tc_not_installed' };
-  const wan = _state.wan_iface || detectWan();
-  if (!wan) return { ok: false, error: 'wan_iface_unknown' };
-
-  // Use IFB for ingress shaping (download cap) — kept simple: only mark + apply
-  // a leaf class on egress. Per-MAC tc class on existing cake is messy, so we
-  // emulate caps via iptables -m hashlimit which is simpler + works without
-  // tearing down cake.
   const downK = parseInt(down_kbps) || 0;
   const upK   = parseInt(up_kbps)   || 0;
-  // Remove prior cap rules for this MAC
-  while (sh(`iptables -C FORWARD -m mac --mac-source ${m} -m comment --comment "mes_qos_cap_${m.replace(/:/g,'')}" -j ACCEPT 2>/dev/null`) !== null) {
-    sh(`iptables -D FORWARD -m mac --mac-source ${m} -m comment --comment "mes_qos_cap_${m.replace(/:/g,'')}" -j ACCEPT`);
+  // Look up device IP from ARP — needed for DOWNLOAD cap which matches on
+  // destination IP (no `--mac-destination` exists in iptables). Upload cap
+  // can still use source MAC since that's preserved on egress packets.
+  let devIp = null;
+  try {
+    const out = sh(`ip neigh show | grep -i ${m}`);
+    if (out) devIp = (out.split(/\s+/)[0]) || null;
+  } catch {}
+  const tag = m.replace(/:/g, '');
+  const comment = `mes_qos_cap_${tag}`;
+  // Remove ALL prior cap rules for this MAC. `iptables -C` requires exact-match
+  // including all match modules (hashlimit args), so the old approach missed
+  // any rule whose spec differs (e.g. different rate, different burst).
+  // Instead: dump `iptables -S FORWARD`, find lines that contain our comment,
+  // and turn them into delete commands by swapping the leading `-A` for `-D`.
+  const dropOldRules = () => {
+    let listing;
+    try { listing = execSync('iptables -S FORWARD', { encoding: 'utf8' }); }
+    catch { return 0; }
+    let removed = 0;
+    for (const line of listing.split('\n')) {
+      if (!line.startsWith('-A FORWARD')) continue;
+      if (!line.includes(comment)) continue;
+      const delCmd = 'iptables ' + line.replace(/^-A /, '-D ');
+      try { execSync(delCmd, { stdio: 'ignore' }); removed++; } catch {}
+    }
+    return removed;
+  };
+  dropOldRules();
+  // iptables `hashlimit-above NNNkb/s` is interpreted as kilo-BYTES per second
+  // (not kilo-bits). User input is in kbps (kilo-BITS per second). Convert: /8.
+  // Example: user sets 5000 kbps (5 Mbps) → pass 625kb/s to iptables (625 KB/s).
+  const upKB   = Math.max(1, Math.round(upK   / 8));
+  const downKB = Math.max(1, Math.round(downK / 8));
+  // INSERT at top of FORWARD (-I FORWARD 1), NOT append. The simple-mode module
+  // installs a `state RELATED,ESTABLISHED -j ACCEPT` rule that would accept
+  // every TCP packet of an open connection before our hashlimit fires.
+  //
+  // Upload uses source-IP match (NOT `-m mac --mac-source`). xt_mac has been
+  // observed to silently no-op in FORWARD chain on Pi 4 / certain kernels —
+  // using source IP (which the agent already knows from ARP) is reliable.
+  if (upK > 0 && devIp) {
+    sh(`iptables -I FORWARD 1 -s ${devIp} -m hashlimit ` +
+       `--hashlimit-above ${upKB}kb/s --hashlimit-burst ${Math.max(upKB, 32)}kb ` +
+       `--hashlimit-mode srcip --hashlimit-name mes_up_${tag} ` +
+       `-m comment --comment "${comment}" -j DROP`);
   }
-  if (upK > 0) {
-    sh(`iptables -A FORWARD -m mac --mac-source ${m} -m hashlimit ` +
-       `--hashlimit-above ${upK}kb/s --hashlimit-burst ${Math.max(upK*2, 64)}kb ` +
-       `--hashlimit-mode srcmac --hashlimit-name mes_up_${m.replace(/:/g,'')} ` +
-       `-m comment --comment "mes_qos_cap_${m.replace(/:/g,'')}" -j DROP`);
+  if (downK > 0 && devIp) {
+    sh(`iptables -I FORWARD 1 -d ${devIp} -m hashlimit ` +
+       `--hashlimit-above ${downKB}kb/s --hashlimit-burst ${Math.max(downKB, 32)}kb ` +
+       `--hashlimit-mode dstip --hashlimit-name mes_dn_${tag} ` +
+       `-m comment --comment "${comment}" -j DROP`);
   }
-  _state.device_caps[m] = { down_kbps: downK, up_kbps: upK };
+  const knownIps = new Set((_state.device_caps[m]?.known_ips || []));
+  if (devIp) knownIps.add(devIp);
+  _state.device_caps[m] = { down_kbps: downK, up_kbps: upK, known_ips: Array.from(knownIps), ip: devIp };
   save();
-  return { ok: true, mac: m, down_kbps: downK, up_kbps: upK, note: upK > 0 ? 'upload cap applied via hashlimit' : 'cap cleared' };
+  const applied = [];
+  if (upK > 0) applied.push(`upload @ ${upK} kbps`);
+  if (downK > 0 && devIp) applied.push(`download @ ${downK} kbps (ip ${devIp})`);
+  if (downK > 0 && !devIp) applied.push(`download skipped — device IP unknown (not in ARP)`);
+  return { ok: true, mac: m, down_kbps: downK, up_kbps: upK, ip: devIp, note: applied.join(', ') || 'cap cleared' };
 }
 
 function getStatus() {

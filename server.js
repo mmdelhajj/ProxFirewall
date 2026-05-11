@@ -3566,6 +3566,11 @@ app.get('/api/customer/devices', customerAuth, (req, res) => {
   const now = Date.now();
   let devices;
   if (realDevices.length) {
+    // online = device was seen by the box within the last 10 minutes. ARP-cache
+    // freshness (the box's raw `online` flag) flaps every ~30s as kernel ages
+    // entries to STALE — that doesn't mean the device is offline. last_seen
+    // updates on every actual traffic event, so it's the stable signal.
+    const ONLINE_CUTOFF_MS = 10 * 60 * 1000;
     devices = realDevices.map(d => ({
       name:    d.hostname || d.device_label || d.vendor || d.mac,
       icon:    d.device_icon || (d.device_type === 'phone' ? '📱' : d.device_type === 'tv' ? '📺' : d.device_type === 'console' ? '🎮' : d.device_type === 'iot' ? '💡' : d.device_type === 'router' ? '📡' : '💻'),
@@ -3573,7 +3578,7 @@ app.get('/api/customer/devices', customerAuth, (req, res) => {
       ip:      d.ip || '',
       vendor:  d.vendor || '',
       hostname: d.hostname || '',
-      online:  d.online !== false,
+      online:  d.last_seen ? (now - d.last_seen) < ONLINE_CUTOFF_MS : (d.online !== false),
       last:    d.last_seen ? fmtAge(now - d.last_seen) : 'now',
       blocked: !!d.blocked,
       weight:  1.0,
@@ -3583,13 +3588,15 @@ app.get('/api/customer/devices', customerAuth, (req, res) => {
     devices = [];
   }
 
-  // Attach family ownership + custom name override
+  // Attach family ownership + custom name override + REAL usage (was fakeUsage24h)
   const fam = state.family_members[c.id] || [];
   const renames = state.device_renames[c.id] || {};
+  const period = (typeof currentPeriod === 'function') ? currentPeriod() : null;
+  const monthlyUsage = (period && state.usage_monthly && state.usage_monthly[c.id] && state.usage_monthly[c.id][period]) || {};
   devices = devices.map(d => {
     const owner = fam.find(f => (f.device_macs || []).includes(d.mac));
-    const usage = fakeUsage24h(d.mac, d.weight);
-    const total24h = usage.reduce((a, b) => a + b, 0);
+    const mu = monthlyUsage[d.mac] || { bytes_up: 0, bytes_down: 0 };
+    const total_month_mb = ((mu.bytes_up || 0) + (mu.bytes_down || 0)) / (1024 * 1024);
     return {
       ...d,
       name: renames[d.mac] || d.name,
@@ -3598,8 +3605,11 @@ app.get('/api/customer/devices', customerAuth, (req, res) => {
       owner_id: owner ? owner.id : null,
       owner_name: owner ? owner.name : null,
       owner_role: owner ? owner.role : null,
-      usage_24h_mb: usage,
-      total_24h_mb: total24h,
+      total_month_mb,
+      total_month_gb: total_month_mb / 1024,
+      bytes_up_month:   mu.bytes_up   || 0,
+      bytes_down_month: mu.bytes_down || 0,
+      period,
     };
   });
 
@@ -7223,6 +7233,83 @@ app.get('/api/customer/throughput', customerAuth, (req, res) => {
   res.json({ throughput: out });
 });
 
+// Per-device live throughput (5s cadence from box). Keeps a 12-sample (60s)
+// ring per device for the PWA's "tap device → see live graph" view.
+if (!state.device_throughput) state.device_throughput = {};   // box_mac → { device_mac: {rx_bps,tx_bps,ts,hist:[...]} }
+app.post('/api/box/device-throughput', boxAuth, (req, res) => {
+  const list = Array.isArray(req.body.devices) ? req.body.devices : [];
+  const ts = parseInt(req.body.ts) || Date.now();
+  const bucket = state.device_throughput[req.boxMac] = state.device_throughput[req.boxMac] || {};
+  const cid = req.boxCustomerId;
+  const period = (typeof currentPeriod === 'function') ? currentPeriod() : null;
+  const day    = (typeof currentDay    === 'function') ? currentDay()    : null;
+  // Tally per-device byte deltas into the monthly/daily usage maps. The agent
+  // sends bytes_{rx,tx}_delta — the exact bytes counted by iptables since the
+  // previous 5s sample, which is the ground truth for "this month" usage.
+  // (Previously, only flow-based tallyFlow() incremented usage_monthly, but
+  // the agent's flow capture had bytes_down hardcoded to 0, so usage never
+  // grew. This path is the accurate one.)
+  if (cid && period && !state.usage_monthly) state.usage_monthly = {};
+  if (cid && day    && !state.usage_daily)   state.usage_daily   = {};
+  if (cid && period) state.usage_monthly[cid] = state.usage_monthly[cid] || {};
+  if (cid && day)    state.usage_daily[cid]   = state.usage_daily[cid]   || {};
+  const monthMap = (cid && period) ? (state.usage_monthly[cid][period] = state.usage_monthly[cid][period] || {}) : null;
+  const dayMap   = (cid && day)    ? (state.usage_daily[cid][day]      = state.usage_daily[cid][day]      || {}) : null;
+  for (const d of list.slice(0, 500)) {
+    const mac = (d.mac || '').toLowerCase();
+    if (!/^[0-9a-f:]{17}$/.test(mac)) continue;
+    const e = bucket[mac] = bucket[mac] || { hist: [] };
+    e.rx_bps = Math.max(0, parseInt(d.rx_bps) || 0);
+    e.tx_bps = Math.max(0, parseInt(d.tx_bps) || 0);
+    e.ts = ts;
+    e.ip = d.ip || e.ip;
+    e.hist.push({ ts, rx: e.rx_bps, tx: e.tx_bps });
+    if (e.hist.length > 12) e.hist.shift();
+    const dnDelta = Math.max(0, parseInt(d.bytes_rx_delta) || 0);
+    const upDelta = Math.max(0, parseInt(d.bytes_tx_delta) || 0);
+    if (monthMap) {
+      const u = monthMap[mac] = monthMap[mac] || { bytes_up: 0, bytes_down: 0 };
+      u.bytes_up   += upDelta;
+      u.bytes_down += dnDelta;
+    }
+    if (dayMap) {
+      const u = dayMap[mac] = dayMap[mac] || { bytes_up: 0, bytes_down: 0 };
+      u.bytes_up   += upDelta;
+      u.bytes_down += dnDelta;
+    }
+  }
+  if (cid && typeof customerSseEmit === 'function') {
+    customerSseEmit(cid, 'device-throughput', { box_mac: req.boxMac, devices: list, ts });
+  }
+  res.json({ ok: true, accepted: list.length });
+});
+app.get('/api/customer/device-throughput/:mac', customerAuth, (req, res) => {
+  const devMac = normalizeMac(req.params.mac);
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === req.customer.id).map(m => m.mac);
+  for (const bmac of myBoxes) {
+    const e = (state.device_throughput[bmac] || {})[devMac];
+    if (e) return res.json({ mac: devMac, ...e });
+  }
+  res.json({ mac: devMac, rx_bps: 0, tx_bps: 0, hist: [] });
+});
+
+// Bulk variant — returns current rx/tx for ALL devices across the customer's
+// boxes. PWA hits this on Devices tab open + every 5s as poll fallback for SSE.
+app.get('/api/customer/device-throughput-all', customerAuth, (req, res) => {
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === req.customer.id).map(m => m.mac);
+  const out = {};
+  for (const bmac of myBoxes) {
+    const bucket = state.device_throughput[bmac] || {};
+    for (const [dmac, e] of Object.entries(bucket)) {
+      // Most-recent box wins on duplicates (multi-box customers)
+      if (!out[dmac] || (e.ts || 0) > (out[dmac].ts || 0)) {
+        out[dmac] = { rx_bps: e.rx_bps || 0, tx_bps: e.tx_bps || 0, ts: e.ts || 0 };
+      }
+    }
+  }
+  res.json({ devices: out });
+});
+
 // POST /api/box/heartbeat — box reports vitals every 60s
 app.post('/api/box/heartbeat', boxAuth, (req, res) => {
   const b = state.box_state[req.boxMac] = state.box_state[req.boxMac] || {};
@@ -9439,16 +9526,25 @@ app.post('/api/customer/qos/device-priority', customerAuth, (req, res) => {
   if (!['high', 'normal', 'low', 'throttle'].includes(cls)) return res.status(400).json({ error: 'bad_class' });
   res.json({ ok: true, queued: _queueBoxCmd(mac, 'qos-set-priority', { mac: dmac, class: cls }) });
 });
+if (!state.device_bw_caps) state.device_bw_caps = {};   // customer_id → [{mac, down_kbps, up_kbps, set_at}]
 app.post('/api/customer/qos/device-cap', customerAuth, (req, res) => {
   const mac = _pickBoxForCust(req.customer);
   if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
   const dmac = String(req.body.mac || '').toLowerCase();
   if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(dmac)) return res.status(400).json({ error: 'bad_mac' });
-  res.json({ ok: true, queued: _queueBoxCmd(mac, 'qos-set-cap', {
-    mac: dmac,
-    down_kbps: parseInt(req.body.down_kbps) || 0,
-    up_kbps:   parseInt(req.body.up_kbps)   || 0,
-  })});
+  const down_kbps = parseInt(req.body.down_kbps) || 0;
+  const up_kbps   = parseInt(req.body.up_kbps)   || 0;
+  const cid = req.customer.id;
+  if (!state.device_bw_caps[cid]) state.device_bw_caps[cid] = [];
+  state.device_bw_caps[cid] = state.device_bw_caps[cid].filter(c => c.mac !== dmac);
+  if (down_kbps > 0 || up_kbps > 0) {
+    state.device_bw_caps[cid].push({ mac: dmac, down_kbps, up_kbps, set_at: Date.now() });
+  }
+  saveState();
+  res.json({ ok: true, queued: _queueBoxCmd(mac, 'qos-set-cap', { mac: dmac, down_kbps, up_kbps }) });
+});
+app.get('/api/customer/qos/caps', customerAuth, (req, res) => {
+  res.json({ caps: state.device_bw_caps[req.customer.id] || [] });
 });
 app.post('/api/customer/qos/clear', customerAuth, (req, res) => {
   const mac = _pickBoxForCust(req.customer);

@@ -418,12 +418,12 @@ a { color: var(--brand); text-decoration: none; }
 .gauge .arc-fg {
   stroke: url(#gradDown);
   transition: stroke-dashoffset .6s var(--ease);
-  filter: drop-shadow(0 0 8px rgba(255,140,66,.5));
+  filter: drop-shadow(0 0 8px rgba(0,212,170,.5));
 }
 .gauge .arc-up {
   stroke: url(#gradUp);
   transition: stroke-dashoffset .6s var(--ease);
-  filter: drop-shadow(0 0 6px rgba(0,212,170,.4));
+  filter: drop-shadow(0 0 6px rgba(255,140,66,.4));
 }
 
 .gauge-center {
@@ -457,13 +457,13 @@ a { color: var(--brand); text-decoration: none; }
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700; line-height: 1;
 }
-.spd.dn .arr { background: var(--brand-soft); color: var(--brand); }
-.spd.up .arr { background: var(--accent-soft); color: var(--accent); }
+.spd.dn .arr { background: var(--accent-soft); color: var(--accent); }
+.spd.up .arr { background: var(--brand-soft); color: var(--brand); }
 .spd .num { font-weight: 700; letter-spacing: -0.02em; }
 .spd .lbl { color: var(--text-dim); font-size: 11px; font-weight: 600; }
 
 .sparkline { width: 100%; height: 36px; margin-top: 4px; display: block; }
-.sparkline polyline { stroke: rgba(255,140,66,.55); }
+.sparkline polyline { stroke: rgba(0,212,170,.55); }
 
 /* ───────── Box card ───────── */
 .box-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1099,12 +1099,12 @@ a { color: var(--brand); text-decoration: none; }
           <svg class="gauge" viewBox="0 0 240 240">
             <defs>
               <linearGradient id="gradDown" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#ffa260"/>
-                <stop offset="100%" stop-color="#ff8c42"/>
-              </linearGradient>
-              <linearGradient id="gradUp" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stop-color="#3df0c4"/>
                 <stop offset="100%" stop-color="#00d4aa"/>
+              </linearGradient>
+              <linearGradient id="gradUp" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ffa260"/>
+                <stop offset="100%" stop-color="#ff8c42"/>
               </linearGradient>
             </defs>
             <!-- Outer (download) -->
@@ -1750,7 +1750,8 @@ function activateTab(tab) {
   if (!btn) return;
   document.querySelectorAll('.tabbar [data-tab]').forEach(x => x.classList.toggle('active', x === btn));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
-  if (tab === 'devices') renderDevices();
+  if (tab === 'devices') { renderDevices(); pollAllDeviceThroughput(); startDeviceTabBwPoll(); }
+  else stopDeviceTabBwPoll();
   if (tab === 'alarms') renderAlarms();
   if (tab === 'rules') renderRules();
   if (tab === 'more') renderMe();
@@ -1814,6 +1815,16 @@ async function refreshAll() {
     state.pause = pause;
     if (throughput) updateThroughput(throughput);
     renderHome();
+    // Re-render whichever sub-tab is currently visible so the user sees the
+    // refreshed data immediately. Previously only renderHome() was called,
+    // so a pull-to-refresh on Devices/Alarms/Rules left the DOM stale until
+    // an SSE event happened to fire.
+    const activeTab = document.querySelector('.tab-pane.active');
+    if (activeTab) {
+      if (activeTab.id === 'tab-devices')  renderDevices();
+      else if (activeTab.id === 'tab-alarms') renderAlarms();
+      else if (activeTab.id === 'tab-rules')  renderRules && renderRules();
+    }
     updateBell();
     discoverBoxes();
   } catch (e) {
@@ -2063,10 +2074,23 @@ function renderDevices() {
   }
   el.innerHTML = filtered.map(d => {
     const ic = d.icon || deviceIcon(d.device_type) || '💻';
-    const bw = Math.min(100, ((d.bw_mbps || 0) / 50) * 100);
     const avCls = _avatarClass(d);
     const sub1 = d.vendor ? `${esc(d.vendor)}` : esc(d.hostname || d.mac);
     const sub2 = d.ip ? esc(d.ip) : '';
+    // Format monthly usage as human-readable
+    const gb = d.total_month_gb || 0;
+    const usageLbl = gb >= 1
+      ? `${gb.toFixed(1)} GB`
+      : `${(d.total_month_mb || 0).toFixed(0)} MB`;
+    // Pull live bandwidth from the _devBw map (survives refreshAll's replacement of state.devices)
+    const bw = _devBw.get((d.mac || '').toLowerCase()) || { rx_mbps: 0, tx_mbps: 0, total_mbps: 0 };
+    const rx = Math.min(50, bw.rx_mbps) / 50;
+    const tx = Math.min(50, bw.tx_mbps) / 50;
+    // Arc circumference for r=14 → 2πr ≈ 88
+    const C = 88;
+    const offRx = (1 - rx) * C;
+    const offTx = (1 - tx) * C;
+    const totalLive = bw.total_mbps.toFixed(1);
     return `<div class="list-row" data-mac="${esc(d.mac)}">
       <div class="avatar ${avCls}">${ic}<div class="online ${d.online?'':'off'}"></div></div>
       <div class="lr-meta">
@@ -2078,10 +2102,23 @@ function renderDevices() {
           <span>${sub1}</span>
           ${sub2 ? `<span class="muted">·</span><span class="mono">${sub2}</span>` : ''}
         </div>
+        <div class="sub" style="margin-top:2px;font-size:11px">
+          <span class="dim">This month:</span>
+          <span class="tabular" style="color:var(--text)">${usageLbl}</span>
+        </div>
       </div>
-      <div class="lr-right">
-        <div class="bw-bar"><div style="width:${bw}%"></div></div>
-        <div class="dim tabular" style="font-size:11px">${(d.bw_mbps||0).toFixed(1)} Mbps</div>
+      <div class="lr-right" style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:46px">
+        <svg viewBox="0 0 36 36" style="width:38px;height:38px" aria-hidden="true">
+          <circle cx="18" cy="18" r="14" fill="none" stroke="var(--elev2)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="14" fill="none" stroke="var(--accent)" stroke-width="3"
+                  stroke-dasharray="${C}" stroke-dashoffset="${offRx.toFixed(1)}"
+                  stroke-linecap="round" transform="rotate(-90 18 18)" style="transition:stroke-dashoffset .35s ease"/>
+          <circle cx="18" cy="18" r="10" fill="none" stroke="var(--brand)" stroke-width="2"
+                  stroke-dasharray="${(2*Math.PI*10).toFixed(2)}" stroke-dashoffset="${((1-tx)*2*Math.PI*10).toFixed(1)}"
+                  stroke-linecap="round" transform="rotate(-90 18 18)" style="transition:stroke-dashoffset .35s ease"/>
+          <text x="18" y="20" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)" style="font-variant-numeric:tabular-nums">${totalLive}</text>
+        </svg>
+        <div class="dim" style="font-size:9px;line-height:1">Mbps</div>
       </div>
     </div>`;
   }).join('');
@@ -2141,13 +2178,102 @@ function openDeviceSheet(mac) {
     { i: '📊', l: t('dev.cap'), fn: () => capDevice(d) },
     { i: '👨‍👩‍👧', l: t('dev.family'), fn: () => { activateTab('more'); showMoreSubview('family'); } },
   ];
-  const html = `<div class="sheet-actions">${acts.map((a,i) => `
+  const liveHtml = `<div class="card" style="margin-bottom:12px;padding:12px">
+      <div class="row between" style="margin-bottom:8px">
+        <div class="card-title" style="margin:0">Live traffic</div>
+        <div class="dim" style="font-size:11px" id="dtp-status">connecting…</div>
+      </div>
+      <div class="row between" style="gap:12px">
+        <div style="flex:1">
+          <div class="dim" style="font-size:11px">↓ Download</div>
+          <div class="tabular" style="font-size:1.4em;font-weight:700;color:var(--accent)" id="dtp-rx">0.0 <span class="dim" style="font-size:0.6em">Mbps</span></div>
+        </div>
+        <div style="flex:1">
+          <div class="dim" style="font-size:11px">↑ Upload</div>
+          <div class="tabular" style="font-size:1.4em;font-weight:700;color:var(--brand)" id="dtp-tx">0.0 <span class="dim" style="font-size:0.6em">Mbps</span></div>
+        </div>
+      </div>
+      <svg id="dtp-spark" viewBox="0 0 240 36" preserveAspectRatio="none" style="display:block;width:100%;height:36px;margin-top:8px">
+        <polyline id="dtp-rx-line" fill="none" stroke="var(--accent)" stroke-width="1.5" points=""/>
+        <polyline id="dtp-tx-line" fill="none" stroke="var(--brand)" stroke-width="1.5" points=""/>
+      </svg>
+    </div>`;
+  const html = liveHtml + `<div class="sheet-actions">${acts.map((a,i) => `
     <button class="sheet-action ${a.danger?'danger':''}" data-i="${i}"><span class="si">${a.i}</span><span>${a.l}</span></button>
   `).join('')}</div>`;
   sheet(esc(d.name || d.mac), `<span class="mono">${esc(d.mac)}</span> · ${d.ip||''}`, html, body => {
     body.querySelectorAll('.sheet-action').forEach(b => b.onclick = () => { closeSheet(); acts[+b.dataset.i].fn(); });
+    startLiveDeviceTraffic(d.mac, body);
   });
 }
+
+// Live per-device traffic: poll the cloud's per-device endpoint every 2s
+// + receive SSE 'device-throughput' events for instant updates between polls.
+// Box pushes a 5s sample so polling fills gaps; SSE makes it feel real-time.
+let _dtpTimer = null;
+let _dtpSseHandler = null;
+let _dtpHistory = [];
+function stopLiveDeviceTraffic() {
+  if (_dtpTimer) clearInterval(_dtpTimer);
+  _dtpTimer = null;
+  if (_dtpSseHandler) {
+    _dtpListeners.delete(_dtpSseHandler);
+    _dtpSseHandler = null;
+  }
+  _dtpHistory = [];
+}
+function _drawDtpSpark(body) {
+  if (!_dtpHistory.length) return;
+  const max = Math.max(125000, ..._dtpHistory.map(p => Math.max(p.rx, p.tx))) * 1.1;
+  const pts = (key) => _dtpHistory.map((p, i) => {
+    const x = (i / Math.max(1, _dtpHistory.length - 1)) * 240;
+    const y = 36 - Math.min(36, (p[key] / max) * 36);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const rx = body.querySelector('#dtp-rx-line');
+  const tx = body.querySelector('#dtp-tx-line');
+  if (rx) rx.setAttribute('points', pts('rx'));
+  if (tx) tx.setAttribute('points', pts('tx'));
+}
+function _updateDtpDisplay(rx_bps, tx_bps, body) {
+  const rxEl = body.querySelector('#dtp-rx');
+  const txEl = body.querySelector('#dtp-tx');
+  if (rxEl) rxEl.innerHTML = `${(rx_bps/125000).toFixed(1)} <span class="dim" style="font-size:0.6em">Mbps</span>`;
+  if (txEl) txEl.innerHTML = `${(tx_bps/125000).toFixed(1)} <span class="dim" style="font-size:0.6em">Mbps</span>`;
+}
+async function startLiveDeviceTraffic(mac, body) {
+  stopLiveDeviceTraffic();
+  const macL = (mac || '').toLowerCase();
+  const status = body.querySelector('#dtp-status');
+  const poll = async () => {
+    if (!document.body.contains(body)) { stopLiveDeviceTraffic(); return; }
+    try {
+      const r = await api('/customer/device-throughput/' + encodeURIComponent(macL));
+      _dtpHistory = (r.hist || []).map(p => ({ rx: p.rx, tx: p.tx, ts: p.ts }));
+      _updateDtpDisplay(r.rx_bps || 0, r.tx_bps || 0, body);
+      _drawDtpSpark(body);
+      if (status) status.textContent = (r.rx_bps || r.tx_bps) ? 'live' : 'idle';
+    } catch (e) { if (status) status.textContent = 'offline'; }
+  };
+  await poll();
+  _dtpTimer = setInterval(poll, 2000);
+  // Real-time SSE push (when box reports a new 5s sample) — registered in _dtpListeners,
+  // dispatched by handleSse('device-throughput', data).
+  _dtpSseHandler = (data) => {
+    if (!document.body.contains(body)) return;
+    const me = (data.devices || []).find(x => (x.mac || '').toLowerCase() === macL);
+    if (!me) return;
+    _dtpHistory.push({ rx: me.rx_bps || 0, tx: me.tx_bps || 0, ts: data.ts });
+    if (_dtpHistory.length > 12) _dtpHistory.shift();
+    _updateDtpDisplay(me.rx_bps || 0, me.tx_bps || 0, body);
+    _drawDtpSpark(body);
+    if (status) status.textContent = 'live';
+  };
+  _dtpListeners.add(_dtpSseHandler);
+}
+// Make sure the sheet's close button + scrim tear down the live poll too
+const _closeSheetOrig = closeSheet;
+closeSheet = function() { try { stopLiveDeviceTraffic(); } catch {} return _closeSheetOrig.apply(this, arguments); };
 
 function renameDevice(d) {
   const html = `<div class="field">
@@ -2180,28 +2306,70 @@ async function blockDevice(d) {
   } catch (e) { toast(e.message || 'Failed', 'bad'); }
 }
 
-function bwLimitDevice(d) {
-  const opts = [
-    { v: 5, l: '5 Mbps', s: 'Slow streaming' },
-    { v: 10, l: '10 Mbps', s: 'HD streaming' },
-    { v: 25, l: '25 Mbps', s: '4K + light gaming' },
-    { v: 50, l: '50 Mbps', s: 'Heavy use' },
-    { v: 0, l: 'No limit', s: 'Remove cap' },
-  ];
-  const html = `<div class="radio-cards">${opts.map(o => `
-    <label class="radio-card">
-      <input type="radio" name="bw" value="${o.v}">
-      <div class="rc-icon">📶</div>
-      <div style="flex:1"><div class="rc-title">${o.l}</div><div class="rc-sub">${o.s}</div></div>
-    </label>`).join('')}</div>
-  <div class="btn-row" style="margin-top:14px"><button class="btn ghost" id="bw-cancel">${t('sheet.cancel')}</button><button class="btn primary" id="bw-save">${t('sheet.save')}</button></div>`;
+async function bwLimitDevice(d) {
+  // Load existing cap to pre-fill
+  let existing = null;
+  try {
+    const r = await api('/customer/qos/caps');
+    existing = (r.caps || []).find(c => (c.mac || '').toLowerCase() === (d.mac || '').toLowerCase());
+  } catch (_) {}
+  const curDown = existing ? Math.round(existing.down_kbps / 1000) : 0;
+  const curUp   = existing ? Math.round(existing.up_kbps   / 1000) : 0;
+  const presets = [1, 5, 10, 25, 50, 100];
+  const presetChipsHtml = (current) => presets.map(v =>
+    `<button type="button" class="chip${v === current ? ' ok' : ''}" data-v="${v}" style="padding:6px 10px;font-size:12px;cursor:pointer">${v}</button>`
+  ).join('');
+  const currentLine = (curDown || curUp)
+    ? `<div class="chip ok" style="margin-bottom:12px">Current cap: ↓ ${curDown} Mbps · ↑ ${curUp} Mbps</div>`
+    : '';
+  const html = `${currentLine}
+    <div class="field">
+      <label>↓ Download (Mbps) — 0 = unlimited</label>
+      <input id="bw-down" type="number" min="0" max="1000" step="1" inputmode="numeric" value="${curDown || 5}">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" data-target="bw-down">${presetChipsHtml(curDown)}</div>
+    </div>
+    <div class="field">
+      <label>↑ Upload (Mbps) — 0 = unlimited</label>
+      <input id="bw-up" type="number" min="0" max="1000" step="1" inputmode="numeric" value="${curUp || 5}">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" data-target="bw-up">${presetChipsHtml(curUp)}</div>
+    </div>
+    <div class="hint">Each direction is capped independently. Cap fires when traffic exceeds the limit — TCP backs off and stabilises at the rate.</div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn ghost" id="bw-cancel">${t('sheet.cancel')}</button>
+      ${(existing) ? `<button class="btn ghost" id="bw-clear">Remove cap</button>` : ''}
+      <button class="btn primary" id="bw-save">${t('sheet.save')}</button>
+    </div>`;
   sheet(t('dev.bwlimit'), `<span class="mono">${esc(d.mac)}</span>`, html, body => {
-    body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
-      body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
-      c.classList.add('selected'); c.querySelector('input').checked = true;
+    // Preset chip → fills input
+    body.querySelectorAll('[data-target]').forEach(group => {
+      const target = body.querySelector('#' + group.dataset.target);
+      group.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+        target.value = c.dataset.v;
+        group.querySelectorAll('.chip').forEach(x => x.classList.remove('ok'));
+        c.classList.add('ok');
+      });
     });
     body.querySelector('#bw-cancel').onclick = closeSheet;
-    body.querySelector('#bw-save').onclick = () => { closeSheet(); toast('Saved (mock — wire to /api/customer/device/bwlimit)', 'info'); };
+    const clearBtn = body.querySelector('#bw-clear');
+    if (clearBtn) clearBtn.onclick = async () => {
+      try {
+        await api('/customer/qos/device-cap', { method: 'POST', body: JSON.stringify({ mac: d.mac, down_kbps: 0, up_kbps: 0 }) });
+        closeSheet();
+        toast('Bandwidth cap removed', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    body.querySelector('#bw-save').onclick = async () => {
+      const downMbps = Math.max(0, parseInt(body.querySelector('#bw-down').value) || 0);
+      const upMbps   = Math.max(0, parseInt(body.querySelector('#bw-up').value)   || 0);
+      try {
+        await api('/customer/qos/device-cap', { method: 'POST', body: JSON.stringify({
+          mac: d.mac, down_kbps: downMbps * 1000, up_kbps: upMbps * 1000,
+        })});
+        closeSheet();
+        if (downMbps === 0 && upMbps === 0) toast('Bandwidth cap removed', 'info');
+        else toast(`Cap set: ↓ ${downMbps} Mbps · ↑ ${upMbps} Mbps`, 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
   });
 }
 
@@ -3929,8 +4097,69 @@ function startSse() {
     loop();
   }).catch(() => {});
 }
+// Per-device-throughput listeners — set when a device sheet opens, cleared on close.
+const _dtpListeners = new Set();
+// Live per-device bandwidth keyed by MAC. Kept OUT of state.devices because
+// refreshAll() replaces that array every poll cycle — wiping bw fields if they
+// lived on the device object. Looked up by renderDevices().
+const _devBw = new Map();  // mac → { rx_mbps, tx_mbps, total_mbps, ts }
+let _devBwPollTimer = null;
+
+// One-shot bulk fetch of all per-device throughput. Called when the Devices
+// tab opens so the gauges aren't blank for 5s while waiting for the next SSE
+// event, and as a poll fallback if SSE is dropped (mobile sleep, network flap).
+async function pollAllDeviceThroughput() {
+  try {
+    const r = await api('/customer/device-throughput-all');
+    const now = Date.now();
+    for (const [mac, e] of Object.entries(r.devices || {})) {
+      _devBw.set(mac.toLowerCase(), {
+        rx_mbps: (e.rx_bps || 0) / 125_000,
+        tx_mbps: (e.tx_bps || 0) / 125_000,
+        total_mbps: ((e.rx_bps || 0) + (e.tx_bps || 0)) / 125_000,
+        ts: e.ts || now,
+      });
+    }
+    if (document.getElementById('tab-devices').classList.contains('active')) renderDevices();
+  } catch (_) {}
+}
+function startDeviceTabBwPoll() {
+  if (_devBwPollTimer) return;
+  _devBwPollTimer = setInterval(pollAllDeviceThroughput, 5000);
+}
+function stopDeviceTabBwPoll() {
+  if (_devBwPollTimer) { clearInterval(_devBwPollTimer); _devBwPollTimer = null; }
+}
 function handleSse(type, data) {
   if (type === 'throughput') updateThroughput(data);
+  else if (type === 'device-throughput') {
+    // Store live bandwidth in module-level _devBw map (NOT on state.devices —
+    // refreshAll replaces that array every poll, wiping any fields we set).
+    // renderDevices() reads from _devBw at render time.
+    if (Array.isArray(data.devices)) {
+      const now = Date.now();
+      const reported = new Set();
+      for (const s of data.devices) {
+        const m = (s.mac || '').toLowerCase();
+        if (!m) continue;
+        reported.add(m);
+        _devBw.set(m, {
+          rx_mbps: (s.rx_bps || 0) / 125_000,
+          tx_mbps: (s.tx_bps || 0) / 125_000,
+          total_mbps: ((s.rx_bps || 0) + (s.tx_bps || 0)) / 125_000,
+          ts: now,
+        });
+      }
+      // Decay any device not in this sample to 0 so stale numbers don't stick
+      for (const [m, e] of _devBw) {
+        if (!reported.has(m)) { e.rx_mbps = 0; e.tx_mbps = 0; e.total_mbps = 0; e.ts = now; }
+      }
+      if (document.getElementById('tab-devices') && document.getElementById('tab-devices').classList.contains('active')) {
+        renderDevices();
+      }
+    }
+    for (const fn of _dtpListeners) { try { fn(data); } catch {} }
+  }
   else if (type === 'alarm') {
     state.alarms.unshift(data);
     updateBell(); renderHome();

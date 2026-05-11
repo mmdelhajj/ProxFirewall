@@ -46,6 +46,8 @@ let vulnScan = null;
 try { vulnScan     = require('./vuln-scan');     } catch (e) { console.error('[agent] vuln-scan missing:', e.message); }
 let openvpnClient = null;
 try { openvpnClient = require('./openvpn-client'); } catch (e) { console.error('[agent] openvpn-client missing:', e.message); }
+let devThroughput = null;
+try { devThroughput = require('./device-throughput'); } catch (e) { console.error('[agent] device-throughput missing:', e.message); }
 
 // Read MAC of the requested interface (defaults to eth0)
 function readMac(iface) {
@@ -1628,6 +1630,14 @@ async function sampleThroughput() {
 
 async function tick5s() {
   await safe(sampleThroughput);
+  await safe(sampleDeviceThroughput);
+}
+
+async function sampleDeviceThroughput() {
+  if (!devThroughput) return;
+  const devs = devThroughput.sample();
+  if (!devs.length) return;
+  try { await api('POST', '/api/box/device-throughput', { devices: devs, ts: Date.now() }); } catch {}
 }
 
 async function tick60s() {
@@ -1860,6 +1870,12 @@ async function uploadConfigSnapshot() {
   // a fresh flash with zero user interaction. Also self-heal: if persisted
   // state says enabled=true but no arpspoof procs are alive (e.g. agent
   // restarted, leaving orphan state on disk), force a fresh stop+start.
+  // Boot-time hygiene: wipe stale per-device iptables rules that may have
+  // duplicated under the old idempotency bug. Fresh reconcile happens on first
+  // sample tick (5s later).
+  if (devThroughput && devThroughput.flushAllRules) {
+    try { devThroughput.flushAllRules(); console.log('[agent] device-throughput rules flushed for clean reconcile'); } catch {}
+  }
   try {
     const preferred = (fs.readFileSync('/etc/mes-box/preferred-mode', 'utf8') || '').trim();
     if (preferred === 'simple' && simpleMode) {
