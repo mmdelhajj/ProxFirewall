@@ -1,5 +1,5 @@
 // mes Network PWA service worker — offline shell + Web Push handler
-const CACHE = 'mes-pwa-v35-family-member-sheet-redesign';
+const CACHE = 'mes-pwa-v36-family-compact';
 const ASSETS = [
   '/pwa/',
   '/pwa/index.html',
