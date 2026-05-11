@@ -1,5 +1,5 @@
 // mes Network PWA service worker — offline shell + Web Push handler
-const CACHE = 'mes-pwa-v38-forget-device';
+const CACHE = 'mes-pwa-v39-real-flow-bytes-today-stat';
 const ASSETS = [
   '/pwa/',
   '/pwa/index.html',

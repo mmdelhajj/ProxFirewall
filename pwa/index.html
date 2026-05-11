@@ -1806,7 +1806,7 @@ function bootApp() {
 
 async function refreshAll() {
   try {
-    const [me, boxes, devices, flows, alarms, throughput, pause] = await Promise.all([
+    const [me, boxes, devices, flows, alarms, throughput, pause, usageToday] = await Promise.all([
       api('/customer/me').catch(() => null),
       api('/customer/boxes').catch(() => []),
       api('/customer/devices').catch(() => []),
@@ -1814,6 +1814,7 @@ async function refreshAll() {
       api('/customer/alarms').catch(() => []),
       api('/customer/throughput').catch(() => null),
       api('/customer/pause/status').catch(() => null),
+      api('/customer/usage-today').catch(() => null),
     ]);
     state.me = me?.user || me || null;
     state.boxes = Array.isArray(boxes) ? boxes : (boxes?.boxes || []);
@@ -1821,6 +1822,7 @@ async function refreshAll() {
     state.flows = Array.isArray(flows) ? flows : (flows?.flows || []);
     state.alarms = Array.isArray(alarms) ? alarms : (alarms?.alarms || []);
     state.pause = pause;
+    state.usageToday = usageToday;
     if (throughput) updateThroughput(throughput);
     renderHome();
     // Re-render whichever sub-tab is currently visible so the user sees the
@@ -1876,10 +1878,18 @@ function renderHome() {
   const blockedToday = state.flows.filter(f => f.blocked).length;
   document.getElementById('s-blocked').textContent = blockedToday;
 
-  // today: total bytes from flows
-  const todayBytes = state.flows.reduce((s, f) => s + (f.bytes_up||0) + (f.bytes_down||0), 0);
+  // today: prefer cached server-computed total from usage_daily (accurate);
+  // fall back to summing recent flows (rolling window) only as a last resort.
   const sToday = document.getElementById('s-today');
-  if (sToday) sToday.textContent = todayBytes ? formatBytes(todayBytes) : '—';
+  if (sToday) {
+    const cached = state.usageToday;
+    if (cached && (cached.total_bytes != null)) {
+      sToday.textContent = cached.total_bytes ? formatBytes(cached.total_bytes) : '—';
+    } else {
+      const todayBytes = state.flows.reduce((s, f) => s + (f.bytes_up||0) + (f.bytes_down||0), 0);
+      sToday.textContent = todayBytes ? formatBytes(todayBytes) : '—';
+    }
+  }
 
   // pause status
   const sPause = document.getElementById('s-pause');

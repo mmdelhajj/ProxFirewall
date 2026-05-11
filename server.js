@@ -3666,6 +3666,31 @@ app.post('/api/customer/device/rename', customerAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Today's total bytes — sums state.usage_daily for the current day across
+// all the customer's devices. More accurate than summing state.flows
+// (which only contains a 5-min window and depends on flow capture).
+app.get('/api/customer/usage-today', customerAuth, (req, res) => {
+  const c = req.customer;
+  const day = (typeof currentDay === 'function') ? currentDay() : new Date().toISOString().slice(0, 10);
+  const dayBucket = ((state.usage_daily || {})[c.id] || {})[day] || {};
+  let bytes_up = 0, bytes_down = 0;
+  let device_count = 0;
+  for (const v of Object.values(dayBucket)) {
+    bytes_up   += (v.bytes_up   || 0);
+    bytes_down += (v.bytes_down || 0);
+    device_count++;
+  }
+  const total_bytes = bytes_up + bytes_down;
+  res.json({
+    day,
+    total_bytes,
+    total_mb: total_bytes / (1024 * 1024),
+    total_gb: total_bytes / (1024 * 1024 * 1024),
+    bytes_up, bytes_down,
+    device_count,
+  });
+});
+
 // Forget device — fully removes a device record across the customer's boxes
 // and clears all associated per-device state (rename, icon, family assignment,
 // quotas, time-bank, bandwidth caps, block rules). If the device comes back

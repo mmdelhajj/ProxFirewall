@@ -300,27 +300,35 @@ function vendorOf(mac) {
   return OUI_TABLE[mac.toLowerCase().slice(0, 8)] || '';
 }
 
-// ─── Flow capture (lightweight: parse conntrack) ──────────────────────────
+// ─── Flow capture (parse conntrack -L -o extended) ───────────────────────
+// Requires net.netfilter.nf_conntrack_acct=1 sysctl (otherwise bytes=0 for all
+// flows). Agent sets this on startup. Conntrack reports each connection with
+// TWO `bytes=` and `packets=` fields: first is the original direction
+// (src→dst, i.e. device→internet = upload), second is the reply direction
+// (dst→src = download).
 function captureFlows() {
   const flows = [];
   try {
     const txt = execSync('conntrack -L -o extended 2>/dev/null || cat /proc/net/nf_conntrack 2>/dev/null', { encoding: 'utf8' });
     for (const line of txt.split('\n').slice(0, 1000)) {
       if (!line.includes('src=')) continue;
-      // Best-effort parse: src=10.0.0.5 dst=1.1.1.1 sport=43210 dport=443 ... bytes=...
       const src = (line.match(/src=([\d.]+)/) || [])[1];
       const dst = (line.match(/dst=([\d.]+)/) || [])[1];
       const dport = parseInt((line.match(/dport=(\d+)/) || [])[1] || 0);
       const proto = line.includes('proto=tcp') || line.startsWith('tcp') ? 'tcp' :
                     line.includes('proto=udp') || line.startsWith('udp') ? 'udp' : 'other';
-      const bytes_up   = parseInt((line.match(/bytes=(\d+)/) || [])[1] || 0);
-      // For private→public flows only (skip LAN-to-LAN noise)
+      // Pull ALL bytes= matches — first is original-dir (upload), second is reply-dir (download).
+      const byteMatches = [...line.matchAll(/bytes=(\d+)/g)];
+      const bytes_up   = parseInt(byteMatches[0] ? byteMatches[0][1] : 0) || 0;
+      const bytes_down = parseInt(byteMatches[1] ? byteMatches[1][1] : 0) || 0;
+      // Skip LAN-to-LAN noise (only report flows leaving the network)
       if (!src || !dst || isPrivate(dst)) continue;
+      // Skip zero-byte flows (still mid-handshake / no data exchanged yet)
+      if (bytes_up === 0 && bytes_down === 0) continue;
       flows.push({
         ts: Date.now(),
         src_ip: src, dst_ip: dst, dst_port: dport, proto,
-        bytes_up, bytes_down: 0,
-        // Lookup MAC for src ip from arp cache
+        bytes_up, bytes_down,
         src_mac: macForIp(src),
       });
     }
@@ -1843,6 +1851,13 @@ async function uploadConfigSnapshot() {
 
   startCaptivePortal();
   ensureLogrotateConfig();
+  // Enable conntrack byte/packet accounting — needed for accurate per-flow
+  // bytes_up/bytes_down in captureFlows(). Default kernel value is 0
+  // (counters disabled). Persisted to /etc/sysctl.d so it survives reboot.
+  try {
+    execSync('sysctl -w net.netfilter.nf_conntrack_acct=1 >/dev/null 2>&1');
+    fs.writeFileSync('/etc/sysctl.d/99-mes-conntrack.conf', 'net.netfilter.nf_conntrack_acct=1\n');
+  } catch {}
   await safe(uploadCrashIfAny);
 
   // Sig engine: STARTER_SIGS auto-load at require() time. Don't pass [] — that
