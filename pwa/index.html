@@ -2963,36 +2963,39 @@ function _renderFamilyList() {
   const el = document.getElementById('fam-list');
   if (!el) return;
   if (!_famCache.length) {
-    el.innerHTML = `<div class="empty"><div class="em">👨‍👩‍👧</div>No family members yet — tap ＋ Add to create one.</div>`;
+    el.innerHTML = `<div class="empty" style="padding:32px"><div class="em" style="font-size:48px">👨‍👩‍👧</div>No family members yet<div class="dim" style="font-size:12px;margin-top:6px">Tap ＋ Add above to create your first member</div></div>`;
     return;
   }
-  el.innerHTML = _famCache.map(f => {
-    const role = f.role || 'Member';
-    const roleBadge = role === 'Kid' ? 'warn' : role === 'Teen' ? 'info' : 'ok';
-    const name = f.name || '(unnamed)';
-    const devCount = (f.device_macs || []).length;
-    return `<div class="list-row" data-fid="${esc(f.id)}">
-      <div class="avatar" style="font-size:22px">${esc(f.icon || '👤')}</div>
-      <div class="lr-meta">
-        <div class="nm">${esc(name)}</div>
-        <div class="sub"><span class="chip ${roleBadge}">${esc(role)}</span><span class="dim">·</span><span>${devCount} ${devCount === 1 ? 'device' : 'devices'}</span></div>
-      </div>
-      <button class="btn sm ghost" data-fdel="${esc(f.id)}" title="Remove">✕</button>
-    </div>`;
-  }).join('');
-  el.querySelectorAll('.list-row').forEach(row => row.addEventListener('click', e => {
-    if (e.target.closest('[data-fdel]')) return;
-    openFamilyMemberSheet(row.dataset.fid);
-  }));
-  el.querySelectorAll('[data-fdel]').forEach(b => b.onclick = async (e) => {
-    e.stopPropagation();
-    if (!await confirmSheet('Remove this family member?', { okLabel: 'Remove', danger: true })) return;
-    try {
-      await api('/customer/family/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.fdel }) });
-      _famCache = _famCache.filter(x => x.id !== b.dataset.fdel);
-      _renderFamilyList();
-      toast('Removed', 'info');
-    } catch (e2) { toast(e2.message || 'Failed', 'bad'); }
+  // Card grid — each member gets its own padded card with big avatar + info.
+  // Tap whole card to open the member sheet; ✕ is only the delete affordance.
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' +
+    _famCache.map(f => {
+      const role = f.role || 'Member';
+      const roleBadge = role === 'Kid' ? 'warn' : role === 'Teen' ? 'info' : 'ok';
+      const name = f.name || '(unnamed)';
+      const devCount = (f.device_macs || []).length;
+      const devNames = (f.device_macs || []).map(mac => {
+        const d = state.devices.find(x => x.mac && x.mac.toLowerCase() === mac.toLowerCase());
+        return d ? (d.name || d.hostname || mac.slice(-5)) : mac.slice(-5);
+      }).slice(0, 3).join(', ');
+      return `<div class="fam-card" data-fid="${esc(f.id)}"
+                   style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--r-card);cursor:pointer;transition:background .15s">
+        <div style="font-size:32px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--bg-elev-2);border-radius:50%;flex-shrink:0">${esc(f.icon || '👤')}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:16px;font-weight:600;line-height:1.2">${esc(name)}</div>
+          <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <span class="chip ${roleBadge}" style="font-size:10px;padding:2px 8px">${esc(role)}</span>
+            <span class="dim" style="font-size:12px">${devCount} ${devCount === 1 ? 'device' : 'devices'}</span>
+          </div>
+          ${devNames ? `<div class="dim" style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📱 ${esc(devNames)}${devCount > 3 ? ` +${devCount - 3}` : ''}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+          <span class="dim" style="font-size:16px">›</span>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  el.querySelectorAll('.fam-card').forEach(card => {
+    card.addEventListener('click', () => openFamilyMemberSheet(card.dataset.fid));
   });
 }
 async function renderFamilySub() {
