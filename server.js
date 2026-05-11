@@ -4721,6 +4721,33 @@ app.post('/api/customer/block-device', customerAuth, (req, res) => {
       found = true;
     }
   }
+  // Keep BOTH block signals in sync: the box_devices flag AND any MAC-type
+  // rules. Without this, a "Block" via /customer/rules/add (the older PWA
+  // path) leaves a stale rule after Unblock — policy bundle keeps shipping
+  // the MAC in quota_blocked → device stays dropped at kernel level.
+  if (!state.rules[c.id]) state.rules[c.id] = [];
+  if (unblock) {
+    state.rules[c.id] = state.rules[c.id].filter(r =>
+      !(r.type === 'mac' && r.action === 'block' && (r.value || '').toLowerCase() === dmac)
+    );
+  } else {
+    // Add a block rule if one doesn't already exist for this MAC
+    const hasBlock = state.rules[c.id].some(r =>
+      r.type === 'mac' && r.action === 'block' && (r.value || '').toLowerCase() === dmac && r.enabled !== false
+    );
+    if (!hasBlock) {
+      state.rules[c.id].push({
+        id: shortId(12), type: 'mac', value: dmac, action: 'block',
+        scope: 'device', target: dmac, enabled: true, note: 'device-block',
+        created_at: Date.now(),
+      });
+    }
+    // Also drop any opposing allow rule for the same MAC
+    state.rules[c.id] = state.rules[c.id].filter(r =>
+      !(r.type === 'mac' && r.action === 'allow' && (r.value || '').toLowerCase() === dmac)
+    );
+  }
+  if (c.id && typeof bumpPolicyEtag === 'function') bumpPolicyEtag(c.id, 'device-block');
   state.events.push({
     ts: Date.now(),
     method: 'CUSTOMER',

@@ -1,5 +1,5 @@
 // mes Network PWA service worker — offline shell + Web Push handler
-const CACHE = 'mes-pwa-v31-green-down-orange-up';
+const CACHE = 'mes-pwa-v32-block-toggle-atomic';
 const ASSETS = [
   '/pwa/',
   '/pwa/index.html',

@@ -2301,8 +2301,16 @@ function renameDevice(d) {
 
 async function blockDevice(d) {
   try {
-    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: 'mac', value: d.mac, action: d.blocked ? 'allow' : 'block' }) });
-    d.blocked = !d.blocked; renderDevices(); toast(d.blocked ? 'Device blocked' : 'Device unblocked', 'info');
+    // Use the atomic /customer/block-device endpoint instead of /rules/add.
+    // Previous flow added a NEW allow rule on unblock — leaving the old block
+    // rule intact → device stayed blocked. The endpoint here syncs both the
+    // box_devices flag and the MAC-rule list so block/unblock is one-shot.
+    await api('/customer/block-device', { method: 'POST', body: JSON.stringify({
+      mac: d.mac, unblock: !!d.blocked,
+    })});
+    d.blocked = !d.blocked;
+    renderDevices();
+    toast(d.blocked ? 'Device blocked' : 'Device unblocked', 'info');
   } catch (e) { toast(e.message || 'Failed', 'bad'); }
 }
 
