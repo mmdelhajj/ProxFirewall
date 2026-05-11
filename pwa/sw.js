@@ -1,5 +1,5 @@
 // mes Network PWA service worker — offline shell + Web Push handler
-const CACHE = 'mes-pwa-v37-family-card-grid';
+const CACHE = 'mes-pwa-v38-forget-device';
 const ASSETS = [
   '/pwa/',
   '/pwa/index.html',

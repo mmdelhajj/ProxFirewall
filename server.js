@@ -3666,6 +3666,44 @@ app.post('/api/customer/device/rename', customerAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Forget device — fully removes a device record across the customer's boxes
+// and clears all associated per-device state (rename, icon, family assignment,
+// quotas, time-bank, bandwidth caps, block rules). If the device comes back
+// online it'll be discovered fresh (Firewalla "Forget" semantics).
+app.post('/api/customer/device/forget', customerAuth, (req, res) => {
+  const c = req.customer;
+  const dmac = normalizeMac(String(req.body.mac || ''));
+  if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(dmac)) return res.status(400).json({ error: 'mac required' });
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === c.id);
+  let removedFromBoxes = 0;
+  for (const b of myBoxes) {
+    const bucket = state.box_devices[b.mac];
+    if (bucket && bucket[dmac]) { delete bucket[dmac]; removedFromBoxes++; }
+  }
+  // Strip per-device state
+  if (state.device_renames[c.id]) delete state.device_renames[c.id][dmac];
+  if (state.device_icons   && state.device_icons[c.id])   delete state.device_icons[c.id][dmac];
+  if (state.device_tags    && state.device_tags[c.id])    delete state.device_tags[c.id][dmac];
+  if (state.device_bw_caps && state.device_bw_caps[c.id]) state.device_bw_caps[c.id] = state.device_bw_caps[c.id].filter(x => x.mac !== dmac);
+  if (state.quotas[c.id])     state.quotas[c.id]     = state.quotas[c.id].filter(q => (q.device_mac || '').toLowerCase() !== dmac);
+  if (state.time_bank[c.id])  state.time_bank[c.id]  = state.time_bank[c.id].filter(t => (t.device_mac || '').toLowerCase() !== dmac);
+  // Remove from family assignments
+  for (const m of (state.family_members[c.id] || [])) {
+    m.device_macs = (m.device_macs || []).filter(x => x.toLowerCase() !== dmac);
+  }
+  // Drop any rules targeting this MAC (block/allow)
+  if (state.rules[c.id]) {
+    state.rules[c.id] = state.rules[c.id].filter(r =>
+      !(r.type === 'mac' && (r.value || '').toLowerCase() === dmac)
+    );
+  }
+  if (typeof bumpPolicyEtag === 'function') bumpPolicyEtag(c.id, 'device-forget');
+  saveState();
+  state.events.push({ ts: Date.now(), method: 'CUSTOMER', path: `[DEVICE-FORGET] ${c.name} forgot ${dmac}`, ip: req.ip });
+  console.log(`         🗑  CUSTOMER FORGET → ${c.name}  device=${dmac}  (removed from ${removedFromBoxes} box(es))`);
+  res.json({ ok: true, mac: dmac, removed_from_boxes: removedFromBoxes });
+});
+
 // Scheduled WoL — customer schedules wake-on-lan pings.
 // state.scheduled_wol = { customer_id: [{id, target_mac, days[0..6], hhmm, enabled}] }
 if (!state.scheduled_wol) state.scheduled_wol = {};

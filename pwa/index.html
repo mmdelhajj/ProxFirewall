@@ -2200,6 +2200,7 @@ function openDeviceSheet(mac) {
     { i: '📅', l: t('dev.schedule'), fn: () => openAddScheduleSheet({ preMacs: [d.mac], titleSub: `For ${esc(d.name || d.mac)}`, defaults: { name: `${(d.name || 'Device')} bedtime` } }) },
     { i: '📊', l: t('dev.cap'), fn: () => capDevice(d) },
     { i: '👨‍👩‍👧', l: t('dev.family'), fn: () => { activateTab('more'); showMoreSubview('family'); } },
+    { i: '🗑', l: 'Forget this device', danger: true, fn: () => forgetDevice(d) },
   ];
   const liveHtml = `<div class="card" style="margin-bottom:12px;padding:12px">
       <div class="row between" style="margin-bottom:8px">
@@ -2297,6 +2298,22 @@ async function startLiveDeviceTraffic(mac, body) {
 // Make sure the sheet's close button + scrim tear down the live poll too
 const _closeSheetOrig = closeSheet;
 closeSheet = function() { try { stopLiveDeviceTraffic(); } catch {} return _closeSheetOrig.apply(this, arguments); };
+
+async function forgetDevice(d) {
+  // Two-step confirm because this is destructive: device is removed from list,
+  // family assignments / quotas / time-limits / bw-caps / block-rules for this
+  // MAC are all cleared. Device will re-appear FRESH if it shows up on the LAN.
+  if (!await confirmSheet(
+    `Forget "${d.name || d.mac}"? This removes the device from your list and clears its limits, caps, schedules, and family assignment. The device itself stays on your network — if it sends traffic again, it'll appear as new.`,
+    { okLabel: 'Forget device', danger: true })) return;
+  try {
+    await api('/customer/device/forget', { method: 'POST', body: JSON.stringify({ mac: d.mac }) });
+    state.devices = state.devices.filter(x => x.mac !== d.mac);
+    _devBw.delete((d.mac || '').toLowerCase());
+    renderDevices();
+    toast(`${d.name || d.mac} forgotten`, 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+}
 
 function renameDevice(d) {
   const html = `<div class="field">
