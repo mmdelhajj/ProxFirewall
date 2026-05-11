@@ -1,0 +1,4001 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0f1a">
+<title>mes Network</title>
+<link rel="manifest" href="/pwa/manifest.json">
+<link rel="icon" href="/pwa/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pwa/icon.svg">
+<style>
+:root {
+  --bg:           #0a0f1a;
+  --bg-elev:      #131a2a;
+  --bg-elev-2:    #1a2238;
+  --line:         rgba(255,255,255,.06);
+  --line-strong:  rgba(255,255,255,.10);
+  --text:         #e8edf5;
+  --text-dim:     #94a3b8;
+  --text-faint:   #64748b;
+  --brand:        #ff8c42;
+  --brand-soft:   rgba(255,140,66,.14);
+  --brand-strong: #ffa260;
+  --accent:       #00d4aa;
+  --accent-soft:  rgba(0,212,170,.14);
+  --warn:         #fbbf24;
+  --warn-soft:    rgba(251,191,36,.14);
+  --danger:       #f87171;
+  --danger-soft:  rgba(248,113,113,.14);
+  --info:         #5ba4f0;
+  --info-soft:    rgba(91,164,240,.14);
+  --gradient-hero:    linear-gradient(180deg, #0f3a5e 0%, #0a1f3d 60%, #0a0f1a 100%);
+  --gradient-card:    linear-gradient(180deg, rgba(255,255,255,.025) 0%, transparent 100%);
+  --gradient-good:    linear-gradient(135deg, #00d4aa 0%, #00a87f 100%);
+  --gradient-warn:    linear-gradient(135deg, #ff8c42 0%, #e76e2a 100%);
+  --gradient-info:    linear-gradient(135deg, #5ba4f0 0%, #3b7fd0 100%);
+  --gradient-danger:  linear-gradient(135deg, #f87171 0%, #d04545 100%);
+  --shadow-card:      0 1px 0 rgba(255,255,255,.04) inset, 0 4px 12px rgba(0,0,0,.25);
+  --shadow-hero:      0 12px 36px rgba(15,58,94,.45);
+  --r-card:           14px;
+  --r-btn:            10px;
+  --r-pill:           999px;
+  --ease:             cubic-bezier(.2,.7,.2,1);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  /* aliases — keep legacy class names working */
+  --elev:  var(--bg-elev);
+  --elev2: var(--bg-elev-2);
+  --mute:  var(--text-dim);
+  --dim:   var(--text-faint);
+}
+[data-theme="light"] {
+  --bg:          #f4f6fa;
+  --bg-elev:     #ffffff;
+  --bg-elev-2:   #eef1f7;
+  --line:        rgba(15,23,42,.07);
+  --line-strong: rgba(15,23,42,.12);
+  --text:        #0f172a;
+  --text-dim:    #475569;
+  --text-faint:  #64748b;
+  --brand-soft:  rgba(255,140,66,.16);
+  --accent-soft: rgba(0,168,127,.16);
+  --gradient-hero:    linear-gradient(180deg, #d3e6f5 0%, #e7eef7 60%, #f4f6fa 100%);
+  --gradient-card:    linear-gradient(180deg, rgba(15,23,42,.02) 0%, transparent 100%);
+  --shadow-card:      0 1px 2px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.06);
+  --shadow-hero:      0 8px 24px rgba(15,58,94,.10);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  font-size: 14px; line-height: 1.4;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: contain;
+  letter-spacing: -0.005em;
+}
+body { padding-left: var(--safe-l); padding-right: var(--safe-r); }
+button, select, textarea { font-family: inherit; font-size: 14px; color: inherit; }
+input { font-family: inherit; font-size: 16px; color: inherit; }
+button { background: none; border: 0; cursor: pointer; padding: 0; color: inherit; }
+a { color: var(--brand); text-decoration: none; }
+.tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.mono { font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace; font-size: 12px; letter-spacing: 0; }
+
+/* ───────── Header ───────── */
+.header {
+  position: sticky; top: 0; z-index: 50;
+  height: calc(48px + var(--safe-top));
+  padding-top: var(--safe-top);
+  display: flex; align-items: center; justify-content: space-between;
+  padding-left: 16px; padding-right: 16px;
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  transition: box-shadow .25s var(--ease), background .25s var(--ease);
+}
+.header.scrolled { box-shadow: 0 1px 0 var(--line); background: color-mix(in oklab, var(--bg) 92%, transparent); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.02em; font-size: 15px; }
+.brand svg { width: 22px; height: 22px; }
+.brand .accent { color: var(--brand); }
+.h-actions { display: flex; align-items: center; gap: 8px; }
+.pill-btn {
+  height: 30px; padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev); color: var(--text);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line);
+  transition: transform .12s var(--ease), background .2s var(--ease);
+}
+.pill-btn:active { transform: scale(0.94); background: var(--bg-elev-2); }
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--r-pill);
+  background: var(--bg-elev); display: inline-flex; align-items: center; justify-content: center;
+  position: relative; transition: transform .12s var(--ease), background .2s var(--ease);
+  border: 1px solid var(--line);
+  font-size: 15px;
+}
+.icon-btn:active { transform: scale(0.94); background: var(--bg-elev-2); }
+.badge-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.badge-num {
+  position: absolute; top: -2px; right: -2px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px var(--bg);
+  letter-spacing: 0;
+}
+
+/* ───────── Main scroll ───────── */
+.app {
+  min-height: 100dvh;
+  padding-bottom: calc(60px + var(--safe-bot) + 8px);
+}
+.tab-pane { display: none; padding: 12px; gap: 10px; flex-direction: column; }
+.tab-pane.active { display: flex; animation: fadeIn .22s var(--ease); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* The Network tab bleeds the hero edge-to-edge under the header */
+#tab-network.tab-pane { padding: 0 0 0 0; gap: 0; }
+#tab-network > * + * { margin-top: 10px; }
+#tab-network > .hero-wrap + * { margin-top: 0; }
+#tab-network > .stat-strip,
+#tab-network > .card,
+#tab-network > .section-h { margin-left: 12px; margin-right: 12px; }
+#tab-network > #discover-banner:not(.hidden) { margin-left: 12px; margin-right: 12px; margin-top: 10px; }
+
+/* ───────── Bottom tab bar ───────── */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  padding-bottom: var(--safe-bot);
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-top: 1px solid var(--line);
+  display: flex; align-items: stretch;
+}
+.tabbar button {
+  flex: 1; height: 56px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; color: var(--text-faint); position: relative;
+  transition: color .2s var(--ease), transform .12s var(--ease);
+}
+.tabbar button .ti { font-size: 19px; line-height: 1; transition: transform .2s var(--ease); }
+.tabbar button .tl { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+.tabbar button.active { color: var(--brand); }
+.tabbar button.active .ti { transform: translateY(-1px) scale(1.05); }
+.tabbar button:active { transform: scale(0.92); }
+.tabbar .has-alert::after {
+  content: ""; position: absolute; top: 8px; right: calc(50% - 18px);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* ───────── Cards ───────── */
+.card {
+  background: var(--bg-elev);
+  background-image: var(--gradient-card);
+  border-radius: var(--r-card);
+  padding: 14px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+}
+.card-title {
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin: 0 0 10px 0;
+}
+.row { display: flex; align-items: center; gap: 12px; }
+.row.between { justify-content: space-between; }
+.col { display: flex; flex-direction: column; }
+.gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; }
+.muted { color: var(--text-dim); }
+.dim { color: var(--text-faint); }
+
+/* ───────── Badges / Pills (chip-style) ───────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  line-height: 1;
+}
+.badge.ok      { background: var(--accent-soft); color: var(--accent); }
+.badge.warn    { background: var(--warn-soft);   color: var(--warn); }
+.badge.bad     { background: var(--danger-soft); color: var(--danger); }
+.badge.info    { background: var(--info-soft);   color: var(--info); }
+.badge.brand   { background: var(--brand-soft);  color: var(--brand); }
+.badge.neutral { background: var(--bg-elev-2);   color: var(--text-dim); }
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ───────── Buttons ───────── */
+.btn {
+  height: 38px; padding: 0 14px; border-radius: var(--r-btn);
+  background: var(--bg-elev-2); color: var(--text);
+  font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .12s var(--ease), filter .2s var(--ease), background .2s var(--ease), opacity .2s var(--ease);
+  width: 100%;
+  border: 1px solid transparent;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn.primary {
+  background: linear-gradient(180deg, #ff9a55 0%, var(--brand) 100%);
+  color: #1a0c00; font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 4px 14px rgba(255,140,66,.28);
+}
+.btn.primary:active { filter: brightness(1.08); }
+.btn.danger {
+  background: linear-gradient(180deg, #fa8585 0%, var(--danger) 100%);
+  color: #2a0808; font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 4px 14px rgba(248,113,113,.25);
+}
+.btn.accent {
+  background: var(--gradient-good);
+  color: #00211b; font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 4px 14px rgba(0,212,170,.22);
+}
+.btn.ghost { background: transparent; border-color: var(--line-strong); }
+.btn.ghost:active { background: var(--bg-elev); }
+.btn.sm { height: 32px; font-size: 12px; padding: 0 12px; font-weight: 700; }
+.btn-row { display: flex; gap: 8px; }
+
+/* ───────── Forms ───────── */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label {
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.field .hint { font-size: 11.5px; color: var(--text-faint); line-height: 1.45; }
+.field input, .field select, .field textarea {
+  height: 42px; padding: 0 12px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  font-size: 16px; color: var(--text);
+  transition: border-color .2s var(--ease), background .2s var(--ease), box-shadow .2s var(--ease);
+  width: 100%;
+}
+.field textarea { padding: 10px 12px; height: auto; min-height: 80px; resize: vertical; font-size: 14px; }
+.field select {
+  font-size: 14px; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center;
+  padding-right: 32px;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.radio-cards { display: flex; flex-direction: column; gap: 6px; }
+.radio-card {
+  padding: 12px; background: var(--bg-elev-2); border-radius: var(--r-btn);
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  transition: background .2s var(--ease), transform .12s var(--ease), border-color .2s var(--ease);
+  border: 1px solid var(--line);
+}
+.radio-card:active { transform: scale(0.99); }
+.radio-card.selected { border-color: var(--brand); background: var(--brand-soft); }
+.radio-card input { display: none; }
+.radio-card .rc-icon { font-size: 20px; width: 24px; text-align: center; flex-shrink: 0; }
+.radio-card .rc-title { font-weight: 600; font-size: 14px; }
+.radio-card .rc-sub { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+
+/* ───────── Check-row (replaces native checkbox in lists) ───────── */
+.check-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px;
+  background: var(--bg-elev-2); border-radius: var(--r-btn);
+  border: 1px solid var(--line);
+  cursor: pointer; user-select: none;
+  transition: background .15s var(--ease), border-color .15s var(--ease), transform .12s var(--ease);
+  margin-bottom: 6px;
+}
+.check-row:active { transform: scale(0.99); background: var(--bg-elev); }
+.check-row.on { border-color: var(--brand); background: var(--brand-soft); }
+.check-row .cr-ic {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg-elev); display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.check-row.on .cr-ic { background: rgba(255,140,66,.20); }
+.check-row .cr-meta { flex: 1; min-width: 0; }
+.check-row .cr-meta .nm { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.check-row .cr-meta .sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.check-row .cr-tick {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s var(--ease), border-color .15s var(--ease);
+}
+.check-row .cr-tick svg { opacity: 0; transition: opacity .15s var(--ease); }
+.check-row.on .cr-tick {
+  background: var(--brand); border-color: var(--brand);
+}
+.check-row.on .cr-tick svg { opacity: 1; }
+
+/* ───────── Stat strip (horizontal scroller of mini-tiles) ───────── */
+.stat-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.stat-tile {
+  background: var(--bg-elev);
+  background-image: var(--gradient-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 10px 11px;
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0;
+  box-shadow: var(--shadow-card);
+  transition: transform .12s var(--ease), background .2s var(--ease);
+}
+.stat-tile:active { transform: scale(0.98); }
+.stat-tile .l {
+  font-size: 10px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+}
+.stat-tile .v {
+  font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stat-tile .vsub { font-size: 10.5px; color: var(--text-faint); font-weight: 600; }
+.stat-tile.brand .v { color: var(--brand); }
+.stat-tile.accent .v { color: var(--accent); }
+.stat-tile.warn .v { color: var(--warn); }
+.stat-tile.danger .v { color: var(--danger); }
+
+/* legacy 2-up stat-grid, kept as fallback */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat {
+  background: var(--bg-elev); padding: 12px; border-radius: var(--r-card);
+  border: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.stat .v { font-size: 1.6em; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.stat .l { font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+
+/* ───────── Hero (Firewalla-style gradient + big gauge) ───────── */
+.hero-wrap {
+  background: var(--gradient-hero);
+  position: relative;
+  padding: 4px 12px 18px 12px;
+  margin: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+.hero-wrap::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(91,164,240,.12), transparent 60%);
+  pointer-events: none; z-index: -1;
+}
+[data-theme="light"] .hero-wrap::before {
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(91,164,240,.18), transparent 60%);
+}
+
+.greet {
+  padding: 8px 4px 6px 4px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.greet .greet-text { min-width: 0; flex: 1; }
+.greet .hi {
+  font-size: 13px; font-weight: 600; color: rgba(232,237,245,.78);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="light"] .greet .hi { color: rgba(15,23,42,.7); }
+.greet .sub {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 4px;
+  font-size: 12px; color: rgba(232,237,245,.6);
+}
+[data-theme="light"] .greet .sub { color: rgba(15,23,42,.55); }
+
+/* Gauge */
+.gauge-frame {
+  width: 100%; max-width: 260px;
+  aspect-ratio: 1 / 1;
+  margin: 4px auto 0 auto;
+  position: relative;
+}
+.gauge {
+  width: 100%; height: 100%; display: block;
+  filter: drop-shadow(0 4px 24px rgba(91,164,240,.25));
+}
+.gauge .arc-bg { stroke: rgba(255,255,255,.07); }
+[data-theme="light"] .gauge .arc-bg { stroke: rgba(15,23,42,.08); }
+.gauge .arc-fg {
+  stroke: url(#gradDown);
+  transition: stroke-dashoffset .6s var(--ease);
+  filter: drop-shadow(0 0 8px rgba(255,140,66,.5));
+}
+.gauge .arc-up {
+  stroke: url(#gradUp);
+  transition: stroke-dashoffset .6s var(--ease);
+  filter: drop-shadow(0 0 6px rgba(0,212,170,.4));
+}
+
+.gauge-center {
+  position: absolute; left: 0; right: 0; top: 50%;
+  transform: translateY(-58%);
+  text-align: center;
+}
+.gauge-center .v {
+  font-size: 44px; font-weight: 700; letter-spacing: -0.04em;
+  line-height: 1; color: var(--text);
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.gauge-center .v .u {
+  font-size: 14px; font-weight: 600; color: var(--text-dim);
+  letter-spacing: 0;
+}
+.gauge-center .l {
+  font-size: 10px; font-weight: 700; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.14em;
+  margin-top: 6px;
+}
+
+.spd-row {
+  display: flex; justify-content: center; gap: 22px;
+  margin-top: 0;
+  padding: 4px 0 8px 0;
+}
+.spd { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.spd .arr {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; line-height: 1;
+}
+.spd.dn .arr { background: var(--brand-soft); color: var(--brand); }
+.spd.up .arr { background: var(--accent-soft); color: var(--accent); }
+.spd .num { font-weight: 700; letter-spacing: -0.02em; }
+.spd .lbl { color: var(--text-dim); font-size: 11px; font-weight: 600; }
+
+.sparkline { width: 100%; height: 36px; margin-top: 4px; display: block; }
+.sparkline polyline { stroke: rgba(255,140,66,.55); }
+
+/* ───────── Box card ───────── */
+.box-list { display: flex; flex-direction: column; gap: 8px; }
+.box-item {
+  padding: 11px 12px; background: var(--bg-elev-2); border-radius: var(--r-btn);
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--line);
+  transition: transform .12s var(--ease), background .15s var(--ease);
+}
+.box-item:active { transform: scale(0.99); background: var(--bg-elev); }
+.box-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--gradient-warn);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,.15) inset, 0 4px 10px rgba(255,140,66,.18);
+  flex-shrink: 0;
+}
+.box-meta { flex: 1; min-width: 0; }
+.box-meta .nm { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.box-meta .ms { font-size: 11px; color: var(--text-dim); display: flex; gap: 10px; flex-wrap: wrap; margin-top: 3px; }
+.add-btn {
+  height: 42px; border-radius: var(--r-btn);
+  background: var(--brand-soft); color: var(--brand);
+  width: 100%; font-weight: 700; font-size: 13.5px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .12s var(--ease), background .15s var(--ease);
+  border: 1px dashed var(--brand);
+}
+.add-btn:active { transform: scale(0.98); background: rgba(255,140,66,.22); }
+
+/* ───────── Discover banner ───────── */
+.discover-card {
+  background: var(--gradient-warn);
+  color: #1a0c00; padding: 12px 14px; border-radius: var(--r-card);
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 8px 24px rgba(255,140,66,.30);
+}
+.discover-card .ic { font-size: 22px; }
+.discover-card .tx { flex: 1; }
+.discover-card .tx .t { font-weight: 700; font-size: 14px; }
+.discover-card .tx .s { font-size: 11.5px; opacity: 0.85; }
+.discover-card button {
+  background: rgba(26,12,0,.22); color: #1a0c00;
+  height: 30px; padding: 0 14px; border-radius: var(--r-pill);
+  font-weight: 700; font-size: 12px;
+}
+
+/* ───────── List rows (devices, alarms, flows) ───────── */
+.list { display: flex; flex-direction: column; gap: 6px; }
+.list-row {
+  background: var(--bg-elev); border-radius: var(--r-card);
+  padding: 10px 12px;
+  min-height: 56px;
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--line);
+  transition: background .15s var(--ease), transform .12s var(--ease), border-color .15s var(--ease);
+  user-select: none;
+}
+.list-row:active { transform: scale(0.99); background: var(--bg-elev-2); }
+
+/* Avatars: gradient circular icon-tile */
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--bg-elev-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0; position: relative;
+  color: #fff;
+}
+.avatar.av-brand   { background: var(--gradient-warn); box-shadow: 0 2px 6px rgba(255,140,66,.20); }
+.avatar.av-accent  { background: var(--gradient-good); box-shadow: 0 2px 6px rgba(0,212,170,.20); }
+.avatar.av-info    { background: var(--gradient-info); box-shadow: 0 2px 6px rgba(91,164,240,.20); }
+.avatar.av-warn    { background: var(--gradient-warn); }
+.avatar.av-danger  { background: var(--gradient-danger); }
+.avatar .online {
+  position: absolute; bottom: -1px; right: -1px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-elev);
+}
+.avatar .online.off { background: var(--text-faint); }
+.lr-meta { flex: 1; min-width: 0; }
+.lr-meta .nm {
+  font-weight: 600; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
+}
+.lr-meta .sub {
+  font-size: 11.5px; color: var(--text-dim);
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bw-bar {
+  width: 56px; height: 3px; border-radius: 2px;
+  background: var(--bg-elev-2); overflow: hidden;
+}
+.bw-bar > div {
+  height: 100%; background: var(--gradient-warn);
+  transition: width .4s var(--ease);
+}
+.lr-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+  flex-shrink: 0;
+}
+
+/* ───────── Flow row ───────── */
+.flow-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.flow-row + .flow-row { border-top: 1px solid var(--line); }
+.flow-row .flag {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--bg-elev-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.flow-row .meta { flex: 1; min-width: 0; }
+.flow-row .meta .top {
+  font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.flow-row .meta .top strong { font-weight: 700; color: var(--text); }
+.flow-row .meta .bot { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+/* Filter chips strip (devices tab) */
+.chip-row {
+  display: flex; gap: 6px; overflow-x: auto;
+  padding: 4px 2px 8px 2px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.chip-row::-webkit-scrollbar { display: none; }
+.chip-row .chip-pill {
+  flex-shrink: 0;
+  height: 32px; padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev); border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 12.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease), transform .12s var(--ease);
+  scroll-snap-align: start;
+}
+.chip-row .chip-pill:active { transform: scale(0.96); }
+.chip-row .chip-pill.on {
+  background: var(--brand-soft); color: var(--brand);
+  border-color: var(--brand);
+}
+.chip-row .chip-pill .cnt {
+  background: var(--bg-elev-2); color: var(--text-dim);
+  padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 10.5px; font-weight: 700;
+}
+.chip-row .chip-pill.on .cnt { background: rgba(255,140,66,.22); color: var(--brand); }
+
+/* Search bar */
+.search-bar {
+  position: sticky; top: calc(48px + var(--safe-top));
+  z-index: 5;
+  margin: 0 0 6px 0;
+  display: flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 12px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+.search-bar svg { width: 16px; height: 16px; color: var(--text-dim); flex-shrink: 0; }
+.search-bar input {
+  flex: 1; background: transparent; border: 0; outline: 0;
+  height: 100%; font-size: 14px; color: var(--text);
+  padding: 0;
+}
+.search-bar input::placeholder { color: var(--text-faint); }
+
+/* ───────── Sheet / modal ───────── */
+.scrim {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s var(--ease);
+}
+.scrim.open { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 101;
+  background: var(--bg-elev);
+  border-radius: 22px 22px 0 0;
+  padding: 6px 16px calc(20px + var(--safe-bot)) 16px;
+  max-height: 88dvh; overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform .35s var(--ease);
+  box-shadow: 0 -8px 40px rgba(0,0,0,.5), 0 -1px 0 var(--line-strong) inset;
+  border-top: 1px solid var(--line-strong);
+}
+.sheet.open { transform: translateY(0); }
+.sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--line-strong);
+  margin: 8px auto 12px auto;
+}
+.sheet h2 {
+  margin: 0 0 2px 0;
+  font-size: 17px; font-weight: 700; letter-spacing: -0.015em;
+}
+.sheet .sheet-sub { color: var(--text-dim); font-size: 12.5px; margin: 0 0 14px 0; }
+.sheet-actions { display: flex; flex-direction: column; gap: 2px; }
+.sheet-action {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 10px; border-radius: var(--r-btn);
+  width: 100%; text-align: left;
+  transition: background .15s var(--ease), transform .12s var(--ease);
+  font-size: 14.5px; font-weight: 500;
+  color: var(--text);
+}
+[dir="rtl"] .sheet-action { text-align: right; }
+.sheet-action:active { background: var(--bg-elev-2); transform: scale(0.99); }
+.sheet-action .si {
+  font-size: 18px; width: 32px; height: 32px;
+  border-radius: 8px; background: var(--bg-elev-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sheet-action.danger { color: var(--danger); }
+.sheet-action.danger .si { background: var(--danger-soft); }
+.sheet-close {
+  position: absolute; top: 14px; right: 14px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--bg-elev-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  border: 1px solid var(--line);
+}
+[dir="rtl"] .sheet-close { right: auto; left: 14px; }
+
+@media (min-width: 700px) {
+  .sheet {
+    left: 50%; right: auto; bottom: auto; top: 50%;
+    width: 480px; max-width: 92vw; max-height: 86vh;
+    border-radius: 18px;
+    border: 1px solid var(--line-strong);
+    transform: translate(-50%, -45%) scale(0.96); opacity: 0;
+  }
+  .sheet.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* ───────── Toast ───────── */
+.toast-stack {
+  position: fixed; left: 50%; bottom: calc(80px + var(--safe-bot)); z-index: 200;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  width: min(92vw, 420px);
+}
+.toast {
+  background: var(--bg-elev); border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 32px rgba(0,0,0,.45), 0 0 0 1px var(--line-strong);
+  display: flex; align-items: center; gap: 10px;
+  animation: toastIn .3s var(--ease);
+  font-size: 13.5px; font-weight: 500;
+  border-left: 3px solid var(--brand);
+}
+.toast.warn { border-left-color: var(--warn); }
+.toast.bad  { border-left-color: var(--danger); }
+.toast.info { border-left-color: var(--accent); }
+.toast.fade { animation: toastOut .3s var(--ease) forwards; }
+@keyframes toastIn { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastOut { to { transform: translateY(16px); opacity: 0; } }
+
+/* ───────── Login ───────── */
+.login-wrap {
+  min-height: 100dvh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: calc(40px + var(--safe-top)) 24px calc(20px + var(--safe-bot)) 24px;
+  max-width: 460px; margin: 0 auto;
+  position: relative;
+}
+.login-wrap::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(ellipse 70% 40% at 50% 25%, rgba(255,140,66,.10), transparent 60%),
+              radial-gradient(ellipse 70% 40% at 50% 75%, rgba(91,164,240,.08), transparent 60%);
+  pointer-events: none;
+}
+.login-logo {
+  width: 72px; height: 72px; margin: 0 auto 20px auto;
+  background: var(--gradient-warn);
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 36px rgba(255,140,66,.30), 0 1px 0 rgba(255,255,255,.18) inset;
+}
+.login-logo svg { width: 40px; height: 40px; }
+.login-title {
+  font-size: 1.75em; font-weight: 700; letter-spacing: -0.03em;
+  text-align: center; margin: 0 0 6px 0;
+}
+.login-sub { color: var(--text-dim); text-align: center; margin: 0 0 26px 0; font-size: 13.5px; }
+.demo-hint { font-size: 12px; color: var(--text-faint); text-align: center; margin-top: 20px; }
+
+/* ───────── Spinner ───────── */
+.spin {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.skel { background: linear-gradient(90deg, var(--bg-elev-2) 0%, var(--line-strong) 50%, var(--bg-elev-2) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 8px; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* ───────── Category grid (rules) ───────── */
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cat-card {
+  padding: 12px; background: var(--bg-elev);
+  border: 1px solid var(--line); border-radius: var(--r-card);
+  display: flex; flex-direction: column; gap: 8px;
+  transition: transform .12s var(--ease), background .15s var(--ease), border-color .15s var(--ease);
+  min-height: 90px;
+  background-image: var(--gradient-card);
+}
+.cat-card:active { transform: scale(0.98); background: var(--bg-elev-2); }
+.cat-card.on { border-color: var(--brand); }
+.cat-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.cat-card .ico {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--bg-elev-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 17px;
+}
+.cat-card.on .ico { background: var(--brand-soft); }
+.cat-card .nm { font-weight: 600; font-size: 13.5px; }
+.cat-card .sub { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+/* Switch (toggle) */
+.switch {
+  width: 42px; height: 24px; border-radius: 999px;
+  background: var(--bg-elev-2); position: relative;
+  transition: background .2s var(--ease);
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: linear-gradient(180deg, #fff 0%, #e7eaef 100%);
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .25s var(--ease);
+}
+.switch.on { background: var(--brand); border-color: var(--brand); }
+.switch.on::after { transform: translateX(18px); }
+
+/* ───────── Pull-to-refresh ───────── */
+.ptr-bar {
+  height: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text-dim); font-size: 12px; overflow: hidden; transition: height .25s var(--ease);
+}
+.ptr-bar.show { height: 40px; }
+
+/* ───────── Tab section heading ───────── */
+.section-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px; margin-top: 4px;
+}
+.section-h h3 {
+  margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.015em;
+}
+.section-h .more {
+  font-size: 12px; color: var(--brand); font-weight: 700;
+  padding: 4px 8px; border-radius: var(--r-pill);
+  transition: background .15s var(--ease);
+}
+.section-h .more:active { background: var(--brand-soft); }
+
+/* ───────── RTL ───────── */
+[dir="rtl"] .badge-dot, [dir="rtl"] .badge-num { right: auto; left: 6px; }
+[dir="rtl"] .switch.on::after { transform: translateX(-18px); }
+
+/* ───────── Misc ───────── */
+.empty {
+  text-align: center; padding: 26px 14px;
+  color: var(--text-dim); font-size: 13px; line-height: 1.5;
+}
+.empty .em { font-size: 32px; margin-bottom: 8px; opacity: 0.7; }
+.hidden { display: none !important; }
+
+/* ───────── More sub-views (inline pages) ───────── */
+.subview { display: flex; flex-direction: column; gap: 10px; }
+.subview[hidden] { display: none !important; }
+.subview-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 2px 2px 6px 2px;
+  min-height: 40px;
+}
+.subview-header h2 {
+  margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; flex: 1;
+}
+.subview-back {
+  width: 34px; height: 34px; border-radius: var(--r-pill);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text); font-size: 16px;
+  transition: transform .12s var(--ease), background .2s var(--ease);
+  flex-shrink: 0;
+}
+.subview-back:active { transform: scale(0.94); background: var(--bg-elev-2); }
+[dir="rtl"] .subview-back { transform: scaleX(-1); }
+[dir="rtl"] .subview-back:active { transform: scaleX(-1) scale(0.94); }
+
+/* Profile header (More) */
+.me-header {
+  background: var(--bg-elev);
+  background-image: var(--gradient-card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 14px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: var(--shadow-card);
+}
+.me-header .me-av {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--gradient-warn);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 4px 12px rgba(255,140,66,.22);
+  flex-shrink: 0;
+}
+.me-header .me-meta { flex: 1; min-width: 0; }
+.me-header .me-name {
+  font-size: 16px; font-weight: 700; letter-spacing: -0.015em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.me-header .me-phone {
+  font-size: 12px; color: var(--text-dim); margin-top: 3px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.day-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-pill {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  background: var(--bg-elev-2); color: var(--text-dim);
+  border-radius: 50%;
+  font-size: 11.5px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none;
+  border: 1px solid var(--line);
+  transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease), transform .12s var(--ease);
+}
+.day-pill:active { transform: scale(0.94); }
+.day-pill.on {
+  background: var(--brand); color: #fff;
+  border-color: var(--brand);
+  box-shadow: 0 2px 6px rgba(255,140,66,.3);
+}
+
+.toggle-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0;
+  min-height: 52px;
+}
+.toggle-row + .toggle-row { border-top: 1px solid var(--line); }
+.toggle-row .ic {
+  font-size: 16px; width: 32px; height: 32px;
+  border-radius: 8px; background: var(--bg-elev-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.toggle-row .meta { flex: 1; min-width: 0; }
+.toggle-row .meta .nm { font-weight: 600; font-size: 14px; }
+.toggle-row .meta .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+.switch-mini {
+  width: 42px; height: 24px; border-radius: 999px;
+  background: var(--bg-elev-2); position: relative; flex-shrink: 0;
+  transition: background .2s var(--ease);
+  border: 1px solid var(--line);
+}
+.switch-mini::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: linear-gradient(180deg, #fff 0%, #e7eaef 100%);
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .2s var(--ease);
+}
+.switch-mini.on { background: var(--brand); border-color: var(--brand); }
+.switch-mini.on::after { transform: translateX(18px); }
+[dir="rtl"] .switch-mini.on::after { transform: translateX(-18px); }
+
+.kv-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 9px 0; gap: 10px;
+}
+.kv-row + .kv-row { border-top: 1px solid var(--line); }
+.kv-row .k { color: var(--text-dim); font-size: 12.5px; }
+.kv-row .v { font-weight: 600; font-size: 13.5px; text-align: right; }
+
+.stat-row3 {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.stat-row3 .s {
+  background: var(--bg-elev-2); padding: 12px 6px; border-radius: var(--r-btn);
+  text-align: center;
+  border: 1px solid var(--line);
+}
+.stat-row3 .s .n { font-size: 20px; font-weight: 700; color: var(--brand); letter-spacing: -0.02em; }
+.stat-row3 .s .l { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--bg-elev-2); color: var(--text-dim);
+  border: 1px solid var(--line);
+  letter-spacing: 0.02em;
+}
+.chip.warn  { background: var(--warn-soft);   color: var(--warn);   border-color: transparent; }
+.chip.ok    { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip.info  { background: var(--info-soft);   color: var(--info);   border-color: transparent; }
+.chip.bad   { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.chip.brand { background: var(--brand-soft);  color: var(--brand);  border-color: transparent; }
+
+/* Section header for hero (status banner above gauge) */
+.threat-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(0,212,170,.20);
+  border-radius: var(--r-card);
+  font-size: 12.5px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.threat-banner.warn { background: var(--warn-soft); border-color: rgba(251,191,36,.22); color: var(--warn); }
+.threat-banner.bad  { background: var(--danger-soft); border-color: rgba(248,113,113,.22); color: var(--danger); }
+.threat-banner .ic { font-size: 16px; flex-shrink: 0; }
+.threat-banner .meta { flex: 1; min-width: 0; }
+.threat-banner .meta .sub { font-size: 11px; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+
+/* Sticky header inside subviews */
+.search-bar.in-tab {
+  position: relative;
+  top: 0;
+  margin-bottom: 8px;
+}
+
+/* Light theme: greet text needs more contrast */
+[data-theme="light"] .gauge-center .v { color: var(--text); }
+</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ───────── Login screen ───────── -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" fill="#1a0c00" stroke="#1a0c00" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h1 class="login-title" data-i="login.title">mes Network</h1>
+  <p class="login-sub" data-i="login.sub">Sign in to manage your home network</p>
+
+  <div id="login-step-phone">
+    <div class="field">
+      <label data-i="login.phone">Phone number</label>
+      <input id="li-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+961 71 555 0001">
+      <div class="hint" data-i="login.phone_hint">Enter your registered phone with country code</div>
+    </div>
+    <button id="li-send" class="btn primary">
+      <span data-i="login.send">Send code</span>
+    </button>
+  </div>
+
+  <div id="login-step-otp" class="hidden">
+    <div class="field">
+      <label data-i="login.code">Verification code</label>
+      <input id="li-otp" type="text" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="0000">
+      <div class="hint">
+        <span data-i="login.sent_to">Code sent to</span>
+        <span id="li-phone-display" class="mono"></span>
+      </div>
+    </div>
+    <button id="li-verify" class="btn primary">
+      <span data-i="login.verify">Verify & sign in</span>
+    </button>
+    <button id="li-back" class="btn ghost" style="margin-top:10px">
+      <span data-i="login.back">← Use different number</span>
+    </button>
+  </div>
+
+  <p class="demo-hint">Demo: +961 71 555 0001 · OTP: 0000</p>
+</div>
+
+<!-- ───────── Main app ───────── -->
+<div id="app" class="hidden">
+
+  <header class="header" id="header">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M9 12l2 2 4-4" stroke="currentColor" class="accent" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>mes <span class="accent">Network</span></span>
+    </div>
+    <div class="h-actions">
+      <button class="pill-btn" id="btn-lang">EN</button>
+      <button class="icon-btn" id="btn-theme" aria-label="Theme">
+        <span id="theme-ic">🌙</span>
+      </button>
+      <button class="icon-btn" id="btn-bell" aria-label="Notifications">
+        🔔
+        <span id="bell-badge" class="badge-num hidden">0</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="app">
+    <div id="ptr" class="ptr-bar">↓ Pull to refresh</div>
+
+    <!-- ───────── Network tab ───────── -->
+    <section id="tab-network" class="tab-pane active">
+      <div class="hero-wrap">
+        <div class="greet">
+          <div class="greet-text">
+            <div class="hi" id="greet-hi">Good evening</div>
+            <div class="sub">
+              <span id="greet-status" class="badge ok"><span class="dot"></span> All clear</span>
+              <span id="greet-net" class="muted">·</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gauge-frame">
+          <svg class="gauge" viewBox="0 0 240 240">
+            <defs>
+              <linearGradient id="gradDown" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ffa260"/>
+                <stop offset="100%" stop-color="#ff8c42"/>
+              </linearGradient>
+              <linearGradient id="gradUp" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#3df0c4"/>
+                <stop offset="100%" stop-color="#00d4aa"/>
+              </linearGradient>
+            </defs>
+            <!-- Outer (download) -->
+            <circle class="arc-bg" cx="120" cy="120" r="100" fill="none" stroke-width="10" stroke-linecap="round"
+                    stroke-dasharray="471 628" transform="rotate(135 120 120)"/>
+            <circle class="arc-fg" id="gauge-arc" cx="120" cy="120" r="100" fill="none" stroke-width="10" stroke-linecap="round"
+                    stroke-dasharray="471" stroke-dashoffset="471" transform="rotate(135 120 120)"/>
+            <!-- Inner (upload) -->
+            <circle class="arc-bg" cx="120" cy="120" r="82" fill="none" stroke-width="6" stroke-linecap="round"
+                    stroke-dasharray="386 515" transform="rotate(135 120 120)"/>
+            <circle class="arc-up" id="gauge-arc-up" cx="120" cy="120" r="82" fill="none" stroke-width="6" stroke-linecap="round"
+                    stroke-dasharray="386" stroke-dashoffset="386" transform="rotate(135 120 120)"/>
+          </svg>
+          <div class="gauge-center">
+            <div class="v tabular"><span id="g-val">0.0</span><span class="u">Mbps</span></div>
+            <div class="l">Current</div>
+          </div>
+        </div>
+
+        <div class="spd-row">
+          <div class="spd dn"><span class="arr">↓</span><span class="num tabular" id="g-down">0.0</span><span class="lbl">Mbps</span></div>
+          <div class="spd up"><span class="arr">↑</span><span class="num tabular" id="g-up">0.0</span><span class="lbl">Mbps</span></div>
+        </div>
+
+        <svg class="sparkline" id="sparkline" viewBox="0 0 280 36" preserveAspectRatio="none">
+          <polyline id="spark-line" points="" fill="none" stroke="rgba(255,140,66,.55)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div id="discover-banner" class="hidden"></div>
+
+      <div class="stat-strip">
+        <div class="stat-tile">
+          <div class="l">Devices</div>
+          <div class="v tabular" id="s-online">—</div>
+          <div class="vsub muted" data-i="stat.online">Online</div>
+        </div>
+        <div class="stat-tile brand">
+          <div class="l">Today</div>
+          <div class="v tabular" id="s-today">—</div>
+          <div class="vsub muted">Data used</div>
+        </div>
+        <div class="stat-tile danger">
+          <div class="l">Threats</div>
+          <div class="v tabular" id="s-blocked">—</div>
+          <div class="vsub muted" data-i="stat.blocked">Blocked</div>
+        </div>
+        <div class="stat-tile accent">
+          <div class="l">Pause</div>
+          <div class="v tabular" id="s-pause">—</div>
+          <div class="vsub muted" id="s-pause-sub">Internet</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-h" style="margin-bottom:12px">
+          <h3 data-i="boxes.title">My boxes</h3>
+        </div>
+        <div id="box-list" class="box-list"></div>
+        <button class="add-btn" id="btn-add-box" style="margin-top:10px">＋ <span data-i="boxes.add">Add a box</span></button>
+      </div>
+
+      <div class="card">
+        <div class="section-h" style="margin-bottom:8px">
+          <h3 data-i="flows.recent">Recent activity</h3>
+          <button class="more" id="more-flows" data-i="common.more">See all</button>
+        </div>
+        <div id="flow-list"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Devices tab ───────── -->
+    <section id="tab-devices" class="tab-pane">
+      <div class="section-h">
+        <h3 data-i="devices.title">Devices</h3>
+        <span class="muted tabular" id="dev-count">—</span>
+      </div>
+      <div class="search-bar">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <input id="dev-search" type="search" placeholder="Search devices..." autocomplete="off">
+      </div>
+      <div class="chip-row" id="dev-filter">
+        <button class="chip-pill on" data-flt="all">All <span class="cnt" data-cnt="all">0</span></button>
+        <button class="chip-pill" data-flt="online">Online <span class="cnt" data-cnt="online">0</span></button>
+        <button class="chip-pill" data-flt="offline">Offline <span class="cnt" data-cnt="offline">0</span></button>
+        <button class="chip-pill" data-flt="blocked">Blocked <span class="cnt" data-cnt="blocked">0</span></button>
+      </div>
+      <div class="list" id="dev-list"></div>
+    </section>
+
+    <!-- ───────── Alarms tab ───────── -->
+    <section id="tab-alarms" class="tab-pane">
+      <div class="section-h">
+        <h3 data-i="alarms.title">Alarms</h3>
+        <button class="btn sm primary" id="ack-all" data-i="alarms.ack_all" style="width:auto">✓ Acknowledge all</button>
+      </div>
+      <div class="list" id="alarm-list"></div>
+    </section>
+
+    <!-- ───────── Rules tab ───────── -->
+    <section id="tab-rules" class="tab-pane">
+      <div class="threat-banner">
+        <div class="ic">🛡</div>
+        <div class="meta">
+          <div>Threat intelligence active</div>
+          <div class="sub">Updated 2h ago · 2.3M domains</div>
+        </div>
+      </div>
+
+      <div class="section-h"><h3 data-i="rules.cats">Block categories</h3></div>
+      <div class="cat-grid" id="cat-grid"></div>
+
+      <div class="section-h" style="margin-top:6px">
+        <h3 data-i="rules.custom">Custom rules</h3>
+        <button class="btn sm primary" id="btn-add-rule" style="width:auto">＋ <span data-i="rules.add">Add</span></button>
+      </div>
+      <div class="list" id="rule-list"></div>
+    </section>
+
+    <!-- ───────── More tab ───────── -->
+    <section id="tab-more" class="tab-pane">
+      <!-- Main More view -->
+      <div id="more-main" class="subview">
+        <div class="me-header">
+          <div class="me-av" id="me-avatar">👤</div>
+          <div class="me-meta">
+            <div class="me-name" id="me-name">—</div>
+            <div class="me-phone">
+              <span class="mono" id="me-phone">—</span>
+              <span class="chip brand" id="me-plan">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i="more.network">Network controls</div>
+          <button class="sheet-action" id="m-pause"><span class="si">⏸</span><span data-i="more.pause">Pause internet</span></button>
+          <button class="sheet-action" id="m-claim"><span class="si">📦</span><span data-i="more.claim">Add a box (pairing code)</span></button>
+          <button class="sheet-action" id="m-mode"><span class="si">🛰</span><span data-i="more.mode">Network mode</span><span id="mode-current" class="sub" style="margin-left:auto;color:var(--accent);font-weight:600;">—</span></button>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i="more.account">Account & people</div>
+          <button class="sheet-action" data-subview="family"><span class="si">👨‍👩‍👧</span><span data-i="more.family">Family & profiles</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="schedules"><span class="si">📅</span><span data-i="more.schedules">Schedules</span><span class="si" style="margin-left:auto">›</span></button>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i="more.settings">Settings</div>
+          <button class="sheet-action" data-subview="account"><span class="si">👤</span><span data-i="more.acct">Account & profile</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="notifs"><span class="si">🔔</span><span data-i="more.notifs">Notifications</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="ddns"><span class="si">🌐</span><span data-i="more.ddns">Dynamic DNS</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="wg"><span class="si">🔐</span><span data-i="more.wg">WireGuard VPN</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="vpnclient"><span class="si">🌍</span><span data-i="more.vpnclient">VPN client (route home through VPN)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="ovpnclient"><span class="si">🛡</span><span>OpenVPN client (.ovpn)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="qos"><span class="si">⚡</span><span>Smart Queue (QoS)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="iot"><span class="si">🔒</span><span>IoT lockdown</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="quarantine"><span class="si">🚫</span><span>Quarantine new devices</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="secscan"><span class="si">🛡</span><span>Security scans</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="kidlock"><span class="si">🔢</span><span>Kid lock (PIN)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="speed"><span class="si">📊</span><span data-i="more.speed">Speed history</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="plan"><span class="si">💳</span><span data-i="more.billing">Billing & plan</span><span class="si" style="margin-left:auto">›</span></button>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i="more.app">App</div>
+          <button class="sheet-action" id="m-theme"><span class="si">🎨</span><span data-i="more.theme">Theme</span></button>
+          <button class="sheet-action" id="m-lang"><span class="si">🌐</span><span data-i="more.lang">Language</span></button>
+          <button class="sheet-action danger" id="m-logout"><span class="si">⏏</span><span data-i="more.logout">Sign out</span></button>
+        </div>
+      </div>
+
+      <!-- Family sub-view -->
+      <div id="more-family" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2 data-i="more.family">Family & profiles</h2>
+          <button class="btn sm primary" id="fam-add-btn">＋ Add</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Members</div>
+          <div class="list" id="fam-list"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Schedules sub-view -->
+      <div id="more-schedules" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2 data-i="more.schedules">Schedules</h2>
+          <button class="btn sm primary" id="sch-add-btn">＋ Add</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Active schedule blocks</div>
+          <div class="list" id="sch-list"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Quick presets</div>
+          <div class="list" id="sch-presets"><div class="empty">Loading presets…</div></div>
+        </div>
+      </div>
+
+      <!-- Account sub-view -->
+      <div id="more-account" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Account & profile</h2>
+        </div>
+        <div class="card" id="acct-card"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- Notifications sub-view -->
+      <div id="more-notifs" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Notification preferences</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Categories</div>
+          <div id="notif-cats"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Channels</div>
+          <div id="notif-chans"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- DDNS sub-view -->
+      <div id="more-ddns" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Dynamic DNS</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Hostname</div>
+          <div id="ddns-card"><div class="empty">Loading…</div></div>
+          <div class="field" style="margin-top:14px">
+            <label>Claim or change subdomain</label>
+            <div class="row gap-8">
+              <input id="ddns-slug-in" placeholder="e.g. ahmad-home" maxlength="40" style="height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);flex:1">
+              <button class="btn sm primary" id="ddns-claim" style="width:auto;flex-shrink:0;height:50px">Claim</button>
+            </div>
+            <div class="hint">Will appear as <span class="mono">&lt;name&gt;.ddns.mes.net.lb</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WireGuard sub-view -->
+      <div id="more-wg" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>WireGuard VPN</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Peers</div>
+          <div class="list" id="wg-list"><div class="empty">Loading…</div></div>
+          <div class="field" style="margin-top:14px">
+            <label>Add new peer</label>
+            <div class="row gap-8">
+              <input id="wg-label-in" placeholder="My iPhone" maxlength="60" style="height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);flex:1">
+              <button class="btn sm primary" id="wg-add" style="width:auto;flex-shrink:0;height:50px">＋</button>
+            </div>
+            <div class="hint">Generates a .conf file. Tap a peer to download or scan.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VPN client sub-view (route home network OUT through Mullvad/Proton/etc) -->
+      <div id="more-vpnclient" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>VPN client</h2>
+          <button class="btn sm primary" id="vpnc-add-btn" style="margin-left:auto">＋ Add profile</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Outbound VPN profiles</div>
+          <div class="hint" style="margin-bottom:8px">Paste a WireGuard .conf from Mullvad, ProtonVPN, NordVPN, AzireVPN or any provider — your home traffic exits through it. Only one active at a time.</div>
+          <div class="list" id="vpnc-list"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Speed history sub-view -->
+      <div id="more-speed" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Speed history</h2>
+          <button class="btn sm primary" id="speed-run">⚡ Run now</button>
+        </div>
+        <div class="card" id="speed-card"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- Plan / billing sub-view -->
+      <div id="more-plan" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Billing & plan</h2>
+        </div>
+        <div class="card" id="plan-card"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- OpenVPN client sub-view -->
+      <div id="more-ovpnclient" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>OpenVPN client</h2>
+          <button class="btn sm primary" id="ovpnc-add-btn" style="margin-left:auto">＋ Add</button>
+        </div>
+        <div class="card">
+          <div class="card-title">.ovpn profiles</div>
+          <div class="hint" style="margin-bottom:8px">Paste an .ovpn file from your provider. All home traffic exits through the active tunnel (no per-device routing for OpenVPN).</div>
+          <div class="list" id="ovpnc-list"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- QoS sub-view -->
+      <div id="more-qos" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Smart Queue (QoS)</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Bandwidth shaping</div>
+          <div class="field"><label>Download (Mbit/s)</label><input id="qos-down" type="number" min="1" max="10000" value="100" style="width:100%;height:44px;padding:0 12px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+          <div class="field"><label>Upload (Mbit/s)</label><input id="qos-up" type="number" min="1" max="10000" value="20" style="width:100%;height:44px;padding:0 12px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+          <div class="btn-row"><button class="btn primary" id="qos-apply">Apply Cake/FQ-CoDel</button><button class="btn ghost" id="qos-clear">Clear</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Per-device priority</div>
+          <div class="hint">Pick a device, set High/Normal/Low/Throttle priority.</div>
+          <div class="list" id="qos-dev-list"><div class="empty">Loading devices…</div></div>
+        </div>
+      </div>
+
+      <!-- IoT lockdown sub-view -->
+      <div id="more-iot" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>IoT lockdown</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">How it works</div>
+          <div class="hint">Pick an IoT device → "Learn" for ~10 minutes while it does its normal work. Then "Enforce" — the box drops anything outside that learned allowlist.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Devices</div>
+          <div class="list" id="iot-dev-list"><div class="empty">Loading devices…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Locked-down devices</div>
+          <div class="list" id="iot-locked-list"><div class="empty">None enforced yet.</div></div>
+        </div>
+      </div>
+
+      <!-- Quarantine sub-view -->
+      <div id="more-quarantine" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Quarantine new devices</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Auto-quarantine</div>
+          <div class="row gap-12" style="align-items:center">
+            <div class="lr-meta"><div class="nm">When ON, any never-before-seen MAC is dropped into a deny-egress set until you approve it.</div></div>
+            <div class="switch" id="autoq-toggle" role="button" tabindex="0"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Currently quarantined</div>
+          <div class="list" id="quar-list"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Security scans sub-view -->
+      <div id="more-secscan" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Security scans</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">External scan (your public IP)</div>
+          <div class="hint">Runs nmap from the cloud against your home's WAN IP — shows what the world sees.</div>
+          <div class="btn-row"><button class="btn primary" id="ext-scan-btn">⚡ Run external scan</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Internal scan (LAN)</div>
+          <div class="hint">Runs nmap on the box itself. Discovers hosts + service versions on your home LAN.</div>
+          <div class="btn-row"><button class="btn primary" id="int-scan-btn">⚡ Run internal scan</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Recent scans</div>
+          <div class="list" id="scan-history"><div class="empty">No scans yet.</div></div>
+        </div>
+      </div>
+
+      <!-- Kid lock sub-view -->
+      <div id="more-kidlock" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Kid lock (PIN)</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Status</div>
+          <div id="kidlock-status" class="hint">Loading…</div>
+          <div class="btn-row" id="kidlock-actions"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">How it works</div>
+          <div class="hint">When set, the app asks for the 4-digit PIN every time it opens (or comes back from the background). 5 wrong attempts forces a re-login. PIN is stored hashed locally — no biometric.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-tab="network" class="active"><span class="ti">🛡</span><span class="tl">Network</span></button>
+    <button data-tab="devices"><span class="ti">📱</span><span class="tl">Devices</span></button>
+    <button data-tab="alarms" id="tab-btn-alarms"><span class="ti">🚨</span><span class="tl">Alarms</span></button>
+    <button data-tab="rules"><span class="ti">🛠</span><span class="tl">Rules</span></button>
+    <button data-tab="more"><span class="ti">⚙</span><span class="tl">More</span></button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <button class="sheet-close" id="sheet-x" aria-label="Close">✕</button>
+  <div id="sheet-body"></div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script>
+'use strict';
+
+/* ──────── i18n ──────── */
+const I18N = {
+  en: {
+    'login.title': 'mes Network', 'login.sub': 'Sign in to manage your home network',
+    'login.phone': 'Phone number', 'login.phone_hint': 'Enter your registered phone with country code',
+    'login.send': 'Send code', 'login.code': 'Verification code', 'login.sent_to': 'Code sent to',
+    'login.verify': 'Verify & sign in', 'login.back': '← Use different number',
+    'stat.online': 'Devices online', 'stat.blocked': 'Blocked today',
+    'boxes.title': 'My boxes', 'boxes.add': 'Add a box',
+    'flows.recent': 'Recent activity', 'common.more': 'See all',
+    'devices.title': 'Devices', 'alarms.title': 'Alarms', 'alarms.ack_all': '✓ Acknowledge all',
+    'rules.cats': 'Block categories', 'rules.custom': 'Custom rules', 'rules.add': 'Add',
+    'more.network': 'Network controls', 'more.pause': 'Pause internet', 'more.claim': 'Add a box (pairing code)',
+    'more.account': 'Account & people', 'more.family': 'Family & profiles', 'more.schedules': 'Schedules',
+    'more.billing': 'Billing & plan', 'more.support': 'Support tickets',
+    'more.settings': 'Settings', 'more.acct': 'Account & profile', 'more.notifs': 'Notifications',
+    'more.ddns': 'Dynamic DNS', 'more.wg': 'WireGuard VPN', 'more.vpnclient': 'VPN client (route home through VPN)', 'more.speed': 'Speed history',
+    'more.legacy': 'Advanced (legacy)',
+    'more.app': 'App', 'more.theme': 'Theme', 'more.lang': 'Language', 'more.logout': 'Sign out',
+    'greet.allclear': 'All clear', 'greet.alerts': 'alerts',
+    'dev.rename': 'Rename', 'dev.block': 'Block', 'dev.unblock': 'Unblock',
+    'dev.timelimit': 'Set time limit', 'dev.bwlimit': 'Set bandwidth limit',
+    'dev.schedule': 'Add to schedule', 'dev.cap': 'Set monthly cap', 'dev.family': 'Add to family',
+    'sheet.cancel': 'Cancel', 'sheet.save': 'Save',
+  },
+  ar: {
+    'login.title': 'شبكة mes', 'login.sub': 'سجّل الدخول لإدارة شبكتك المنزلية',
+    'login.phone': 'رقم الهاتف', 'login.phone_hint': 'أدخل هاتفك المسجل مع رمز البلد',
+    'login.send': 'إرسال الرمز', 'login.code': 'رمز التحقق', 'login.sent_to': 'أُرسل الرمز إلى',
+    'login.verify': 'تحقّق وسجّل الدخول', 'login.back': '← استخدم رقمًا آخر',
+    'stat.online': 'الأجهزة المتصلة', 'stat.blocked': 'المحظورة اليوم',
+    'boxes.title': 'صناديقي', 'boxes.add': 'أضف صندوقًا',
+    'flows.recent': 'النشاط الأخير', 'common.more': 'عرض الكل',
+    'devices.title': 'الأجهزة', 'alarms.title': 'التنبيهات', 'alarms.ack_all': '✓ تأكيد الكل',
+    'rules.cats': 'الفئات المحظورة', 'rules.custom': 'قواعد مخصصة', 'rules.add': 'إضافة',
+    'more.network': 'تحكم الشبكة', 'more.pause': 'إيقاف الإنترنت', 'more.claim': 'إضافة صندوق (رمز إقران)',
+    'more.account': 'الحساب والأشخاص', 'more.family': 'العائلة والملفات', 'more.schedules': 'الجداول',
+    'more.settings': 'الإعدادات', 'more.acct': 'الحساب والملف الشخصي', 'more.notifs': 'الإشعارات',
+    'more.ddns': 'DNS ديناميكي', 'more.wg': 'شبكة افتراضية WireGuard', 'more.vpnclient': 'عميل VPN (توجيه المنزل عبر VPN)', 'more.speed': 'سجل السرعة',
+    'more.legacy': 'متقدم (الإصدار القديم)',
+    'more.billing': 'الفوترة والباقة', 'more.support': 'تذاكر الدعم',
+    'more.app': 'التطبيق', 'more.theme': 'المظهر', 'more.lang': 'اللغة', 'more.logout': 'تسجيل الخروج',
+    'greet.allclear': 'كل شيء على ما يرام', 'greet.alerts': 'تنبيهات',
+    'dev.rename': 'إعادة التسمية', 'dev.block': 'حظر', 'dev.unblock': 'إلغاء الحظر',
+    'dev.timelimit': 'حد الوقت', 'dev.bwlimit': 'حد عرض النطاق',
+    'dev.schedule': 'إضافة لجدول', 'dev.cap': 'حد شهري', 'dev.family': 'إضافة لعائلة',
+    'sheet.cancel': 'إلغاء', 'sheet.save': 'حفظ',
+  }
+};
+let LANG = localStorage.getItem('mes_lang') || 'en';
+function t(k) { return (I18N[LANG] && I18N[LANG][k]) || I18N.en[k] || k; }
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i]').forEach(el => { el.textContent = t(el.dataset.i); });
+  document.getElementById('btn-lang').textContent = LANG.toUpperCase();
+}
+
+/* ──────── Theme ──────── */
+let THEME = localStorage.getItem('mes_theme') || 'dark';
+function applyTheme() {
+  document.documentElement.dataset.theme = THEME;
+  document.getElementById('theme-ic').textContent = THEME === 'dark' ? '🌙' : '☀️';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = THEME === 'dark' ? '#0a0f1a' : '#f4f6fa';
+}
+
+/* ──────── State ──────── */
+const state = {
+  token: localStorage.getItem('mes_token') || null,
+  me: null, boxes: [], devices: [], flows: [], alarms: [], rules: [], categories: [],
+  throughput: { up: 0, down: 0, total: 0, history: [] },
+  pause: null,
+};
+
+/* ──────── API ──────── */
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const r = await fetch('/api' + path, { ...opts, headers });
+  let body;
+  try { body = await r.json(); } catch { body = { error: r.statusText || 'request failed' }; }
+  if (!r.ok) throw Object.assign(new Error(body.error || body.message || 'request failed'), { status: r.status, body });
+  return body;
+}
+
+/* ──────── Toast ──────── */
+function toast(msg, kind) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = msg;
+  document.getElementById('toast-stack').appendChild(el);
+  setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 350); }, 3500);
+}
+
+/* ──────── Sheet ──────── */
+function sheet(title, sub, bodyHtml, onMount) {
+  const s = document.getElementById('sheet'), sc = document.getElementById('scrim'), b = document.getElementById('sheet-body');
+  b.innerHTML = (title ? `<h2>${title}</h2>` : '') + (sub ? `<p class="sheet-sub">${sub}</p>` : '') + (bodyHtml || '');
+  sc.classList.add('open'); s.classList.add('open');
+  if (onMount) onMount(b);
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('scrim').classList.remove('open');
+}
+
+// Mobile-friendly replacement for window.confirm — returns a Promise<boolean>.
+function confirmSheet(question, opts = {}) {
+  const okLabel = opts.okLabel || 'Confirm';
+  const cancelLabel = opts.cancelLabel || 'Cancel';
+  const danger = !!opts.danger;
+  return new Promise(resolve => {
+    const html = `<div style="margin-bottom:14px">${esc(question)}</div>
+      <div class="btn-row">
+        <button class="btn ghost" id="cs-x">${esc(cancelLabel)}</button>
+        <button class="btn ${danger ? 'danger' : 'primary'}" id="cs-ok">${esc(okLabel)}</button>
+      </div>`;
+    sheet(opts.title || 'Confirm', opts.sub || '', html, body => {
+      let answered = false;
+      const done = v => { if (answered) return; answered = true; closeSheet(); resolve(v); };
+      body.querySelector('#cs-x').onclick = () => done(false);
+      body.querySelector('#cs-ok').onclick = () => done(true);
+    });
+  });
+}
+
+// Mobile-friendly replacement for window.prompt — returns a Promise<string|null>.
+function promptSheet(question, opts = {}) {
+  const placeholder = opts.placeholder || '';
+  const initial = opts.initial != null ? String(opts.initial) : '';
+  const inputType = opts.type || 'text';
+  return new Promise(resolve => {
+    const html = `<div class="field"><label>${esc(question)}</label>
+        <input id="ps-in" type="${esc(inputType)}" value="${esc(initial)}" placeholder="${esc(placeholder)}" maxlength="${opts.maxlength || 80}"></div>
+      <div class="btn-row">
+        <button class="btn ghost" id="ps-x">Cancel</button>
+        <button class="btn primary" id="ps-ok">${esc(opts.okLabel || 'OK')}</button>
+      </div>`;
+    sheet(opts.title || 'Input', opts.sub || '', html, body => {
+      let answered = false;
+      const done = v => { if (answered) return; answered = true; closeSheet(); resolve(v); };
+      const input = body.querySelector('#ps-in');
+      body.querySelector('#ps-x').onclick = () => done(null);
+      body.querySelector('#ps-ok').onclick = () => done(input.value.trim());
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') done(input.value.trim()); });
+      setTimeout(() => input.focus(), 200);
+    });
+  });
+}
+document.getElementById('scrim').addEventListener('click', closeSheet);
+document.getElementById('sheet-x').addEventListener('click', closeSheet);
+
+/* ──────── Login ──────── */
+const liPhone = document.getElementById('li-phone');
+const liOtp = document.getElementById('li-otp');
+const liSend = document.getElementById('li-send');
+const liVerify = document.getElementById('li-verify');
+
+document.getElementById('li-back').addEventListener('click', () => {
+  document.getElementById('login-step-otp').classList.add('hidden');
+  document.getElementById('login-step-phone').classList.remove('hidden');
+});
+
+liSend.addEventListener('click', async () => {
+  const phone = liPhone.value.trim();
+  if (!phone) { toast('Enter your phone number', 'warn'); return; }
+  liSend.disabled = true; liSend.innerHTML = '<span class="spin"></span>';
+  try {
+    await api('/customer/login', { method: 'POST', body: JSON.stringify({ phone }) });
+    document.getElementById('li-phone-display').textContent = phone;
+    document.getElementById('login-step-phone').classList.add('hidden');
+    document.getElementById('login-step-otp').classList.remove('hidden');
+    setTimeout(() => liOtp.focus(), 100);
+  } catch (e) {
+    toast(e.status === 404 ? 'Phone not registered' : (e.message || 'Failed'), 'bad');
+  } finally {
+    liSend.disabled = false; liSend.innerHTML = `<span data-i="login.send">${t('login.send')}</span>`;
+  }
+});
+
+liVerify.addEventListener('click', async () => {
+  const phone = liPhone.value.trim(), code = liOtp.value.trim();
+  if (code.length !== 4) { toast('Enter 4-digit code', 'warn'); return; }
+  liVerify.disabled = true; liVerify.innerHTML = '<span class="spin"></span>';
+  try {
+    const r = await api('/customer/verify', { method: 'POST', body: JSON.stringify({ phone, code }) });
+    state.token = r.token;
+    localStorage.setItem('mes_token', r.token);
+    bootApp();
+  } catch (e) {
+    toast(e.message || 'Invalid code', 'bad');
+  } finally {
+    liVerify.disabled = false; liVerify.innerHTML = `<span data-i="login.verify">${t('login.verify')}</span>`;
+  }
+});
+
+[liPhone, liOtp].forEach(el => el.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); (el === liPhone ? liSend : liVerify).click(); }
+}));
+
+/* ──────── Tabs ──────── */
+function activateTab(tab) {
+  if (!tab) return;
+  const btn = document.querySelector('.tabbar [data-tab="' + tab + '"]');
+  if (!btn) return;
+  document.querySelectorAll('.tabbar [data-tab]').forEach(x => x.classList.toggle('active', x === btn));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+  if (tab === 'devices') renderDevices();
+  if (tab === 'alarms') renderAlarms();
+  if (tab === 'rules') renderRules();
+  if (tab === 'more') renderMe();
+  try { localStorage.setItem('mes_active_tab', tab); } catch {}
+  if (location.hash !== '#' + tab) {
+    try { history.replaceState(null, '', '#' + tab); } catch {}
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.getElementById('tabbar').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  activateTab(b.dataset.tab);
+});
+window.addEventListener('hashchange', () => {
+  const t = (location.hash || '').replace(/^#/, '');
+  if (t) activateTab(t);
+});
+function restoreActiveTab() {
+  const fromHash = (location.hash || '').replace(/^#/, '');
+  let stored = null;
+  try { stored = localStorage.getItem('mes_active_tab'); } catch {}
+  const valid = ['network','devices','alarms','rules','more'];
+  const tab = valid.includes(fromHash) ? fromHash : (valid.includes(stored) ? stored : null);
+  if (tab) activateTab(tab);
+}
+
+/* ──────── Boot ──────── */
+function bootApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  applyI18n();
+  applyTheme();
+  restoreActiveTab();
+  refreshAll();
+  startPolling();
+  startSse();
+  // Tell server PWA installed
+  try { api('/customer/onboarding/pwa-installed', { method: 'POST', body: '{}' }); } catch {}
+  // sw register
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/pwa/sw.js').catch(() => {});
+  }
+}
+
+async function refreshAll() {
+  try {
+    const [me, boxes, devices, flows, alarms, throughput, pause] = await Promise.all([
+      api('/customer/me').catch(() => null),
+      api('/customer/boxes').catch(() => []),
+      api('/customer/devices').catch(() => []),
+      api('/customer/flows?limit=20').catch(() => []),
+      api('/customer/alarms').catch(() => []),
+      api('/customer/throughput').catch(() => null),
+      api('/customer/pause/status').catch(() => null),
+    ]);
+    state.me = me?.user || me || null;
+    state.boxes = Array.isArray(boxes) ? boxes : (boxes?.boxes || []);
+    state.devices = Array.isArray(devices) ? devices : (devices?.devices || []);
+    state.flows = Array.isArray(flows) ? flows : (flows?.flows || []);
+    state.alarms = Array.isArray(alarms) ? alarms : (alarms?.alarms || []);
+    state.pause = pause;
+    if (throughput) updateThroughput(throughput);
+    renderHome();
+    updateBell();
+    discoverBoxes();
+  } catch (e) {
+    if (e.status === 401) { logout(); return; }
+    console.warn('refresh failed', e);
+  }
+}
+
+function logout() {
+  localStorage.removeItem('mes_token'); state.token = null;
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+/* ──────── Home render ──────── */
+function _greetingPrefix() {
+  const h = new Date().getHours();
+  if (LANG === 'ar') return h < 12 ? 'صباح الخير،' : (h < 18 ? 'مرحبًا،' : 'مساء الخير،');
+  if (h < 12) return 'Good morning,';
+  if (h < 18) return 'Good afternoon,';
+  return 'Good evening,';
+}
+
+function renderHome() {
+  // greeting
+  const name = (state.me?.full_name || state.me?.name || 'there').split(' ')[0];
+  document.getElementById('greet-hi').textContent = `${_greetingPrefix()} ${name}`;
+  const unack = state.alarms.filter(a => !a.ack).length;
+  const gs = document.getElementById('greet-status');
+  if (unack > 0) {
+    gs.className = 'badge bad'; gs.innerHTML = `<span class="dot"></span> ${unack} ${t('greet.alerts')}`;
+  } else {
+    gs.className = 'badge ok'; gs.innerHTML = `<span class="dot"></span> ${t('greet.allclear')}`;
+  }
+  const onlineBoxes = state.boxes.filter(b => b.online).length;
+  document.getElementById('greet-net').textContent = `· ${onlineBoxes}/${state.boxes.length} boxes`;
+
+  // stats
+  const onlineDev = state.devices.filter(d => d.online).length;
+  document.getElementById('s-online').textContent = `${onlineDev}/${state.devices.length}`;
+  const blockedToday = state.flows.filter(f => f.blocked).length;
+  document.getElementById('s-blocked').textContent = blockedToday;
+
+  // today: total bytes from flows
+  const todayBytes = state.flows.reduce((s, f) => s + (f.bytes_up||0) + (f.bytes_down||0), 0);
+  const sToday = document.getElementById('s-today');
+  if (sToday) sToday.textContent = todayBytes ? formatBytes(todayBytes) : '—';
+
+  // pause status
+  const sPause = document.getElementById('s-pause');
+  const sPauseSub = document.getElementById('s-pause-sub');
+  if (sPause) {
+    if (state.pause && state.pause.paused) {
+      sPause.textContent = 'On'; if (sPauseSub) sPauseSub.textContent = 'Paused';
+    } else {
+      sPause.textContent = 'Off'; if (sPauseSub) sPauseSub.textContent = 'Active';
+    }
+  }
+
+  // box list
+  const bl = document.getElementById('box-list');
+  if (state.boxes.length === 0) {
+    bl.innerHTML = `<div class="empty"><div class="em">📦</div>No boxes yet — tap below to add your first.</div>`;
+  } else {
+    bl.innerHTML = state.boxes.map(b => `
+      <div class="box-item">
+        <div class="box-icon">📦</div>
+        <div class="box-meta">
+          <div class="nm">${esc(b.friendly_name || b.mac)}</div>
+          <div class="ms">
+            <span class="chip ${b.online?'ok':''}">${b.online ? '● Online' : '○ Offline'}</span>
+            ${b.cpu_pct != null ? `<span>CPU ${Math.round(b.cpu_pct)}%</span>` : ''}
+            ${b.ram_pct != null ? `<span>RAM ${Math.round(b.ram_pct)}%</span>` : ''}
+            ${b.temp_c != null ? `<span>${Math.round(b.temp_c)}°C</span>` : ''}
+            <span>${b.device_count || 0} devices</span>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // flows (last 5)
+  const fl = document.getElementById('flow-list');
+  const recent = state.flows.slice(0, 5);
+  if (recent.length === 0) {
+    fl.innerHTML = `<div class="empty">No traffic yet.</div>`;
+  } else {
+    fl.innerHTML = recent.map(f => {
+      const dev = state.devices.find(d => d.mac === f.src_mac);
+      const flag = countryFlag(f.country) || '🌐';
+      const right = f.blocked
+        ? '<span class="badge bad">Blocked</span>'
+        : (f.country ? `<span class="badge neutral">${f.country}</span>` : '');
+      return `<div class="flow-row">
+        <div class="flag">${flag}</div>
+        <div class="meta">
+          <div class="top">${esc(dev?.name || f.src_mac || 'device')} → <strong>${esc(f.dst_domain || f.dst_ip)}</strong></div>
+          <div class="bot">${timeAgo(f.ts)} · ${formatBytes((f.bytes_up||0)+(f.bytes_down||0))}</div>
+        </div>
+        <div>${right}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function updateBell() {
+  const unack = state.alarms.filter(a => !a.ack).length;
+  const b = document.getElementById('bell-badge');
+  if (unack > 0) { b.textContent = unack > 99 ? '99+' : unack; b.classList.remove('hidden'); }
+  else b.classList.add('hidden');
+  document.getElementById('tab-btn-alarms').classList.toggle('has-alert', unack > 0);
+}
+
+/* ──────── Discover ──────── */
+async function discoverBoxes() {
+  try {
+    const r = await api('/customer/box/discover');
+    const cands = r.candidates || r.boxes || [];
+    const banner = document.getElementById('discover-banner');
+    if (cands.length === 0) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+    const c = cands[0];
+    banner.classList.remove('hidden');
+    banner.innerHTML = `<div class="discover-card">
+      <div class="ic">📦</div>
+      <div class="tx"><div class="t">New box on your network</div><div class="s">${esc(c.hw || c.model || c.mac)} — tap to add</div></div>
+      <button id="auto-claim-btn">Add</button>
+    </div>`;
+    document.getElementById('auto-claim-btn').onclick = async () => {
+      try {
+        await api('/customer/box/auto-claim', { method: 'POST', body: JSON.stringify({ mac: c.mac }) });
+        toast('Box added!', 'info');
+        banner.classList.add('hidden');
+        refreshAll();
+      } catch (e) { toast(e.message || 'Failed to add', 'bad'); }
+    };
+  } catch {}
+}
+
+/* ──────── Throughput / gauge / sparkline ──────── */
+const SPARK_LEN = 60;
+// Convert any of the shapes the cloud emits into { up_mbps, down_mbps }.
+// Cloud sends bytes/sec as `rx_bps`/`tx_bps`; convert to decimal Mbps.
+// Shapes: SSE event {mac, rx_bps, tx_bps, ts}, poll response {throughput:{mac:{rx_bps,tx_bps,hist60}}},
+// or legacy {up_mbps, down_mbps} (still tolerated).
+const BPS_TO_MBPS = 1 / 125_000;
+function _sampleToUpDown(x) {
+  if (!x || typeof x !== 'object') return { up: 0, down: 0 };
+  if (x.tx_bps != null || x.rx_bps != null) {
+    return { up: (x.tx_bps || 0) * BPS_TO_MBPS, down: (x.rx_bps || 0) * BPS_TO_MBPS };
+  }
+  return { up: x.up_mbps || x.up || 0, down: x.down_mbps || x.down || 0 };
+}
+function updateThroughput(t) {
+  let up = 0, down = 0;
+  if (Array.isArray(t)) {
+    t.forEach(x => { const s = _sampleToUpDown(x); up += s.up; down += s.down; });
+  } else if (t && typeof t === 'object') {
+    if (t.throughput && typeof t.throughput === 'object' && !Array.isArray(t.throughput)) {
+      // GET /api/customer/throughput response: { throughput: { mac: {rx_bps,tx_bps,...} } }
+      for (const v of Object.values(t.throughput)) {
+        const s = _sampleToUpDown(v); up += s.up; down += s.down;
+      }
+    } else if (Array.isArray(t.boxes)) {
+      t.boxes.forEach(x => { const s = _sampleToUpDown(x); up += s.up; down += s.down; });
+    } else {
+      const s = _sampleToUpDown(t); up = s.up; down = s.down;
+    }
+  }
+  const total = up + down;
+  state.throughput.up = up; state.throughput.down = down; state.throughput.total = total;
+  state.throughput.history.push(total);
+  if (state.throughput.history.length > SPARK_LEN) state.throughput.history.shift();
+  drawGauge();
+}
+function drawGauge() {
+  document.getElementById('g-val').textContent = state.throughput.total.toFixed(1);
+  document.getElementById('g-up').textContent = state.throughput.up.toFixed(1);
+  document.getElementById('g-down').textContent = state.throughput.down.toFixed(1);
+  // gauge max — adapt based on history
+  const max = Math.max(50, ...state.throughput.history) * 1.2;
+  // Outer arc (download): 75% of full circle = 471 length (r=100, 0.75*2*PI*100 ≈ 471)
+  const outerLen = 471;
+  const downPct = Math.max(0, Math.min(1, state.throughput.down / max));
+  document.getElementById('gauge-arc').setAttribute('stroke-dashoffset', outerLen * (1 - downPct));
+  // Inner arc (upload): 75% of circle at r=82 = 386
+  const innerLen = 386;
+  const upPct = Math.max(0, Math.min(1, state.throughput.up / max));
+  const upArc = document.getElementById('gauge-arc-up');
+  if (upArc) upArc.setAttribute('stroke-dashoffset', innerLen * (1 - upPct));
+  // sparkline
+  const h = state.throughput.history;
+  if (h.length < 2) return;
+  const w = 280, hh = 36;
+  const peak = Math.max(...h, 1);
+  const pts = h.map((v, i) => {
+    const x = (i / (SPARK_LEN - 1)) * w;
+    const y = hh - (v / peak) * (hh - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  document.getElementById('spark-line').setAttribute('points', pts);
+}
+
+/* ──────── Devices ──────── */
+const _devState = { filter: 'all', q: '' };
+
+function _avatarClass(d) {
+  if (d.blocked) return 'av-danger';
+  const t = (d.device_type || '').toLowerCase();
+  if (['phone','tablet'].includes(t)) return 'av-info';
+  if (['laptop','desktop'].includes(t)) return 'av-brand';
+  if (['tv','console'].includes(t)) return 'av-warn';
+  if (['iot','camera','watch'].includes(t)) return 'av-accent';
+  return d.online ? 'av-info' : '';
+}
+
+function renderDevices() {
+  const all = state.devices || [];
+  document.getElementById('dev-count').textContent = `${all.filter(d=>d.online).length} / ${all.length}`;
+
+  // Update chip counts
+  const counts = {
+    all: all.length,
+    online: all.filter(d => d.online).length,
+    offline: all.filter(d => !d.online).length,
+    blocked: all.filter(d => d.blocked).length,
+  };
+  document.querySelectorAll('#dev-filter [data-cnt]').forEach(el => {
+    el.textContent = counts[el.dataset.cnt] || 0;
+  });
+
+  // Apply filter + search
+  const q = (_devState.q || '').toLowerCase().trim();
+  const filtered = all.filter(d => {
+    if (_devState.filter === 'online' && !d.online) return false;
+    if (_devState.filter === 'offline' && d.online) return false;
+    if (_devState.filter === 'blocked' && !d.blocked) return false;
+    if (q) {
+      const hay = `${d.name||''} ${d.hostname||''} ${d.mac||''} ${d.ip||''} ${d.vendor||''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const el = document.getElementById('dev-list');
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty"><div class="em">📱</div>${all.length ? 'No devices match' : 'No devices yet'}</div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(d => {
+    const ic = d.icon || deviceIcon(d.device_type) || '💻';
+    const bw = Math.min(100, ((d.bw_mbps || 0) / 50) * 100);
+    const avCls = _avatarClass(d);
+    const sub1 = d.vendor ? `${esc(d.vendor)}` : esc(d.hostname || d.mac);
+    const sub2 = d.ip ? esc(d.ip) : '';
+    return `<div class="list-row" data-mac="${esc(d.mac)}">
+      <div class="avatar ${avCls}">${ic}<div class="online ${d.online?'':'off'}"></div></div>
+      <div class="lr-meta">
+        <div class="nm">
+          <span>${esc(d.name || d.hostname || 'device')}</span>
+          ${d.blocked ? '<span class="chip bad">Blocked</span>' : ''}
+        </div>
+        <div class="sub">
+          <span>${sub1}</span>
+          ${sub2 ? `<span class="muted">·</span><span class="mono">${sub2}</span>` : ''}
+        </div>
+      </div>
+      <div class="lr-right">
+        <div class="bw-bar"><div style="width:${bw}%"></div></div>
+        <div class="dim tabular" style="font-size:11px">${(d.bw_mbps||0).toFixed(1)} Mbps</div>
+      </div>
+    </div>`;
+  }).join('');
+  // attach long-press + tap
+  el.querySelectorAll('.list-row').forEach(row => attachActionDrawer(row));
+}
+
+// Wire up search + filter once (idempotent)
+(function wireDevicesUI() {
+  const search = document.getElementById('dev-search');
+  if (search && !search._wired) {
+    search._wired = true;
+    let dT = null;
+    search.addEventListener('input', () => {
+      _devState.q = search.value;
+      clearTimeout(dT);
+      dT = setTimeout(() => renderDevices(), 120);
+    });
+  }
+  const filter = document.getElementById('dev-filter');
+  if (filter && !filter._wired) {
+    filter._wired = true;
+    filter.addEventListener('click', e => {
+      const b = e.target.closest('[data-flt]');
+      if (!b) return;
+      _devState.filter = b.dataset.flt;
+      filter.querySelectorAll('[data-flt]').forEach(x => x.classList.toggle('on', x === b));
+      renderDevices();
+    });
+  }
+})();
+
+function attachActionDrawer(row) {
+  let timer = null, longFired = false;
+  const open = () => openDeviceSheet(row.dataset.mac);
+  row.addEventListener('pointerdown', e => {
+    if (e.button !== undefined && e.button !== 0) return;
+    longFired = false;
+    timer = setTimeout(() => { longFired = true; open(); }, 450);
+  });
+  const cancel = () => { if (timer) clearTimeout(timer); timer = null; };
+  row.addEventListener('pointerup', e => {
+    if (timer) { clearTimeout(timer); timer = null; if (!longFired) open(); }
+  });
+  row.addEventListener('pointercancel', cancel);
+  row.addEventListener('pointerleave', cancel);
+}
+
+function openDeviceSheet(mac) {
+  const d = state.devices.find(x => x.mac === mac); if (!d) return;
+  const acts = [
+    { i: '✏️', l: t('dev.rename'), fn: () => renameDevice(d) },
+    { i: d.blocked ? '✅' : '⛔', l: d.blocked ? t('dev.unblock') : t('dev.block'), danger: !d.blocked, fn: () => blockDevice(d) },
+    { i: '⏱', l: t('dev.timelimit'), fn: () => timeLimitDevice(d) },
+    { i: '📶', l: t('dev.bwlimit'), fn: () => bwLimitDevice(d) },
+    { i: '📅', l: t('dev.schedule'), fn: () => openAddScheduleSheet({ preMacs: [d.mac], titleSub: `For ${esc(d.name || d.mac)}`, defaults: { name: `${(d.name || 'Device')} bedtime` } }) },
+    { i: '📊', l: t('dev.cap'), fn: () => capDevice(d) },
+    { i: '👨‍👩‍👧', l: t('dev.family'), fn: () => { activateTab('more'); showMoreSubview('family'); } },
+  ];
+  const html = `<div class="sheet-actions">${acts.map((a,i) => `
+    <button class="sheet-action ${a.danger?'danger':''}" data-i="${i}"><span class="si">${a.i}</span><span>${a.l}</span></button>
+  `).join('')}</div>`;
+  sheet(esc(d.name || d.mac), `<span class="mono">${esc(d.mac)}</span> · ${d.ip||''}`, html, body => {
+    body.querySelectorAll('.sheet-action').forEach(b => b.onclick = () => { closeSheet(); acts[+b.dataset.i].fn(); });
+  });
+}
+
+function renameDevice(d) {
+  const html = `<div class="field">
+    <label>${t('dev.rename')}</label>
+    <input id="rn-input" value="${esc(d.name||'')}" maxlength="48">
+    <div class="hint">Pick a friendly name for this device.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn ghost" id="rn-cancel">${t('sheet.cancel')}</button>
+    <button class="btn primary" id="rn-save">${t('sheet.save')}</button>
+  </div>`;
+  sheet(t('dev.rename'), `<span class="mono">${esc(d.mac)}</span>`, html, body => {
+    body.querySelector('#rn-cancel').onclick = closeSheet;
+    body.querySelector('#rn-save').onclick = async () => {
+      const name = body.querySelector('#rn-input').value.trim();
+      if (!name) return;
+      try {
+        await api('/customer/device/rename', { method: 'POST', body: JSON.stringify({ mac: d.mac, name }) });
+        d.name = name; renderDevices(); closeSheet(); toast('Renamed', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    setTimeout(() => body.querySelector('#rn-input').focus(), 200);
+  });
+}
+
+async function blockDevice(d) {
+  try {
+    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: 'mac', value: d.mac, action: d.blocked ? 'allow' : 'block' }) });
+    d.blocked = !d.blocked; renderDevices(); toast(d.blocked ? 'Device blocked' : 'Device unblocked', 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+}
+
+function bwLimitDevice(d) {
+  const opts = [
+    { v: 5, l: '5 Mbps', s: 'Slow streaming' },
+    { v: 10, l: '10 Mbps', s: 'HD streaming' },
+    { v: 25, l: '25 Mbps', s: '4K + light gaming' },
+    { v: 50, l: '50 Mbps', s: 'Heavy use' },
+    { v: 0, l: 'No limit', s: 'Remove cap' },
+  ];
+  const html = `<div class="radio-cards">${opts.map(o => `
+    <label class="radio-card">
+      <input type="radio" name="bw" value="${o.v}">
+      <div class="rc-icon">📶</div>
+      <div style="flex:1"><div class="rc-title">${o.l}</div><div class="rc-sub">${o.s}</div></div>
+    </label>`).join('')}</div>
+  <div class="btn-row" style="margin-top:14px"><button class="btn ghost" id="bw-cancel">${t('sheet.cancel')}</button><button class="btn primary" id="bw-save">${t('sheet.save')}</button></div>`;
+  sheet(t('dev.bwlimit'), `<span class="mono">${esc(d.mac)}</span>`, html, body => {
+    body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected'); c.querySelector('input').checked = true;
+    });
+    body.querySelector('#bw-cancel').onclick = closeSheet;
+    body.querySelector('#bw-save').onclick = () => { closeSheet(); toast('Saved (mock — wire to /api/customer/device/bwlimit)', 'info'); };
+  });
+}
+
+/* ──────── Set monthly data cap ──────── */
+async function capDevice(d) {
+  // Try to load existing quota for this device + this month's usage
+  let existing = null, used_gb = 0, period = '';
+  try {
+    const r = await api('/customer/quotas');
+    period = r.period || '';
+    existing = (r.quotas || []).find(q => (q.device_mac || '').toLowerCase() === (d.mac || '').toLowerCase());
+    if (existing && typeof existing.used_gb === 'number') used_gb = existing.used_gb;
+  } catch (_) { /* offline / not authed — keep going with defaults */ }
+
+  const presets = [1, 5, 10, 50]; // GB
+  const fmtGb = g => g >= 1 ? `${g} GB` : `${(g*1024).toFixed(0)} MB`;
+  const usageLine = used_gb > 0
+    ? `<div class="muted" style="font-size:12px;margin-bottom:10px">Used so far this month: <strong>${fmtGb(used_gb)}</strong>${period?` <span class="dim">(${esc(period)})</span>`:''}</div>`
+    : '';
+  const currentLine = existing
+    ? `<div class="chip ok" style="margin-bottom:10px">Current cap: ${existing.monthly_gb} GB / month</div>`
+    : '';
+
+  const html = `${currentLine}${usageLine}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${presets.map(g => `<button class="chip cap-preset" data-g="${g}" style="padding:8px 12px;font-size:13px;cursor:pointer">${g} GB</button>`).join('')}
+      <button class="chip cap-preset" data-g="-1" style="padding:8px 12px;font-size:13px;cursor:pointer">∞ Unlimited</button>
+    </div>
+    <div class="field">
+      <label>Custom (GB)</label>
+      <input id="cap-custom" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="e.g. 25"${existing?` value="${existing.monthly_gb}"`:''}>
+      <div class="hint">Box will block this device for the rest of the month once the cap is hit.</div>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn ghost" id="cap-cancel">${t('sheet.cancel')}</button>
+      <button class="btn primary" id="cap-save">${t('sheet.save')}</button>
+    </div>`;
+
+  sheet(`Set data cap`, `${esc(d.name || d.mac)} · <span class="mono">${esc(d.mac)}</span>`, html, body => {
+    let chosen = existing ? existing.monthly_gb : null; // GB number, or -1 = unlimited
+    const inp = body.querySelector('#cap-custom');
+    const presetBtns = body.querySelectorAll('.cap-preset');
+    const highlight = () => {
+      presetBtns.forEach(b => {
+        const g = parseFloat(b.dataset.g);
+        const match = (chosen === -1 && g === -1) || (chosen !== -1 && chosen != null && g === chosen);
+        b.classList.toggle('ok', match);
+      });
+    };
+    presetBtns.forEach(b => {
+      b.onclick = () => {
+        const g = parseFloat(b.dataset.g);
+        chosen = g;
+        if (g === -1) { inp.value = ''; }
+        else { inp.value = String(g); }
+        highlight();
+      };
+    });
+    inp.oninput = () => {
+      const v = parseFloat(inp.value);
+      chosen = (v > 0) ? v : null;
+      highlight();
+    };
+    highlight();
+
+    body.querySelector('#cap-cancel').onclick = closeSheet;
+    body.querySelector('#cap-save').onclick = async () => {
+      const customVal = parseFloat(inp.value);
+      let monthly_gb;
+      if (chosen === -1) monthly_gb = -1;
+      else if (customVal > 0) monthly_gb = customVal;
+      else if (chosen != null && chosen > 0) monthly_gb = chosen;
+      else { toast('Pick a cap or enter a custom value', 'warn'); return; }
+
+      try {
+        if (monthly_gb === -1) {
+          // Unlimited = remove existing quota (if any)
+          if (existing && existing.id) {
+            await api('/customer/quotas/delete', { method: 'POST', body: JSON.stringify({ id: existing.id }) });
+          }
+          closeSheet();
+          toast('Cap removed — unlimited', 'info');
+        } else {
+          await api('/customer/quotas/set', { method: 'POST', body: JSON.stringify({ device_mac: d.mac, monthly_gb }) });
+          closeSheet();
+          toast(`Cap set: ${monthly_gb} GB / month`, 'info');
+        }
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+
+async function timeLimitDevice(d) {
+  // Load existing time-bank entry for this device (if any) + today's used minutes
+  let existing = null;
+  try {
+    const r = await api('/customer/time-bank');
+    existing = (r.entries || []).find(e => (e.device_mac || '').toLowerCase() === (d.mac || '').toLowerCase());
+  } catch (_) {}
+  const fmtMin = m => m >= 60 ? `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}` : `${m}m`;
+  const presets = [30, 60, 120, 240, 480]; // minutes
+  const usageLine = existing
+    ? `<div class="muted" style="font-size:12px;margin-bottom:10px">Used today: <strong>${fmtMin(existing.used_minutes||0)}</strong> of <strong>${fmtMin(existing.daily_minutes)}</strong></div>`
+    : '';
+  const currentLine = existing
+    ? `<div class="chip ok" style="margin-bottom:10px">Current limit: ${fmtMin(existing.daily_minutes)} / day</div>`
+    : '';
+  const html = `${currentLine}${usageLine}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${presets.map(m => `<button class="chip tl-preset" data-m="${m}" style="padding:8px 12px;font-size:13px;cursor:pointer">${fmtMin(m)}</button>`).join('')}
+      <button class="chip tl-preset" data-m="-1" style="padding:8px 12px;font-size:13px;cursor:pointer">∞ No limit</button>
+    </div>
+    <div class="field">
+      <label>Custom (minutes per day)</label>
+      <input id="tl-custom" type="number" min="1" max="1440" step="1" inputmode="numeric" placeholder="e.g. 90"${existing?` value="${existing.daily_minutes}"`:''}>
+      <div class="hint">Box blocks this device once today's minutes are used. Resets at midnight.</div>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn ghost" id="tl-cancel">${t('sheet.cancel')}</button>
+      <button class="btn primary" id="tl-save">${t('sheet.save')}</button>
+    </div>`;
+  sheet('Set time limit', `${esc(d.name || d.mac)} · <span class="mono">${esc(d.mac)}</span>`, html, body => {
+    let chosen = existing ? existing.daily_minutes : null;
+    const inp = body.querySelector('#tl-custom');
+    const presetBtns = body.querySelectorAll('.tl-preset');
+    const highlight = () => {
+      presetBtns.forEach(b => {
+        const m = parseInt(b.dataset.m);
+        const match = (chosen === -1 && m === -1) || (chosen !== -1 && chosen != null && m === chosen);
+        b.classList.toggle('ok', match);
+      });
+    };
+    presetBtns.forEach(b => {
+      b.onclick = () => {
+        const m = parseInt(b.dataset.m);
+        chosen = m;
+        if (m === -1) inp.value = ''; else inp.value = String(m);
+        highlight();
+      };
+    });
+    inp.oninput = () => {
+      const v = parseInt(inp.value);
+      chosen = (v > 0) ? v : null;
+      highlight();
+    };
+    highlight();
+    body.querySelector('#tl-cancel').onclick = closeSheet;
+    body.querySelector('#tl-save').onclick = async () => {
+      const customVal = parseInt(inp.value);
+      let daily_minutes;
+      if (chosen === -1) daily_minutes = -1;
+      else if (customVal > 0) daily_minutes = customVal;
+      else if (chosen != null && chosen > 0) daily_minutes = chosen;
+      else { toast('Pick a limit or enter custom minutes', 'warn'); return; }
+      try {
+        if (daily_minutes === -1) {
+          if (existing && existing.id) {
+            await api('/customer/time-bank/delete', { method: 'POST', body: JSON.stringify({ id: existing.id }) });
+          }
+          closeSheet();
+          toast('Limit removed — unrestricted', 'info');
+        } else {
+          await api('/customer/time-bank/set', { method: 'POST', body: JSON.stringify({ device_mac: d.mac, daily_minutes }) });
+          closeSheet();
+          toast(`Limit set: ${fmtMin(daily_minutes)} / day`, 'info');
+        }
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+
+/* ──────── Alarms ──────── */
+function renderAlarms() {
+  const el = document.getElementById('alarm-list');
+  if (!state.alarms.length) { el.innerHTML = `<div class="empty"><div class="em">🛡</div>All clear — no alarms.</div>`; return; }
+  const avMap = { critical: 'av-danger', high: 'av-danger', medium: 'av-warn', low: 'av-info' };
+  const ts = a => a.ts ? timeAgo(a.ts) : '';
+  // Group by day: Today / Yesterday / Earlier
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yest = today - 86400000;
+  const groups = { Today: [], Yesterday: [], Earlier: [] };
+  state.alarms.forEach(a => {
+    const at = typeof a.ts === 'string' ? new Date(a.ts).getTime() : (a.ts||0) * (a.ts < 2e10 ? 1000 : 1);
+    if (at >= today) groups.Today.push(a);
+    else if (at >= yest) groups.Yesterday.push(a);
+    else groups.Earlier.push(a);
+  });
+  const renderGroup = (label, list) => {
+    if (!list.length) return '';
+    return `<div class="card-title" style="padding:0 4px;margin:6px 0 4px 0">${label}</div>` +
+      list.map(a => {
+        const sev = a.severity || 'info';
+        const av = avMap[sev] || 'av-info';
+        return `<div class="list-row">
+          <div class="avatar ${av}">⚠</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(a.title || a.type || 'Alarm')}</div>
+            <div class="sub">${esc(a.message || a.desc || '')} ${ts(a) ? `· ${ts(a)}` : ''}</div>
+          </div>
+          <div class="lr-right">
+            ${a.ack ? `<span class="badge ok">✓</span>` : `<button class="btn sm primary" data-ack="${esc(a.id)}">Ack</button>`}
+          </div>
+        </div>`;
+      }).join('');
+  };
+  el.innerHTML = renderGroup('Today', groups.Today) + renderGroup('Yesterday', groups.Yesterday) + renderGroup('Earlier', groups.Earlier);
+  el.querySelectorAll('[data-ack]').forEach(b => b.onclick = async () => {
+    try { await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids: [b.dataset.ack] }) });
+      const a = state.alarms.find(x => String(x.id) === b.dataset.ack); if (a) a.ack = true;
+      renderAlarms(); updateBell(); renderHome(); toast('Acknowledged', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+}
+document.getElementById('ack-all').onclick = async () => {
+  const ids = state.alarms.filter(a => !a.ack).map(a => a.id);
+  if (!ids.length) return;
+  try { await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids }) });
+    state.alarms.forEach(a => a.ack = true); renderAlarms(); updateBell(); renderHome();
+    toast(`${ids.length} alarms acknowledged`, 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── Rules ──────── */
+const DEFAULT_CATS = [
+  { id: 'ads', name: 'Ads & trackers', icon: '🚫', sub: 'Block ads everywhere' },
+  { id: 'social', name: 'Social media', icon: '📱', sub: 'TikTok, Insta, FB, X' },
+  { id: 'adult', name: 'Adult content', icon: '🔞', sub: 'NSFW & gambling' },
+  { id: 'gaming', name: 'Gaming', icon: '🎮', sub: 'Steam, Epic, console' },
+  { id: 'malware', name: 'Malware', icon: '🦠', sub: 'Threat intelligence' },
+  { id: 'streaming', name: 'Streaming', icon: '🎬', sub: 'Netflix, Shahid, etc.' },
+];
+async function renderRules() {
+  try {
+    const [cats, rules] = await Promise.all([
+      api('/customer/categories').catch(() => null),
+      api('/customer/rules').catch(() => []),
+    ]);
+    state.categories = (cats?.categories || cats) || DEFAULT_CATS;
+    if (!Array.isArray(state.categories) || !state.categories.length) state.categories = DEFAULT_CATS;
+    state.rules = Array.isArray(rules) ? rules : (rules?.rules || []);
+  } catch {}
+  // category grid
+  const cg = document.getElementById('cat-grid');
+  cg.innerHTML = state.categories.slice(0, 6).map(c => {
+    const id = c.id || c.key || c.name;
+    const on = state.rules.some(r => r.type === 'category' && r.value === id && r.action === 'block');
+    return `<div class="cat-card ${on?'on':''}" data-cat="${esc(id)}">
+      <div class="top">
+        <div class="ico">${c.icon || '📁'}</div>
+        <div class="switch ${on?'on':''}"></div>
+      </div>
+      <div class="nm">${esc(c.name || id)}</div>
+      <div class="sub">${esc(c.sub || c.desc || '')}</div>
+    </div>`;
+  }).join('');
+  cg.querySelectorAll('.cat-card').forEach(card => card.onclick = () => toggleCategory(card.dataset.cat));
+
+  // custom rules
+  const rl = document.getElementById('rule-list');
+  const custom = state.rules.filter(r => r.type !== 'category');
+  if (!custom.length) { rl.innerHTML = `<div class="empty">No custom rules. Tap + Add to create one.</div>`; }
+  else rl.innerHTML = custom.map(r => `
+    <div class="list-row">
+      <div class="avatar">${r.action === 'block' ? '⛔' : '✅'}</div>
+      <div class="lr-meta">
+        <div class="nm">${esc(r.value)}</div>
+        <div class="sub">${esc(r.type)} · ${r.action}</div>
+      </div>
+      <button class="btn sm ghost" data-rdel="${esc(r.id)}">✕</button>
+    </div>`).join('');
+  rl.querySelectorAll('[data-rdel]').forEach(b => b.onclick = async () => {
+    try { await api('/customer/rules/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.rdel }) });
+      state.rules = state.rules.filter(r => String(r.id) !== b.dataset.rdel); renderRules(); toast('Rule deleted', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+}
+
+async function toggleCategory(id) {
+  const existing = state.rules.find(r => r.type === 'category' && r.value === id);
+  try {
+    if (existing) {
+      await api('/customer/rules/delete', { method: 'POST', body: JSON.stringify({ id: existing.id }) });
+    } else {
+      await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: 'category', value: id, action: 'block' }) });
+    }
+    renderRules(); toast(existing ? 'Category unblocked' : 'Category blocked', 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+}
+
+document.getElementById('btn-add-rule').onclick = () => {
+  const html = `
+    <div class="field">
+      <label>Type</label>
+      <select id="ru-type">
+        <option value="domain">Domain (e.g., example.com)</option>
+        <option value="ip">IP address</option>
+        <option value="geo">Country code (e.g., RU)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Value</label>
+      <input id="ru-val" placeholder="example.com">
+      <div class="hint">Exact match. Wildcards not supported here.</div>
+    </div>
+    <div class="field">
+      <label>Action</label>
+      <div class="radio-cards" id="ru-act">
+        <label class="radio-card selected"><input type="radio" name="act" value="block" checked>
+          <div class="rc-icon">⛔</div><div style="flex:1"><div class="rc-title">Block</div><div class="rc-sub">Deny traffic</div></div></label>
+        <label class="radio-card"><input type="radio" name="act" value="allow">
+          <div class="rc-icon">✅</div><div style="flex:1"><div class="rc-title">Allow</div><div class="rc-sub">Bypass blocks</div></div></label>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn ghost" id="ru-cancel">${t('sheet.cancel')}</button><button class="btn primary" id="ru-save">${t('sheet.save')}</button></div>`;
+  sheet('Add custom rule', '', html, body => {
+    body.querySelectorAll('#ru-act .radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('#ru-act .radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected'); c.querySelector('input').checked = true;
+    });
+    body.querySelector('#ru-cancel').onclick = closeSheet;
+    body.querySelector('#ru-save').onclick = async () => {
+      const type = body.querySelector('#ru-type').value;
+      const value = body.querySelector('#ru-val').value.trim();
+      const action = body.querySelector('input[name="act"]:checked').value;
+      if (!value) { toast('Enter a value', 'warn'); return; }
+      try {
+        await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type, value, action }) });
+        closeSheet(); renderRules(); toast('Rule added', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+
+/* ──────── More ──────── */
+function renderMe() {
+  const name = state.me?.full_name || state.me?.name || '—';
+  document.getElementById('me-name').textContent = name;
+  document.getElementById('me-phone').textContent = state.me?.phone || '—';
+  const plan = state.me?.plan || '';
+  const planEl = document.getElementById('me-plan');
+  if (planEl) {
+    if (plan) { planEl.textContent = String(plan).toUpperCase(); planEl.style.display = ''; }
+    else { planEl.style.display = 'none'; }
+  }
+  // First-letter avatar fallback if no name yet
+  const avEl = document.getElementById('me-avatar');
+  if (avEl) {
+    const first = (name || '').trim().charAt(0).toUpperCase();
+    avEl.textContent = first && first !== '—' ? first : '👤';
+  }
+  refreshModeLabel();
+}
+
+// Network mode picker
+const NETWORK_MODE_INFO = {
+  peer:   { icon: '👁',  label: 'Passive (Peer)',  desc: 'Box only listens via ARP. Safe default. No traffic interception.' },
+  simple: { icon: '🛰',  label: 'Simple Mode',     desc: 'Box ARP-spoofs the gateway. Sees ALL devices automatically. No router config needed. Recommended.' },
+  dhcp:   { icon: '🌐',  label: 'DHCP Mode',       desc: 'Box becomes the LAN DHCP+DNS server. Requires pointing your router DNS at the box.' },
+  bridge: { icon: '🔀',  label: 'Bridge Mode',     desc: 'Box sits inline between modem and router. Needs a 2nd ethernet port (USB-Ethernet).' },
+  router: { icon: '🚦',  label: 'Router Mode',     desc: 'Box replaces your router entirely. Full control. Most invasive.' },
+};
+async function refreshModeLabel() {
+  try {
+    const boxes = state.boxes || [];
+    if (!boxes.length) { document.getElementById('mode-current').textContent = '—'; return; }
+    const mac = boxes[0].mac;
+    const r = await api('/customer/box/' + mac + '/network-mode');
+    const lbl = NETWORK_MODE_INFO[r.current] ? NETWORK_MODE_INFO[r.current].label : r.current;
+    document.getElementById('mode-current').textContent = lbl;
+  } catch {}
+}
+document.getElementById('m-mode').onclick = async () => {
+  const boxes = state.boxes || [];
+  if (!boxes.length) { toast('Add a box first', 'warn'); return; }
+  const mac = boxes[0].mac;
+  let current = 'peer';
+  try { const r = await api('/customer/box/' + mac + '/network-mode'); current = r.current || 'peer'; } catch {}
+  const html = `<div class="radio-cards" id="mode-opts">
+    ${Object.entries(NETWORK_MODE_INFO).map(([k, v]) => `
+      <label class="radio-card${k === current ? ' selected' : ''}"><input type="radio" name="m" value="${k}"${k === current ? ' checked' : ''}>
+        <div class="rc-icon">${v.icon}</div>
+        <div style="flex:1">
+          <div class="rc-title">${v.label}${k === current ? ' <span style="background:var(--accent);color:#001f17;font-size:.7em;padding:1px 8px;border-radius:99px;font-weight:700;margin-left:6px;">current</span>' : ''}</div>
+          <div class="rc-sub" style="font-size:.78em;line-height:1.4;">${v.desc}</div>
+        </div>
+      </label>`).join('')}
+  </div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn ghost" id="mode-cancel">${t('sheet.cancel') || 'Cancel'}</button>
+    <button class="btn primary" id="mode-go">Apply mode</button>
+  </div>`;
+  sheet('Network mode', 'Pick how the box sees + handles traffic. Switch anytime.', html, body => {
+    let pick = current;
+    body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected');
+      const r = c.querySelector('input'); r.checked = true;
+      pick = r.value;
+    });
+    body.querySelector('#mode-cancel').onclick = closeSheet;
+    body.querySelector('#mode-go').onclick = async () => {
+      if (pick === current) { closeSheet(); return; }
+      try {
+        const r = await api('/customer/box/' + mac + '/network-mode', { method: 'POST', body: JSON.stringify({ mode: pick }) });
+        closeSheet();
+        toast('Switching to ' + (NETWORK_MODE_INFO[pick]?.label || pick), 'success', 'Activation runs in ~60 seconds');
+        setTimeout(refreshModeLabel, 3000);
+      } catch (e) { toast('Failed: ' + e.message, 'bad'); }
+    };
+  });
+};
+function pauseFor(minutes, label) {
+  return api('/customer/pause', { method: 'POST', body: JSON.stringify({ duration_min: minutes }) })
+    .then(r => {
+      state.pause = { paused: true, paused_until: r.paused_until };
+      toast(`Paused — ${label}`, 'info');
+    })
+    .catch(e => toast(e.message || 'Failed', 'bad'));
+}
+document.getElementById('m-pause').onclick = () => {
+  // 1h / 2h / until tomorrow morning / cancel — matches Firewalla style.
+  const tomorrow7am = new Date();
+  tomorrow7am.setDate(tomorrow7am.getDate() + 1);
+  tomorrow7am.setHours(7, 0, 0, 0);
+  const minsUntilMorning = Math.max(60, Math.round((tomorrow7am - Date.now()) / 60000));
+  const opts = [
+    { v: 60,  l: '1 hour',          s: 'Resume manually anytime' },
+    { v: 120, l: '2 hours',          s: 'Quick break' },
+    { v: minsUntilMorning, l: 'Until tomorrow 7 AM', s: 'School-night mode' },
+  ];
+  const isPaused = state.pause && state.pause.paused;
+  const cancelBtn = isPaused ? `<button class="btn danger" id="p-cancel-now" style="margin-bottom:10px">▶ Resume now</button>` : '';
+  const html = cancelBtn + `<div class="radio-cards" id="p-opts">
+    ${opts.map((o,i) => `<label class="radio-card"><input type="radio" name="m" value="${o.v}" data-i="${i}">
+      <div class="rc-icon">⏸</div><div style="flex:1"><div class="rc-title">${o.l}</div><div class="rc-sub">${o.s}</div></div></label>`).join('')}
+  </div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn ghost" id="p-cancel">${t('sheet.cancel')}</button>
+    <button class="btn primary" id="p-go">Pause</button>
+  </div>`;
+  sheet(t('more.pause'), isPaused ? 'Currently paused — pick another duration or resume now.' : 'Internet will pause for everyone on the network.', html, body => {
+    body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected'); c.querySelector('input').checked = true;
+    });
+    body.querySelector('#p-cancel').onclick = closeSheet;
+    const cancelNow = body.querySelector('#p-cancel-now');
+    if (cancelNow) cancelNow.onclick = async () => {
+      // Cancel = pause for 0 minutes (server clamps but we trust resume by sending 1)
+      try {
+        await api('/customer/pause', { method: 'POST', body: JSON.stringify({ duration_min: 1 }) });
+        state.pause = null; closeSheet(); toast('Resuming…', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    body.querySelector('#p-go').onclick = async () => {
+      const sel = body.querySelector('input[name="m"]:checked');
+      if (!sel) { toast('Pick a duration', 'warn'); return; }
+      const idx = +sel.dataset.i;
+      await pauseFor(+sel.value, opts[idx].l);
+      closeSheet();
+    };
+  });
+};
+document.getElementById('m-claim').onclick = () => {
+  const html = `<div class="field">
+    <label>Pairing code</label>
+    <input id="cl-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.3em;text-align:center;font-family:ui-monospace,monospace;font-size:24px">
+    <div class="hint">Find this 6-character code on your box's display or sticker.</div>
+  </div>
+  <div class="btn-row"><button class="btn ghost" id="cl-x">${t('sheet.cancel')}</button><button class="btn primary" id="cl-go">Add box</button></div>`;
+  sheet(t('more.claim'), '', html, body => {
+    body.querySelector('#cl-x').onclick = closeSheet;
+    body.querySelector('#cl-go').onclick = async () => {
+      const code = body.querySelector('#cl-code').value.trim().toUpperCase();
+      if (code.length < 4) { toast('Enter a valid code', 'warn'); return; }
+      try { await api('/customer/box/claim', { method: 'POST', body: JSON.stringify({ code }) });
+        closeSheet(); toast('Box added!', 'info'); refreshAll();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+document.getElementById('m-theme').onclick = toggleTheme;
+document.getElementById('m-lang').onclick = toggleLang;
+document.getElementById('m-logout').onclick = logout;
+document.getElementById('btn-add-box').onclick = () => document.getElementById('m-claim').click();
+
+/* ──────── More sub-views (inline pages) ──────── */
+const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','qos','iot','quarantine','secscan','kidlock','speed','plan'];
+let _moreCurrent = 'main';
+
+function showMoreSubview(name) {
+  _moreCurrent = name;
+  document.getElementById('more-main').hidden = (name !== 'main');
+  for (const sv of MORE_SUBVIEWS) {
+    const el = document.getElementById('more-' + sv);
+    if (el) el.hidden = (name !== sv);
+  }
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  // Lazy render on open
+  if (name === 'family') renderFamilySub();
+  else if (name === 'schedules') renderSchedulesSub();
+  else if (name === 'account') renderAccountSub();
+  else if (name === 'notifs') renderNotifsSub();
+  else if (name === 'ddns') renderDdnsSub();
+  else if (name === 'wg') renderWgSub();
+  else if (name === 'vpnclient') renderVpnClientSub();
+  else if (name === 'ovpnclient') renderOvpnClientSub();
+  else if (name === 'qos') renderQosSub();
+  else if (name === 'iot') renderIotSub();
+  else if (name === 'quarantine') renderQuarantineSub();
+  else if (name === 'secscan') renderSecScanSub();
+  else if (name === 'kidlock') renderKidlockSub();
+  else if (name === 'speed') renderSpeedSub();
+  else if (name === 'plan') renderPlanSub();
+}
+// Wire up open links
+document.querySelectorAll('#more-main [data-subview]').forEach(b => {
+  b.addEventListener('click', () => showMoreSubview(b.dataset.subview));
+});
+// Wire up back buttons
+document.querySelectorAll('#tab-more [data-back]').forEach(b => {
+  b.addEventListener('click', () => showMoreSubview('main'));
+});
+// When user re-taps More tab (via tabbar), reset to main view
+document.querySelector('.tabbar [data-tab="more"]').addEventListener('click', () => {
+  if (_moreCurrent !== 'main') showMoreSubview('main');
+});
+
+// State caches for sub-views
+let _famCache = [];
+let _schedCache = [];
+let _schedPresets = [];
+
+/* ──────── Family sub-view ──────── */
+async function renderFamilySub() {
+  const el = document.getElementById('fam-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/family');
+    _famCache = r.family || [];
+    if (!_famCache.length) {
+      el.innerHTML = `<div class="empty"><div class="em">👨‍👩‍👧</div>No family members yet — tap ＋ Add to create one.</div>`;
+      return;
+    }
+    el.innerHTML = _famCache.map(f => {
+      const role = f.role || 'Member';
+      const roleBadge = role === 'Kid' ? 'warn' : role === 'Teen' ? 'info' : 'ok';
+      return `<div class="list-row" data-fid="${esc(f.id)}">
+        <div class="avatar" style="font-size:22px">${esc(f.icon || '👤')}</div>
+        <div class="lr-meta">
+          <div class="nm">${esc(f.name)}</div>
+          <div class="sub"><span class="chip ${roleBadge}">${esc(role)}</span><span>${(f.device_macs||[]).length} device(s)</span></div>
+        </div>
+        <button class="btn sm ghost" data-fdel="${esc(f.id)}">✕</button>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.list-row').forEach(row => row.addEventListener('click', e => {
+      if (e.target.closest('[data-fdel]')) return;
+      openFamilyMemberSheet(row.dataset.fid);
+    }));
+    el.querySelectorAll('[data-fdel]').forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      if (!await confirmSheet('Remove this family member?', { okLabel: 'Remove', danger: true })) return;
+      try {
+        await api('/customer/family/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.fdel }) });
+        toast('Removed', 'info'); renderFamilySub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="empty">Failed to load: ${esc(e.message || '')}</div>`;
+  }
+}
+
+document.getElementById('fam-add-btn').onclick = () => {
+  const html = `<div class="field"><label>Name</label><input id="fa-name" maxlength="40" placeholder="e.g. Sarah"></div>
+    <div class="field"><label>Role</label>
+      <select id="fa-role">
+        <option value="Adult">Adult</option><option value="Teen">Teen</option>
+        <option value="Kid">Kid</option><option value="Member">Member</option>
+      </select>
+    </div>
+    <div class="btn-row"><button class="btn ghost" id="fa-x">${t('sheet.cancel')}</button><button class="btn primary" id="fa-go">Add</button></div>`;
+  sheet('Add family member', '', html, body => {
+    body.querySelector('#fa-x').onclick = closeSheet;
+    body.querySelector('#fa-go').onclick = async () => {
+      const name = body.querySelector('#fa-name').value.trim();
+      const role = body.querySelector('#fa-role').value;
+      if (!name) { toast('Name required', 'warn'); return; }
+      try {
+        await api('/customer/family/add', { method: 'POST', body: JSON.stringify({ name, role }) });
+        closeSheet(); toast('Added', 'info'); renderFamilySub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    setTimeout(() => body.querySelector('#fa-name').focus(), 200);
+  });
+};
+
+function openFamilyMemberSheet(famId) {
+  const fam = _famCache.find(x => x.id === famId);
+  if (!fam) return;
+  const assignedSet = new Set((fam.device_macs || []).map(m => m.toLowerCase()));
+  const otherOwner = {};
+  for (const m of _famCache) {
+    if (m.id === famId) continue;
+    for (const mac of (m.device_macs || [])) otherOwner[mac.toLowerCase()] = m.name;
+  }
+  const assignedHtml = (fam.device_macs || []).length
+    ? (fam.device_macs || []).map(mac => {
+        const dev = state.devices.find(d => d.mac && d.mac.toLowerCase() === mac.toLowerCase());
+        const label = dev ? (dev.name || dev.hostname || mac) : mac;
+        const ic = dev ? (dev.icon || deviceIcon(dev.device_type) || '💻') : '📱';
+        return `<div class="list-row">
+          <div class="avatar">${ic}</div>
+          <div class="lr-meta"><div class="nm">${esc(label)}</div><div class="sub mono">${esc(mac)}</div></div>
+          <button class="btn sm ghost" data-rm="${esc(mac)}">✕</button>
+        </div>`;
+      }).join('')
+    : '<div class="empty">No devices assigned yet.</div>';
+  const unassigned = (state.devices || []).filter(d => d.mac && !assignedSet.has(d.mac.toLowerCase()) && !otherOwner[d.mac.toLowerCase()]);
+  const optionsHtml = unassigned.map(d => `<option value="${esc(d.mac)}">${esc(d.name || d.hostname || d.mac)} — ${esc(d.mac)}</option>`).join('');
+  const pickHtml = unassigned.length
+    ? `<div class="field" style="margin-top:14px"><label>Assign device</label>
+        <div class="row gap-8">
+          <select id="fa-dev-pick" style="flex:1;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)">
+            <option value="">— pick a device —</option>${optionsHtml}
+          </select>
+          <button class="btn sm primary" id="fa-dev-add" style="width:auto;height:50px;flex-shrink:0">＋</button>
+        </div></div>`
+    : '<div class="hint" style="margin-top:14px">No more unassigned devices.</div>';
+  const html = `<div class="list">${assignedHtml}</div>${pickHtml}
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn ghost" id="fa-close">Close</button>
+      <button class="btn ghost" id="fa-edit">Edit member</button>
+    </div>`;
+  sheet(`${esc(fam.icon || '👤')} ${esc(fam.name)}`, `${esc(fam.role)} · ${(fam.device_macs||[]).length} device(s)`, html, body => {
+    body.querySelector('#fa-close').onclick = closeSheet;
+    body.querySelector('#fa-edit').onclick = () => { closeSheet(); editFamilyMember(famId); };
+    body.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+      try {
+        await api('/customer/family/assign-device', { method: 'POST', body: JSON.stringify({ member_id: '', mac: b.dataset.rm }) });
+        closeSheet(); await renderFamilySub();
+        // Re-open with fresh data
+        const fresh = _famCache.find(x => x.id === famId);
+        if (fresh) openFamilyMemberSheet(famId);
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+    const addBtn = body.querySelector('#fa-dev-add');
+    if (addBtn) addBtn.onclick = async () => {
+      const mac = body.querySelector('#fa-dev-pick').value;
+      if (!mac) return;
+      try {
+        await api('/customer/family/assign-device', { method: 'POST', body: JSON.stringify({ member_id: famId, mac }) });
+        closeSheet(); await renderFamilySub();
+        openFamilyMemberSheet(famId);
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+
+function editFamilyMember(famId) {
+  const fam = _famCache.find(x => x.id === famId); if (!fam) return;
+  const html = `<div class="field"><label>Name</label><input id="fe-name" value="${esc(fam.name)}" maxlength="40"></div>
+    <div class="field"><label>Role</label>
+      <select id="fe-role">
+        ${['Admin','Adult','Teen','Kid','Member'].map(r => `<option value="${r}"${r===fam.role?' selected':''}>${r}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Icon (emoji)</label><input id="fe-icon" value="${esc(fam.icon||'👤')}" maxlength="4"></div>
+    <div class="btn-row"><button class="btn ghost" id="fe-x">${t('sheet.cancel')}</button><button class="btn primary" id="fe-go">Save</button></div>`;
+  sheet('Edit member', '', html, body => {
+    body.querySelector('#fe-x').onclick = closeSheet;
+    body.querySelector('#fe-go').onclick = async () => {
+      const name = body.querySelector('#fe-name').value.trim();
+      const role = body.querySelector('#fe-role').value;
+      const icon = body.querySelector('#fe-icon').value.trim() || '👤';
+      if (!name) { toast('Name required', 'warn'); return; }
+      try {
+        await api('/customer/family/update', { method: 'POST', body: JSON.stringify({ id: famId, name, role, icon }) });
+        closeSheet(); toast('Saved', 'info'); renderFamilySub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+
+/* ──────── Schedules sub-view ──────── */
+async function renderSchedulesSub() {
+  const el = document.getElementById('sch-list');
+  const pe = document.getElementById('sch-presets');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  pe.innerHTML = '<div class="empty">Loading presets…</div>';
+  try {
+    const [r, pr] = await Promise.all([
+      api('/customer/schedules').catch(()=>({ schedules: [] })),
+      api('/customer/schedules/presets').catch(()=>({ presets: [] })),
+    ]);
+    _schedCache = r.schedules || [];
+    _schedPresets = pr.presets || [];
+
+    if (!_schedCache.length) {
+      el.innerHTML = `<div class="empty"><div class="em">📅</div>No schedules yet — pick a preset or tap ＋ Add.</div>`;
+    } else {
+      const dayMapNum = ['S','M','T','W','T','F','S']; // 0=Sun..6=Sat
+      const dayMapStr = { sun:'S', mon:'M', tue:'T', wed:'W', thu:'T', fri:'F', sat:'S' };
+      const fmtDays = days => (days||[]).map(d => typeof d === 'number' ? dayMapNum[d] : (dayMapStr[d] || '')).join('');
+      el.innerHTML = _schedCache.map(s => `
+        <div class="list-row" data-sid="${esc(s.id)}">
+          <div class="avatar">${esc(s.icon || '🕐')}</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(s.name)}</div>
+            <div class="sub">${esc(s.start_hhmm)} → ${esc(s.end_hhmm)} · ${fmtDays(s.days)} · ${(s.device_macs||[]).length} dev / ${(s.family_ids||[]).length} fam</div>
+          </div>
+          <div class="lr-right">
+            <span class="chip ${s.enabled ? 'ok' : ''}">${s.enabled ? '●' : '○'}</span>
+            <button class="btn sm ghost" data-sdel="${esc(s.id)}">✕</button>
+          </div>
+        </div>`).join('');
+      el.querySelectorAll('[data-sdel]').forEach(b => b.onclick = async (e) => {
+        e.stopPropagation();
+        if (!await confirmSheet('Delete this schedule?', { okLabel: 'Delete', danger: true })) return;
+        try { await api('/customer/schedules/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.sdel }) });
+          toast('Deleted', 'info'); renderSchedulesSub();
+        } catch (e) { toast(e.message || 'Failed', 'bad'); }
+      });
+    }
+
+    if (!_schedPresets.length) {
+      pe.innerHTML = '<div class="empty">No presets</div>';
+    } else {
+      pe.innerHTML = _schedPresets.map(p => `
+        <div class="list-row" data-pid="${esc(p.id)}">
+          <div class="avatar">${esc(p.icon || '🕐')}</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(p.name)}</div>
+            <div class="sub">${esc(p.start_hhmm)} → ${esc(p.end_hhmm)} · ${(p.days||[]).map(d => (d[0]||'').toUpperCase()).join('')}</div>
+          </div>
+          <button class="btn sm primary" data-papply="${esc(p.id)}">Use</button>
+        </div>`).join('');
+      pe.querySelectorAll('[data-papply]').forEach(b => b.onclick = async () => {
+        try {
+          await api('/customer/schedules/from-preset', { method: 'POST', body: JSON.stringify({ preset_id: b.dataset.papply, family_ids: [], device_macs: [] }) });
+          toast('Schedule added — pick devices/family below', 'info');
+          renderSchedulesSub();
+        } catch (e) { toast(e.message || 'Failed', 'bad'); }
+      });
+    }
+  } catch (e) {
+    el.innerHTML = `<div class="empty">Failed to load</div>`;
+  }
+}
+
+function openAddScheduleSheet(opts = {}) {
+  // opts.preMacs   = array of MAC strings to pre-check
+  // opts.titleSub  = string subtitle override
+  // opts.defaults  = { name?, start?, end?, days? }
+  const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const preMacs = new Set((opts.preMacs || []).map(m => (m || '').toLowerCase()));
+  const def = opts.defaults || {};
+  const tickSvg = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5L9.5 3.5" stroke="#1a0c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const devOpts = (state.devices || []).map(d => {
+    const on = preMacs.has((d.mac || '').toLowerCase());
+    const ic = d.icon || deviceIcon(d.device_type) || '💻';
+    return `<div class="check-row ${on?'on':''}" role="checkbox" aria-checked="${on}">
+      <input type="checkbox" class="sch-dev" data-mac="${esc(d.mac)}"${on?' checked':''} hidden>
+      <div class="cr-ic">${ic}</div>
+      <div class="cr-meta">
+        <div class="nm">${esc(d.name || d.mac)}</div>
+        <div class="sub mono">${esc(d.mac)}</div>
+      </div>
+      <div class="cr-tick">${tickSvg}</div>
+    </div>`;
+  }).join('');
+  const famOpts = _famCache.length ? _famCache.map(f =>
+    `<div class="check-row" role="checkbox" aria-checked="false">
+      <input type="checkbox" class="sch-fam" data-fid="${esc(f.id)}" hidden>
+      <div class="cr-ic">${esc(f.icon || '👤')}</div>
+      <div class="cr-meta">
+        <div class="nm">${esc(f.name)}</div>
+        <div class="sub">${esc(f.role || 'Member')}</div>
+      </div>
+      <div class="cr-tick">${tickSvg}</div>
+    </div>`).join('') : '<div class="hint">No family members yet</div>';
+  const presetChips = [
+    { name: 'Bedtime',   start: '22:00', end: '06:00', days: [0,1,2,3,4,5,6], emoji: '🌙' },
+    { name: 'School',    start: '08:00', end: '15:00', days: [1,2,3,4,5],     emoji: '🏫' },
+    { name: 'Homework',  start: '17:00', end: '19:00', days: [0,1,2,3,4],     emoji: '📚' },
+    { name: 'Weekend',   start: '00:00', end: '23:59', days: [0,6],           emoji: '🎮' },
+  ];
+  const presetHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    ${presetChips.map((p,i) => `<button class="chip sch-preset" data-i="${i}" style="padding:7px 12px;font-size:12px;cursor:pointer">${p.emoji} ${p.name}</button>`).join('')}
+  </div>`;
+  const html = `${presetHtml}
+    <div class="field"><label>Name</label><input id="s-name" value="${esc(def.name || 'Bedtime')}" maxlength="40"></div>
+    <div class="row gap-8" style="margin-bottom:14px">
+      <div class="field" style="flex:1;margin:0"><label>Start</label><input id="s-start" type="time" value="${esc(def.start || '22:00')}"></div>
+      <div class="field" style="flex:1;margin:0"><label>End</label><input id="s-end" type="time" value="${esc(def.end || '06:00')}"></div>
+    </div>
+    <div class="field"><label>Days</label>
+      <div class="day-pills" id="s-days">${dayLabels.map((l,i)=>`<div class="day-pill ${(def.days||[0,1,2,3,4,5,6]).includes(i)?'on':''}" data-d="${i}">${l}</div>`).join('')}</div>
+    </div>
+    <div class="field"><label>Family members</label>${famOpts}</div>
+    <div class="field"><label>Devices</label>${devOpts || '<div class="hint">No devices loaded</div>'}</div>
+    <div class="btn-row"><button class="btn ghost" id="s-x">${t('sheet.cancel')}</button><button class="btn primary" id="s-go">Add</button></div>`;
+  sheet('New schedule', opts.titleSub || 'Block selected devices/family during these hours.', html, body => {
+    body.querySelectorAll('#s-days .day-pill').forEach(p => p.onclick = () => p.classList.toggle('on'));
+    // Wire check-row toggles
+    body.querySelectorAll('.check-row').forEach(row => row.addEventListener('click', () => {
+      const cb = row.querySelector('input[type=checkbox]');
+      if (!cb) return;
+      cb.checked = !cb.checked;
+      row.classList.toggle('on', cb.checked);
+      row.setAttribute('aria-checked', String(cb.checked));
+    }));
+    body.querySelectorAll('.sch-preset').forEach(b => b.onclick = () => {
+      const p = presetChips[+b.dataset.i];
+      body.querySelector('#s-name').value = p.name;
+      body.querySelector('#s-start').value = p.start;
+      body.querySelector('#s-end').value = p.end;
+      body.querySelectorAll('#s-days .day-pill').forEach(pill => {
+        pill.classList.toggle('on', p.days.includes(+pill.dataset.d));
+      });
+    });
+    body.querySelector('#s-x').onclick = closeSheet;
+    body.querySelector('#s-go').onclick = async () => {
+      const name = body.querySelector('#s-name').value.trim() || 'Schedule';
+      const start_hhmm = body.querySelector('#s-start').value;
+      const end_hhmm = body.querySelector('#s-end').value;
+      const days = Array.from(body.querySelectorAll('#s-days .day-pill.on')).map(p => +p.dataset.d);
+      const device_macs = Array.from(body.querySelectorAll('.sch-dev:checked')).map(c => c.dataset.mac);
+      const family_ids = Array.from(body.querySelectorAll('.sch-fam:checked')).map(c => c.dataset.fid);
+      if (!days.length) { toast('Pick at least one day', 'warn'); return; }
+      if (!device_macs.length && !family_ids.length) { toast('Pick at least one device or family member', 'warn'); return; }
+      try {
+        await api('/customer/schedules/add', { method: 'POST', body: JSON.stringify({
+          name, start_hhmm, end_hhmm, days, device_macs, family_ids, enabled: true
+        })});
+        closeSheet(); toast('Schedule added', 'info');
+        if (typeof renderSchedulesSub === 'function') renderSchedulesSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+document.getElementById('sch-add-btn').onclick = () => openAddScheduleSheet();
+
+/* ──────── Account sub-view ──────── */
+async function renderAccountSub() {
+  const card = document.getElementById('acct-card');
+  card.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/me');
+    const c = r.customer || r.user || r;
+    const limits = r.plan_limits || {};
+    const usage = r.plan_usage || {};
+    card.innerHTML = `
+      <div class="card-title">Profile</div>
+      <div class="kv-row"><div class="k">Name</div><div class="v" id="acct-name">${esc(c.name || '—')}</div></div>
+      <div class="kv-row"><div class="k">Phone</div><div class="v mono">${esc(c.phone || '—')}</div></div>
+      <div class="kv-row"><div class="k">Email</div><div class="v">${esc(c.email || '—')}</div></div>
+      <div class="kv-row"><div class="k">Plan</div><div class="v">${esc(String(c.plan || '').toUpperCase())}</div></div>
+      ${limits.max_family_members ? `<div class="kv-row"><div class="k">Family</div><div class="v tabular">${usage.family_members||0} / ${limits.max_family_members}</div></div>`:''}
+      ${limits.max_schedules ? `<div class="kv-row"><div class="k">Schedules</div><div class="v tabular">${usage.schedules||0} / ${limits.max_schedules}</div></div>`:''}
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn ghost" id="acct-edit">Edit name</button>
+        <button class="btn ghost" id="acct-email">Change email</button>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn danger" id="acct-logout">Sign out</button>
+      </div>
+    `;
+    card.querySelector('#acct-edit').onclick = () => editAccountName(c);
+    card.querySelector('#acct-email').onclick = () => changeAccountEmail(c);
+    card.querySelector('#acct-logout').onclick = logout;
+  } catch (e) {
+    card.innerHTML = `<div class="empty">Failed to load: ${esc(e.message || '')}</div>`;
+  }
+}
+
+function editAccountName(c) {
+  const html = `<div class="field"><label>Full name</label><input id="an-name" value="${esc(c.name||'')}" maxlength="80"></div>
+    <div class="btn-row"><button class="btn ghost" id="an-x">${t('sheet.cancel')}</button><button class="btn primary" id="an-go">Save</button></div>`;
+  sheet('Edit profile', '', html, body => {
+    body.querySelector('#an-x').onclick = closeSheet;
+    body.querySelector('#an-go').onclick = async () => {
+      const name = body.querySelector('#an-name').value.trim();
+      if (!name) { toast('Name required', 'warn'); return; }
+      try {
+        await api('/customer/me/update', { method: 'POST', body: JSON.stringify({ name }) });
+        closeSheet(); toast('Saved', 'info'); renderAccountSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+
+function changeAccountEmail(c) {
+  const html = `<div class="field"><label>New email</label><input id="ae-em" type="email" value="${esc(c.email||'')}" maxlength="120"></div>
+    <div class="hint">A verification link will be sent to the new address. The change takes effect after you click it.</div>
+    <div class="btn-row" style="margin-top:14px"><button class="btn ghost" id="ae-x">${t('sheet.cancel')}</button><button class="btn primary" id="ae-go">Send verification</button></div>`;
+  sheet('Change email', '', html, body => {
+    body.querySelector('#ae-x').onclick = closeSheet;
+    body.querySelector('#ae-go').onclick = async () => {
+      const email = body.querySelector('#ae-em').value.trim();
+      if (!email) { toast('Email required', 'warn'); return; }
+      try {
+        await api('/customer/me/email-change', { method: 'POST', body: JSON.stringify({ email }) });
+        closeSheet(); toast('Verification sent — check your inbox', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+}
+
+/* ──────── Notifications sub-view ──────── */
+async function renderNotifsSub() {
+  const cats = document.getElementById('notif-cats');
+  const chans = document.getElementById('notif-chans');
+  cats.innerHTML = '<div class="empty">Loading…</div>'; chans.innerHTML = '';
+  try {
+    const r = await api('/customer/notif-prefs');
+    const p = r.prefs || {};
+    const catRows = [
+      ['security','🛡', 'Security alerts', 'Port scans, new devices, threats'],
+      ['family',  '👨‍👩‍👧', 'Family activity', 'Schedule blocks, kid devices'],
+      ['billing', '💳', 'Billing & invoices', 'New invoice, payment due'],
+      ['system',  '⚙️', 'System updates', 'Box online/offline, firmware'],
+    ];
+    cats.innerHTML = catRows.map(([k,ic,nm,sub]) => {
+      const on = !!p[k];
+      return `<div class="toggle-row"><div class="ic">${ic}</div>
+        <div class="meta"><div class="nm">${nm}</div><div class="sub">${sub}</div></div>
+        <div class="switch-mini ${on?'on':''}" data-cat="${k}"></div></div>`;
+    }).join('');
+    cats.querySelectorAll('[data-cat]').forEach(s => s.onclick = async () => {
+      const k = s.dataset.cat; const newVal = !s.classList.contains('on');
+      s.classList.toggle('on', newVal);
+      try { await api('/customer/notif-prefs', { method: 'POST', body: JSON.stringify({ [k]: newVal }) }); }
+      catch (e) { toast(e.message || 'Failed', 'bad'); s.classList.toggle('on', !newVal); }
+    });
+
+    const ch = p.channels || { push: true, email: true, sms: false };
+    const chRows = [
+      ['push',  '📱', 'Push notifications', 'In-app + mobile'],
+      ['email', '✉️', 'Email', 'For digests + critical alerts'],
+      ['sms',   '💬', 'SMS', 'Charged separately'],
+    ];
+    chans.innerHTML = chRows.map(([k,ic,nm,sub]) => {
+      const on = !!ch[k];
+      return `<div class="toggle-row"><div class="ic">${ic}</div>
+        <div class="meta"><div class="nm">${nm}</div><div class="sub">${sub}</div></div>
+        <div class="switch-mini ${on?'on':''}" data-chan="${k}"></div></div>`;
+    }).join('');
+    chans.querySelectorAll('[data-chan]').forEach(s => s.onclick = async () => {
+      const k = s.dataset.chan; const newVal = !s.classList.contains('on');
+      s.classList.toggle('on', newVal);
+      try {
+        await api('/customer/notif-prefs', { method: 'POST', body: JSON.stringify({ channels: { [k]: newVal } }) });
+      } catch (e) { toast(e.message || 'Failed', 'bad'); s.classList.toggle('on', !newVal); }
+    });
+  } catch (e) {
+    cats.innerHTML = `<div class="empty">Failed to load</div>`;
+  }
+}
+
+/* ──────── DDNS sub-view ──────── */
+async function renderDdnsSub() {
+  const card = document.getElementById('ddns-card');
+  card.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/ddns');
+    if (!r.records || !r.records.length) {
+      card.innerHTML = `<div class="empty">No hostname claimed yet — pick one below.</div>`;
+    } else {
+      const d = r.records[0];
+      card.innerHTML = `
+        <div class="kv-row"><div class="k">Hostname</div><div class="v mono" style="color:var(--accent)">${esc(d.hostname)}</div></div>
+        <div class="kv-row"><div class="k">Resolves to</div><div class="v mono">${esc(d.current_ip || '(awaiting box)')}</div></div>
+        ${d.last_update ? `<div class="kv-row"><div class="k">Last updated</div><div class="v">${esc(timeAgo(d.last_update))}</div></div>` : ''}
+      `;
+    }
+  } catch (e) {
+    card.innerHTML = `<div class="empty">Failed to load</div>`;
+  }
+}
+document.getElementById('ddns-claim').onclick = async () => {
+  const slug = (document.getElementById('ddns-slug-in').value || '').trim().toLowerCase();
+  if (slug.length < 3) { toast('At least 3 chars (a-z, 0-9, dash)', 'warn'); return; }
+  try {
+    const r = await api('/customer/ddns/claim', { method: 'POST', body: JSON.stringify({ slug }) });
+    document.getElementById('ddns-slug-in').value = '';
+    toast(`Claimed ${r.hostname}`, 'info');
+    renderDdnsSub();
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── WireGuard sub-view ──────── */
+async function renderWgSub() {
+  const el = document.getElementById('wg-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/wg/peers');
+    const peers = r.peers || [];
+    if (!peers.length) {
+      el.innerHTML = `<div class="empty"><div class="em">🔐</div>No peers yet — add one below.</div>`;
+      return;
+    }
+    el.innerHTML = peers.map(p => `
+      <div class="list-row">
+        <div class="avatar">🔐</div>
+        <div class="lr-meta"><div class="nm">${esc(p.label)}</div><div class="sub mono">${esc(p.address)}</div></div>
+        <button class="btn sm ghost" data-wgqr="${esc(p.id)}" data-label="${esc(p.label)}" title="QR code">▦</button>
+        <button class="btn sm ghost" data-wgdl="${esc(p.id)}" data-label="${esc(p.label)}" title="Download .conf">⬇</button>
+        <button class="btn sm ghost" data-wgdel="${esc(p.id)}">✕</button>
+      </div>`).join('');
+    el.querySelectorAll('[data-wgdl]').forEach(b => b.onclick = () => downloadWgConf(b.dataset.wgdl, b.dataset.label));
+    el.querySelectorAll('[data-wgqr]').forEach(b => b.onclick = () => showWgQr(b.dataset.wgqr, b.dataset.label));
+    el.querySelectorAll('[data-wgdel]').forEach(b => b.onclick = async () => {
+      if (!await confirmSheet('Delete this peer?', { okLabel: 'Delete', danger: true })) return;
+      try {
+        await api('/customer/wg/peers/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.wgdel }) });
+        toast('Peer deleted', 'info'); renderWgSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="empty">${esc(e.message?.includes('plan_limit') ? 'Upgrade to Pro for VPN' : (e.message || 'Failed'))}</div>`;
+  }
+}
+document.getElementById('wg-add').onclick = async () => {
+  const label = (document.getElementById('wg-label-in').value || 'My Device').trim();
+  try {
+    await api('/customer/wg/peers/create', { method: 'POST', body: JSON.stringify({ label }) });
+    document.getElementById('wg-label-in').value = '';
+    toast('Peer added — tap ⬇ to download', 'info'); renderWgSub();
+  } catch (e) { toast(e.message?.includes('plan_limit') ? 'Upgrade to Pro for VPN' : (e.message || 'Failed'), 'bad'); }
+};
+async function downloadWgConf(id, label) {
+  try {
+    const res = await fetch('/api/customer/wg/peers/' + id + '.conf', { headers: { Authorization: 'Bearer ' + state.token } });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u; a.download = (label || 'mes-vpn').replace(/[^a-z0-9]+/gi,'-') + '.conf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 1500);
+    toast('Config downloaded', 'info');
+  } catch (e) { toast(e.message || 'Download failed', 'bad'); }
+}
+async function showWgQr(id, label) {
+  if (typeof QRCode === 'undefined') {
+    toast('QR library still loading — try again in a moment', 'warn');
+    return;
+  }
+  try {
+    const res = await fetch('/api/customer/wg/peers/' + id + '.conf', { headers: { Authorization: 'Bearer ' + state.token } });
+    if (!res.ok) throw new Error(await res.text());
+    const conf = await res.text();
+    const html = `<div class="hint" style="margin-bottom:10px">Open the WireGuard mobile app → "+" → Scan from QR code. The config never leaves your device.</div>
+      <div id="wg-qr-box" style="display:flex;justify-content:center;padding:14px;background:#fff;border-radius:var(--r-card);margin-bottom:14px"></div>
+      <div class="btn-row"><button class="btn ghost" id="wg-qr-x">Close</button></div>`;
+    sheet('QR · ' + (label || 'peer'), '', html, body => {
+      body.querySelector('#wg-qr-x').onclick = closeSheet;
+      const target = body.querySelector('#wg-qr-box');
+      target.innerHTML = '';
+      new QRCode(target, { text: conf, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+    });
+  } catch (e) { toast(e.message || 'QR failed', 'bad'); }
+}
+
+/* ──────── VPN client sub-view (outbound — route home through Mullvad/Proton/etc) ──────── */
+let _vpncCache = [];
+async function renderVpnClientSub() {
+  const el = document.getElementById('vpnc-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/vpn-clients');
+    const profiles = r.profiles || [];
+    _vpncCache = profiles;
+    if (!profiles.length) {
+      el.innerHTML = `<div class="empty"><div class="em">🌍</div>No VPN profiles yet — tap “＋ Add profile” above.</div>`;
+      return;
+    }
+    el.innerHTML = profiles.map(p => `
+      <div class="list-row">
+        <div class="avatar">${p.active ? '🟢' : '🌍'}</div>
+        <div class="lr-meta">
+          <div class="nm">${esc(p.label)}${p.provider ? ' · ' + esc(p.provider) : ''}</div>
+          <div class="sub mono">${esc(p.endpoint || '—')}${p.country ? ' · ' + esc(p.country) : ''}</div>
+        </div>
+        <button class="btn sm ${p.active ? 'danger' : 'primary'}" data-vpnc-toggle="${esc(p.id)}" data-active="${p.active ? '1' : '0'}">${p.active ? 'Stop' : 'Start'}</button>
+        <button class="btn sm ghost" data-vpnc-route="${esc(p.id)}" data-label="${esc(p.label)}">Devices</button>
+        <button class="btn sm ghost" data-vpnc-del="${esc(p.id)}">✕</button>
+      </div>`).join('');
+    el.querySelectorAll('[data-vpnc-toggle]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.vpncToggle;
+      const isActive = b.dataset.active === '1';
+      try {
+        await api('/customer/vpn-client/' + (isActive ? 'stop' : 'start'), { method: 'POST', body: JSON.stringify({ id }) });
+        toast(isActive ? 'Stopping…' : 'Starting…', 'info');
+        renderVpnClientSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+    el.querySelectorAll('[data-vpnc-del]').forEach(b => b.onclick = async () => {
+      if (!await confirmSheet('Delete this VPN profile?', { okLabel: 'Delete', danger: true })) return;
+      try {
+        await api('/customer/vpn-client/' + encodeURIComponent(b.dataset.vpncDel), { method: 'DELETE' });
+        toast('Profile deleted', 'info'); renderVpnClientSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+    el.querySelectorAll('[data-vpnc-route]').forEach(b => b.onclick = () => openVpnRouteSheet(b.dataset.vpncRoute, b.dataset.label));
+  } catch (e) {
+    el.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`;
+  }
+}
+document.getElementById('vpnc-add-btn').onclick = () => {
+  const html = `
+    <div class="field"><label>Label (short — e.g. mlvd)</label>
+      <input id="vpnc-label" placeholder="e.g. mlvd" maxlength="60" style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+    <div class="field"><label>Provider (optional)</label>
+      <input id="vpnc-prov" placeholder="Mullvad / ProtonVPN / NordVPN / AzireVPN / custom" maxlength="30" style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+    <div class="field"><label>Country (optional)</label>
+      <input id="vpnc-country" placeholder="e.g. SE, NL, US" maxlength="30" style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+    <div class="field"><label>Paste your .conf</label>
+      <textarea id="vpnc-conf" placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = ...&#10;[Peer]&#10;PublicKey = ...&#10;Endpoint = ...:51820&#10;AllowedIPs = 0.0.0.0/0" style="width:100%;min-height:200px;padding:10px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);font-family:monospace;font-size:12px"></textarea>
+      <div class="hint">Download a WireGuard config from your provider's dashboard and paste it here. The file stays on your box — it is never stored in the cloud.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="vpnc-cancel">Cancel</button>
+      <button class="btn primary" id="vpnc-save">Add profile</button>
+    </div>`;
+  sheet('Add VPN profile', '', html, body => {
+    body.querySelector('#vpnc-cancel').onclick = closeSheet;
+    body.querySelector('#vpnc-save').onclick = async () => {
+      const label = body.querySelector('#vpnc-label').value.trim();
+      const provider = body.querySelector('#vpnc-prov').value.trim();
+      const country = body.querySelector('#vpnc-country').value.trim();
+      const conf_text = body.querySelector('#vpnc-conf').value;
+      if (!label) { toast('Label required', 'bad'); return; }
+      if (!conf_text.includes('[Interface]') || !conf_text.includes('[Peer]')) { toast('Paste a full WireGuard .conf', 'bad'); return; }
+      try {
+        await api('/customer/vpn-client/add', { method: 'POST', body: JSON.stringify({ label, conf_text, provider, country }) });
+        closeSheet(); toast('Profile added', 'info'); renderVpnClientSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+function openVpnRouteSheet(profile_id, label) {
+  const devs = (state.devices || []).filter(d => d.mac);
+  if (!devs.length) {
+    sheet('Route specific devices', label, `<div class="empty">No devices found yet.</div><div class="btn-row"><button class="btn ghost" id="vpnr-x">Close</button></div>`,
+      body => body.querySelector('#vpnr-x').onclick = closeSheet);
+    return;
+  }
+  const tickSvg = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5L9.5 3.5" stroke="#1a0c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const html = `
+    <div class="hint" style="margin-bottom:10px">Select devices that should route through <b>${esc(label)}</b>. Unchecked devices keep using normal internet.</div>
+    <div id="vpnr-list" style="max-height:50vh;overflow:auto">
+      ${devs.map(d => {
+        const ic = d.icon || deviceIcon(d.device_type) || '💻';
+        return `<div class="check-row" role="checkbox" aria-checked="false">
+          <input type="checkbox" data-vpnr-mac="${esc(d.mac)}" hidden>
+          <div class="cr-ic">${ic}</div>
+          <div class="cr-meta"><div class="nm">${esc(d.name || d.mac)}</div><div class="sub mono">${esc(d.mac)}</div></div>
+          <div class="cr-tick">${tickSvg}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="vpnr-cancel">Cancel</button>
+      <button class="btn primary" id="vpnr-save">Save routing</button>
+    </div>`;
+  sheet('Route specific devices', label, html, body => {
+    body.querySelectorAll('.check-row').forEach(row => row.addEventListener('click', () => {
+      const cb = row.querySelector('input[type=checkbox]');
+      if (!cb) return;
+      cb.checked = !cb.checked;
+      row.classList.toggle('on', cb.checked);
+      row.setAttribute('aria-checked', String(cb.checked));
+    }));
+    body.querySelector('#vpnr-cancel').onclick = closeSheet;
+    body.querySelector('#vpnr-save').onclick = async () => {
+      const checks = body.querySelectorAll('[data-vpnr-mac]');
+      let ok = 0, fail = 0;
+      for (const cb of checks) {
+        const mac = cb.dataset.vpnrMac;
+        const pid = cb.checked ? profile_id : null;
+        try {
+          await api('/customer/vpn-client/route-device', { method: 'POST', body: JSON.stringify({ mac, profile_id: pid }) });
+          ok++;
+        } catch { fail++; }
+      }
+      closeSheet();
+      toast(fail ? `Saved (${ok} ok, ${fail} failed)` : `Saved routing for ${ok} devices`, fail ? 'bad' : 'info');
+    };
+  });
+}
+
+/* ──────── OpenVPN client sub-view (mirrors WG client) ──────── */
+let _ovpncCache = [];
+async function renderOvpnClientSub() {
+  const el = document.getElementById('ovpnc-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/openvpn-clients');
+    const profiles = r.profiles || [];
+    _ovpncCache = profiles;
+    if (!profiles.length) {
+      el.innerHTML = `<div class="empty"><div class="em">🛡</div>No .ovpn profiles yet — tap “＋ Add” above.</div>`;
+      return;
+    }
+    el.innerHTML = profiles.map(p => `
+      <div class="list-row">
+        <div class="avatar">${p.active ? '🟢' : '🛡'}</div>
+        <div class="lr-meta">
+          <div class="nm">${esc(p.label)}</div>
+          <div class="sub mono">${esc(p.endpoint || '—')}</div>
+        </div>
+        <button class="btn sm ${p.active ? 'danger' : 'primary'}" data-ovpnc-toggle="${esc(p.id)}" data-active="${p.active ? '1' : '0'}">${p.active ? 'Stop' : 'Start'}</button>
+        <button class="btn sm ghost" data-ovpnc-del="${esc(p.id)}">✕</button>
+      </div>`).join('');
+    el.querySelectorAll('[data-ovpnc-toggle]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.ovpncToggle;
+      const isActive = b.dataset.active === '1';
+      try {
+        await api('/customer/openvpn-client/' + (isActive ? 'stop' : 'start'), { method: 'POST', body: JSON.stringify({ id }) });
+        toast(isActive ? 'Stopping…' : 'Starting…', 'info');
+        renderOvpnClientSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+    el.querySelectorAll('[data-ovpnc-del]').forEach(b => b.onclick = async () => {
+      if (!await confirmSheet('Delete this OpenVPN profile?', { okLabel: 'Delete', danger: true })) return;
+      try {
+        await api('/customer/openvpn-client/' + encodeURIComponent(b.dataset.ovpncDel), { method: 'DELETE' });
+        toast('Deleted', 'info'); renderOvpnClientSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`;
+  }
+}
+document.getElementById('ovpnc-add-btn').onclick = () => {
+  const html = `
+    <div class="field"><label>Label (short — e.g. mlvd-us)</label>
+      <input id="ovpnc-label" placeholder="e.g. mlvd" maxlength="40" style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+    <div class="field"><label>Paste your .ovpn file</label>
+      <textarea id="ovpnc-conf" placeholder="client&#10;dev tun&#10;proto udp&#10;remote vpn.example.com 1194&#10;..." style="width:100%;min-height:240px;padding:10px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);font-family:monospace;font-size:11px"></textarea>
+      <div class="hint">Conf stays on your box; cloud only stores label + endpoint.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="ovpnc-cancel">Cancel</button>
+      <button class="btn primary" id="ovpnc-save">Add</button>
+    </div>`;
+  sheet('Add OpenVPN profile', '', html, body => {
+    body.querySelector('#ovpnc-cancel').onclick = closeSheet;
+    body.querySelector('#ovpnc-save').onclick = async () => {
+      const label = body.querySelector('#ovpnc-label').value.trim();
+      const ovpn_text = body.querySelector('#ovpnc-conf').value;
+      if (!label) { toast('Label required', 'bad'); return; }
+      if (ovpn_text.indexOf('remote ') === -1) { toast('Paste a full .ovpn (must contain a remote line)', 'bad'); return; }
+      try {
+        await api('/customer/openvpn-client/add', { method: 'POST', body: JSON.stringify({ label, ovpn_text }) });
+        closeSheet(); toast('Profile added', 'info'); renderOvpnClientSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+
+/* ──────── QoS / Smart Queue sub-view ──────── */
+async function renderQosSub() {
+  // Devices list w/ priority pickers
+  const list = document.getElementById('qos-dev-list');
+  list.innerHTML = '<div class="empty">Loading…</div>';
+  const devs = (state.devices || []).slice(0, 50);
+  if (!devs.length) { list.innerHTML = '<div class="empty">No devices yet.</div>'; return; }
+  list.innerHTML = devs.map(d => `
+    <div class="list-row">
+      <div class="avatar">${esc((d.name||'?').slice(0,1).toUpperCase())}</div>
+      <div class="lr-meta">
+        <div class="nm">${esc(d.name || d.mac)}</div>
+        <div class="sub mono">${esc(d.mac)}</div>
+      </div>
+      <select data-qos-prio="${esc(d.mac)}" style="height:38px;padding:0 8px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)">
+        <option value="normal">Normal</option>
+        <option value="high">High</option>
+        <option value="low">Low</option>
+        <option value="throttle">Throttle</option>
+      </select>
+    </div>`).join('');
+  list.querySelectorAll('[data-qos-prio]').forEach(s => s.onchange = async (e) => {
+    const dmac = s.dataset.qosPrio;
+    try {
+      await api('/customer/qos/device-priority', { method: 'POST', body: JSON.stringify({ mac: dmac, class: s.value }) });
+      toast('Priority queued: ' + s.value, 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+}
+document.getElementById('qos-apply').onclick = async () => {
+  const down = parseInt(document.getElementById('qos-down').value) || 100;
+  const up   = parseInt(document.getElementById('qos-up').value) || 20;
+  try {
+    await api('/customer/qos/apply', { method: 'POST', body: JSON.stringify({ down_mbps: down, up_mbps: up }) });
+    toast('QoS queued', 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+document.getElementById('qos-clear').onclick = async () => {
+  if (!await confirmSheet('Clear all QoS rules?', { okLabel: 'Clear', danger: true })) return;
+  try { await api('/customer/qos/clear', { method: 'POST', body: '{}' }); toast('Cleared', 'info'); }
+  catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── IoT lockdown sub-view ──────── */
+async function renderIotSub() {
+  const list = document.getElementById('iot-dev-list');
+  const lockedEl = document.getElementById('iot-locked-list');
+  const devs = (state.devices || []).slice(0, 100);
+  if (!devs.length) {
+    list.innerHTML = '<div class="empty">No devices yet.</div>';
+  } else {
+    list.innerHTML = devs.map(d => `
+      <div class="list-row">
+        <div class="avatar">${esc((d.name||'?').slice(0,1).toUpperCase())}</div>
+        <div class="lr-meta">
+          <div class="nm">${esc(d.name || d.mac)}</div>
+          <div class="sub mono">${esc(d.mac)}</div>
+        </div>
+        <button class="btn sm primary" data-iot-learn="${esc(d.mac)}">Learn</button>
+        <button class="btn sm" data-iot-enforce="${esc(d.mac)}">Enforce</button>
+        <button class="btn sm ghost" data-iot-disable="${esc(d.mac)}">Off</button>
+      </div>`).join('');
+    list.querySelectorAll('[data-iot-learn]').forEach(b => b.onclick = async () => {
+      const dur = await promptSheet('Learning duration (seconds, 30–7200)', { initial: '600' });
+      if (!dur) return;
+      try {
+        await api('/customer/iot/learn', { method: 'POST', body: JSON.stringify({ mac: b.dataset.iotLearn, duration_s: parseInt(dur) || 600 }) });
+        toast('Learning started', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+    list.querySelectorAll('[data-iot-enforce]').forEach(b => b.onclick = async () => {
+      if (!await confirmSheet('Enforce default-deny on this device?', { okLabel: 'Enforce' })) return;
+      try {
+        await api('/customer/iot/enforce', { method: 'POST', body: JSON.stringify({ mac: b.dataset.iotEnforce }) });
+        toast('Enforce queued', 'info'); renderIotSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+    list.querySelectorAll('[data-iot-disable]').forEach(b => b.onclick = async () => {
+      try {
+        await api('/customer/iot/disable', { method: 'POST', body: JSON.stringify({ mac: b.dataset.iotDisable }) });
+        toast('Disabled', 'info'); renderIotSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
+  }
+  lockedEl.innerHTML = '<div class="empty">Refresh after a few seconds to see enforced devices.</div>';
+  try {
+    const r = await api('/customer/iot/locked');
+    if (r && r.recent && r.recent.length) {
+      lockedEl.innerHTML = r.recent.map(e => `
+        <div class="list-row">
+          <div class="avatar">📡</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(e.device_mac)}</div>
+            <div class="sub">${(e.endpoints||[]).length} learned endpoints · ${new Date(e.ts).toLocaleString()}</div>
+          </div>
+        </div>`).join('');
+    } else {
+      lockedEl.innerHTML = '<div class="empty">No learned data on file yet.</div>';
+    }
+  } catch {}
+}
+
+/* ──────── Quarantine sub-view ──────── */
+async function renderQuarantineSub() {
+  const sw = document.getElementById('autoq-toggle');
+  try {
+    const r = await api('/customer/auto-quarantine');
+    sw.classList.toggle('on', !!r.auto_quarantine);
+  } catch {}
+  sw.onclick = async () => {
+    const newVal = !sw.classList.contains('on');
+    sw.classList.toggle('on', newVal);
+    try {
+      await api('/customer/auto-quarantine', { method: 'POST', body: JSON.stringify({ enabled: newVal }) });
+      toast('Saved', 'info');
+    } catch (er) { toast(er.message || 'Failed', 'bad'); sw.classList.toggle('on', !newVal); }
+  };
+  const el = document.getElementById('quar-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    await api('/customer/quarantine/list');
+    el.innerHTML = `<div class="empty">Refresh after a few seconds — list pulled from box.</div>`;
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`; }
+}
+
+/* ──────── Security scans sub-view ──────── */
+async function renderSecScanSub() {
+  const hist = document.getElementById('scan-history');
+  hist.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/security/scans');
+    const list = (r.scans || []).slice(0, 10);
+    let internalHtml = '';
+    if (r.internal && r.internal.hosts) {
+      internalHtml = `<div class="list-row">
+        <div class="avatar">🏠</div>
+        <div class="lr-meta">
+          <div class="nm">Internal scan · ${(r.internal.hosts||[]).length} hosts</div>
+          <div class="sub">${new Date(r.internal.ts || Date.now()).toLocaleString()} · ${esc(r.internal.subnet || '')}</div>
+        </div>
+      </div>`;
+    }
+    if (!list.length && !internalHtml) { hist.innerHTML = '<div class="empty">No scans yet.</div>'; return; }
+    hist.innerHTML = internalHtml + list.map(s => {
+      const ports = (s.result && s.result.ports) || [];
+      return `<div class="list-row">
+        <div class="avatar">🌐</div>
+        <div class="lr-meta">
+          <div class="nm">${esc(s.type)} · ${esc(s.target || '')}</div>
+          <div class="sub">${esc(s.status)} · ${ports.length} open ports · ${new Date(s.ts).toLocaleString()}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { hist.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`; }
+}
+document.getElementById('ext-scan-btn').onclick = async () => {
+  try {
+    const r = await api('/customer/security/external-scan', { method: 'POST', body: '{}' });
+    toast('External scan started · ' + (r.target || ''), 'info');
+    setTimeout(renderSecScanSub, 4000);
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+document.getElementById('int-scan-btn').onclick = async () => {
+  try {
+    await api('/customer/security/internal-scan', { method: 'POST', body: '{}' });
+    toast('Internal scan queued (~1–3 min)', 'info');
+    setTimeout(renderSecScanSub, 5000);
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── Kid lock sub-view ──────── */
+function _kidlockHash(pin) {
+  // sha256 -- async via SubtleCrypto
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(pin))).then(buf => {
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  });
+}
+function _kidlockHasPin() { return !!localStorage.getItem('mes_kidlock_hash'); }
+async function renderKidlockSub() {
+  const status = document.getElementById('kidlock-status');
+  const actions = document.getElementById('kidlock-actions');
+  if (_kidlockHasPin()) {
+    status.innerHTML = '✅ Kid lock is <b>ON</b>. App requires PIN on launch.';
+    actions.innerHTML = `<button class="btn ghost" id="kl-disable">Disable kid lock</button><button class="btn primary" id="kl-change">Change PIN</button>`;
+    document.getElementById('kl-disable').onclick = async () => {
+      const pin = await promptSheet('Enter current PIN to disable', { type: 'tel', maxlength: 4 });
+      if (!pin) return;
+      const h = await _kidlockHash(pin);
+      if (h !== localStorage.getItem('mes_kidlock_hash')) { toast('Wrong PIN', 'bad'); return; }
+      localStorage.removeItem('mes_kidlock_hash');
+      toast('Kid lock disabled', 'info'); renderKidlockSub();
+    };
+    document.getElementById('kl-change').onclick = () => _kidlockSetupFlow(true);
+  } else {
+    status.innerHTML = '🔓 Kid lock is OFF.';
+    actions.innerHTML = `<button class="btn primary" id="kl-set">Set 4-digit PIN</button>`;
+    document.getElementById('kl-set').onclick = () => _kidlockSetupFlow(false);
+  }
+}
+async function _kidlockSetupFlow(needsCurrent) {
+  if (needsCurrent) {
+    const cur = await promptSheet('Enter current PIN', { type: 'tel', maxlength: 4 });
+    if (!cur) return;
+    const h = await _kidlockHash(cur);
+    if (h !== localStorage.getItem('mes_kidlock_hash')) { toast('Wrong PIN', 'bad'); return; }
+  }
+  const pin1 = await promptSheet('Set new 4-digit PIN', { type: 'tel', maxlength: 4 });
+  if (!pin1 || !/^\d{4}$/.test(pin1)) { toast('PIN must be 4 digits', 'bad'); return; }
+  const pin2 = await promptSheet('Confirm PIN', { type: 'tel', maxlength: 4 });
+  if (pin1 !== pin2) { toast('PINs do not match', 'bad'); return; }
+  const h = await _kidlockHash(pin1);
+  localStorage.setItem('mes_kidlock_hash', h);
+  toast('Kid lock active', 'info'); renderKidlockSub();
+}
+
+// Kid lock gate: if a hash is saved, require PIN on app focus
+let _kidlockUnlocked = false;
+let _kidlockAttempts = 0;
+async function kidlockGate() {
+  if (!_kidlockHasPin() || _kidlockUnlocked) return true;
+  // Hide app, show overlay
+  const overlay = document.getElementById('kidlock-overlay') || (() => {
+    const div = document.createElement('div');
+    div.id = 'kidlock-overlay';
+    div.style.cssText = 'position:fixed;inset:0;background:var(--bg, #0b0d0f);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text);padding:24px;text-align:center';
+    div.innerHTML = `
+      <div style="font-size:48px;margin-bottom:18px">🔒</div>
+      <div style="font-size:20px;font-weight:600;margin-bottom:24px">Enter kid lock PIN</div>
+      <input id="kl-overlay-pin" type="tel" maxlength="4" inputmode="numeric" pattern="\\d*"
+             style="font-size:32px;letter-spacing:18px;text-align:center;width:200px;height:64px;background:transparent;border:2px solid var(--accent);border-radius:12px;color:var(--text)">
+      <div id="kl-overlay-msg" style="margin-top:14px;font-size:14px;color:var(--muted)">4 digits</div>`;
+    document.body.appendChild(div);
+    return div;
+  })();
+  overlay.style.display = 'flex';
+  const inp = overlay.querySelector('#kl-overlay-pin');
+  const msg = overlay.querySelector('#kl-overlay-msg');
+  inp.value = ''; inp.focus();
+  return new Promise(resolve => {
+    inp.addEventListener('input', async () => {
+      if (inp.value.length !== 4) return;
+      const h = await _kidlockHash(inp.value);
+      if (h === localStorage.getItem('mes_kidlock_hash')) {
+        _kidlockUnlocked = true; _kidlockAttempts = 0;
+        overlay.style.display = 'none'; resolve(true);
+      } else {
+        _kidlockAttempts++;
+        inp.value = '';
+        msg.textContent = 'Wrong PIN — ' + (5 - _kidlockAttempts) + ' attempts left';
+        // Shake
+        inp.style.transition = 'transform 0.1s';
+        inp.style.transform = 'translateX(-8px)';
+        setTimeout(() => inp.style.transform = 'translateX(8px)', 100);
+        setTimeout(() => inp.style.transform = 'translateX(0)', 200);
+        if (_kidlockAttempts >= 5) {
+          msg.textContent = 'Too many attempts — signing out';
+          setTimeout(() => {
+            localStorage.removeItem('mes_token');
+            location.reload();
+          }, 1500);
+          return;
+        }
+        // 1s lockout
+        inp.disabled = true;
+        setTimeout(() => { inp.disabled = false; inp.focus(); }, 1000);
+      }
+    });
+  });
+}
+// Re-gate on app visibility change
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && localStorage.getItem('mes_token')) {
+    _kidlockUnlocked = false;
+    kidlockGate();
+  }
+});
+// Gate on initial load (only if logged in — uses mes_token presence)
+window.addEventListener('load', () => {
+  if (localStorage.getItem('mes_token')) setTimeout(kidlockGate, 200);
+});
+
+/* ──────── Speed history sub-view ──────── */
+async function renderSpeedSub() {
+  const card = document.getElementById('speed-card');
+  card.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/speedtest-history');
+    const all = [];
+    for (const [mac, list] of Object.entries(r.history || {})) {
+      for (const t of (list || [])) all.push({ ...t, mac });
+    }
+    if (!all.length) {
+      card.innerHTML = `<div class="empty"><div class="em">📊</div>No speed tests yet — tap “Run now” above.</div>`;
+      return;
+    }
+    all.sort((a,b) => (a.ts||0) - (b.ts||0));
+    const latest = all[all.length - 1];
+    const downs = all.map(t => t.down_mbps || 0);
+    const ups = all.map(t => t.up_mbps || 0);
+    const avg = a => a.length ? (a.reduce((s,x) => s+x, 0)/a.length) : 0;
+    const sparkSvg = (arr, color, label) => {
+      if (!arr.length) return '';
+      const w = 320, h = 50, pad = 4;
+      const max = Math.max(...arr) || 1;
+      const xs = arr.length === 1 ? [w/2] : arr.map((_, i) => pad + (i / (arr.length - 1)) * (w - 2*pad));
+      const ys = arr.map(v => h - pad - (v / max) * (h - 2*pad));
+      const points = xs.map((x, i) => x.toFixed(0) + ',' + ys[i].toFixed(0)).join(' ');
+      return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:50px;display:block;margin-bottom:4px;">
+        <text x="2" y="10" font-size="9" fill="${color}">${label}</text>
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+    };
+    const recent = all.slice(-10).reverse();
+    card.innerHTML = `
+      <div class="card-title">Latest</div>
+      <div class="stat-row3">
+        <div class="s"><div class="n tabular">${(latest.down_mbps||0).toFixed(1)}</div><div class="l">Mbps ↓</div></div>
+        <div class="s"><div class="n tabular">${(latest.up_mbps||0).toFixed(1)}</div><div class="l">Mbps ↑</div></div>
+        <div class="s"><div class="n tabular">${Math.round(latest.latency_ms||0)}</div><div class="l">ms</div></div>
+      </div>
+      <div class="hint" style="margin:14px 0 6px 0">${all.length} tests · avg ${avg(downs).toFixed(0)}/${avg(ups).toFixed(0)} Mbps</div>
+      ${sparkSvg(downs, 'var(--accent)', 'down')}
+      ${sparkSvg(ups, 'var(--warn)', 'up')}
+      <div class="card-title" style="margin-top:14px">Recent runs</div>
+      <div class="list">
+        ${recent.map(t => `<div class="list-row">
+          <div class="avatar">📊</div>
+          <div class="lr-meta">
+            <div class="nm tabular">${(t.down_mbps||0).toFixed(1)} ↓ / ${(t.up_mbps||0).toFixed(1)} ↑ Mbps</div>
+            <div class="sub tabular">${Math.round(t.latency_ms||0)}ms · ${esc(t.server || '—')} · ${esc(timeAgo(t.ts))}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    `;
+  } catch (e) {
+    card.innerHTML = `<div class="empty">Failed to load</div>`;
+  }
+}
+document.getElementById('speed-run').onclick = async () => {
+  try {
+    toast('Queueing speedtest…', 'info');
+    const r = await api('/customer/box/action', { method: 'POST', body: JSON.stringify({ action: 'speedtest' }) });
+    if (r.status === 'completed') {
+      toast(`✓ ${r.result.down_mbps.toFixed(1)} / ${r.result.up_mbps.toFixed(1)} Mbps`, 'info');
+    } else if (r.status === 'queued') {
+      toast('Box will run it on next poll', 'info');
+    } else if (r.status === 'failed') {
+      toast('Failed: ' + (r.error || ''), 'bad');
+    }
+    setTimeout(renderSpeedSub, 2500);
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── Plan / billing sub-view ──────── */
+async function renderPlanSub() {
+  const card = document.getElementById('plan-card');
+  card.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const [pr, sub] = await Promise.all([
+      api('/customer/plan-request').catch(() => null),
+      api('/customer/subscription/status').catch(() => null),
+    ]);
+    const cur = pr?.current_plan || state.me?.plan || '—';
+    const planList = pr?.available_plans || ['basic','family','pro','business'];
+    const pending = (pr?.requests || []).find(x => x.status === 'pending');
+    const isPaused = sub && sub.paused;
+    card.innerHTML = `
+      <div class="card-title">Current plan</div>
+      <div class="kv-row"><div class="k">Plan</div><div class="v">${esc(String(cur).toUpperCase())}</div></div>
+      ${isPaused ? `<div class="kv-row"><div class="k">Status</div><div class="v" style="color:var(--warn)">⏸ Paused — resumes ${esc(timeAgo(sub.resumes_at))}</div></div>` : ''}
+      ${pending ? `<div class="kv-row"><div class="k">Pending</div><div class="v"><span class="chip warn">⏳ ${esc(pending.current_plan)} → ${esc(pending.requested_plan)}</span></div></div>` : ''}
+      <div class="card-title" style="margin-top:14px">Change plan</div>
+      <div class="field" style="margin-bottom:10px">
+        <select id="plan-pick">
+          ${planList.filter(p => p !== cur).map(p => `<option value="${p}">${p.charAt(0).toUpperCase()+p.slice(1)}</option>`).join('') || '<option>(no other plans)</option>'}
+        </select>
+        <div class="hint">Admin reviews each plan-change request.</div>
+      </div>
+      <button class="btn primary" id="plan-req-btn">Request change</button>
+      <div class="btn-row" style="margin-top:14px">
+        ${isPaused
+          ? `<button class="btn ghost" id="plan-resume">▶ Resume subscription</button>`
+          : `<button class="btn ghost" id="plan-pause">⏸ Pause subscription</button>`}
+      </div>
+    `;
+    card.querySelector('#plan-req-btn').onclick = async () => {
+      const planId = card.querySelector('#plan-pick').value;
+      if (!planId) return;
+      if (!await confirmSheet(`Request change to ${planId}?`, { okLabel: 'Request' })) return;
+      try {
+        await api('/customer/plan-request', { method: 'POST', body: JSON.stringify({ requested_plan: planId }) });
+        toast('Request submitted', 'info'); renderPlanSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    const pauseBtn = card.querySelector('#plan-pause');
+    if (pauseBtn) pauseBtn.onclick = async () => {
+      const ans = await promptSheet('Pause for how many days?', { initial: '30', placeholder: '1–365', type: 'number', maxlength: 4, title: 'Pause subscription', okLabel: 'Pause' });
+      const days = parseInt(ans || '', 10);
+      if (!days || days < 1) return;
+      try {
+        await api('/customer/subscription/pause', { method: 'POST', body: JSON.stringify({ days }) });
+        toast(`Paused ${days}d`, 'info'); renderPlanSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    const resBtn = card.querySelector('#plan-resume');
+    if (resBtn) resBtn.onclick = async () => {
+      try {
+        await api('/customer/subscription/resume', { method: 'POST', body: '{}' });
+        toast('Resumed', 'info'); renderPlanSub();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  } catch (e) {
+    card.innerHTML = `<div class="empty">Failed to load</div>`;
+  }
+}
+
+/* ──────── Header buttons ──────── */
+document.getElementById('btn-theme').onclick = toggleTheme;
+document.getElementById('btn-lang').onclick = toggleLang;
+document.getElementById('btn-bell').onclick = () => {
+  document.querySelector('[data-tab="alarms"]').click();
+};
+
+function toggleTheme() { THEME = THEME === 'dark' ? 'light' : 'dark'; localStorage.setItem('mes_theme', THEME); applyTheme(); }
+function toggleLang() { LANG = LANG === 'en' ? 'ar' : 'en'; localStorage.setItem('mes_lang', LANG); applyI18n(); renderHome(); renderMe(); }
+
+/* ──────── Polling + SSE ──────── */
+let pollT = null;
+function startPolling() {
+  if (pollT) clearInterval(pollT);
+  pollT = setInterval(async () => {
+    try {
+      const t = await api('/customer/throughput');
+      updateThroughput(t);
+    } catch (e) { if (e.status === 401) logout(); }
+  }, 12000);
+}
+let sseAbort = null;
+function startSse() {
+  if (sseAbort) sseAbort.abort();
+  sseAbort = new AbortController();
+  fetch('/api/customer/events/stream', {
+    headers: { 'Authorization': 'Bearer ' + state.token },
+    signal: sseAbort.signal,
+  }).then(res => {
+    if (!res.body) return;
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    function loop() {
+      reader.read().then(({ value, done }) => {
+        if (done) return;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const evt = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const em = evt.match(/^event:\s*(\w+)/m), dm = evt.match(/^data:\s*(.+)$/m);
+          if (em && dm) { try { handleSse(em[1], JSON.parse(dm[1])); } catch {} }
+        }
+        loop();
+      }).catch(() => {});
+    }
+    loop();
+  }).catch(() => {});
+}
+function handleSse(type, data) {
+  if (type === 'throughput') updateThroughput(data);
+  else if (type === 'alarm') {
+    state.alarms.unshift(data);
+    updateBell(); renderHome();
+    toast(`🚨 ${data.title || 'New alarm'}`, 'warn');
+  } else if (type === 'flow') {
+    state.flows.unshift(data); state.flows = state.flows.slice(0, 20);
+    if (document.getElementById('tab-network').classList.contains('active')) renderHome();
+  } else if (type === 'device.online' || type === 'device.offline') {
+    refreshAll();
+  }
+}
+
+/* ──────── Pull-to-refresh ──────── */
+let ptrStart = null, ptrPulled = 0;
+const ptr = document.getElementById('ptr');
+window.addEventListener('touchstart', e => {
+  if (window.scrollY === 0) ptrStart = e.touches[0].clientY;
+}, { passive: true });
+window.addEventListener('touchmove', e => {
+  if (ptrStart == null) return;
+  ptrPulled = e.touches[0].clientY - ptrStart;
+  if (ptrPulled > 30) ptr.classList.add('show');
+  if (ptrPulled > 80) ptr.textContent = '↑ Release to refresh';
+  else ptr.textContent = '↓ Pull to refresh';
+}, { passive: true });
+window.addEventListener('touchend', () => {
+  if (ptrPulled > 80) {
+    ptr.textContent = 'Refreshing…';
+    refreshAll().finally(() => { setTimeout(() => ptr.classList.remove('show'), 600); });
+  } else { ptr.classList.remove('show'); }
+  ptrStart = null; ptrPulled = 0;
+});
+
+/* ──────── Header scroll shadow ──────── */
+window.addEventListener('scroll', () => {
+  document.getElementById('header').classList.toggle('scrolled', window.scrollY > 4);
+}, { passive: true });
+
+/* ──────── Helpers ──────── */
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function timeAgo(ts) {
+  const now = Date.now(), then = (typeof ts === 'string' ? new Date(ts).getTime() : ts*(ts<2e10?1000:1));
+  const s = Math.max(0, Math.floor((now - then) / 1000));
+  if (s < 60) return s + 's ago'; if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago'; return Math.floor(s/86400) + 'd ago';
+}
+function formatBytes(b) {
+  if (!b) return '0 B';
+  const u = ['B','KB','MB','GB']; let i = 0; while (b >= 1024 && i < 3) { b /= 1024; i++; }
+  return b.toFixed(b < 10 && i > 0 ? 1 : 0) + ' ' + u[i];
+}
+function countryFlag(cc) {
+  if (!cc || cc.length !== 2) return '';
+  const A = 0x1F1E6 - 65;
+  return String.fromCodePoint(cc.charCodeAt(0) + A) + String.fromCodePoint(cc.charCodeAt(1) + A);
+}
+function deviceIcon(t) {
+  return ({ phone: '📱', laptop: '💻', desktop: '🖥', tv: '📺', console: '🎮',
+    iot: '💡', router: '📡', tablet: '📱', watch: '⌚', camera: '📷' })[t] || '';
+}
+
+/* ──────── Init ──────── */
+applyI18n();
+applyTheme();
+if (state.token) bootApp();
+</script>
+</body>
+</html>

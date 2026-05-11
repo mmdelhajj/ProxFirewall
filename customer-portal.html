@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mes Network · Portal</title>
+<link rel="manifest" href="/pwa/manifest.json">
+<link rel="apple-touch-icon" href="/pwa/icon.svg">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-elev: #11161f;
+    --bg-elev-2: #161c28;
+    --bg-row: #0d1218;
+    --border: rgba(255,255,255,0.05);
+    --border-strong: rgba(255,255,255,0.08);
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --text-faint: #6e7681;
+    --accent: #2f81f7;
+    --accent-2: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --sidebar-w: 220px;
+  }
+  *,*::before,*::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body { margin:0; padding:0; height:100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "SF Pro Display", "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5; font-size: 13.5px;
+  }
+  .app { display:grid; grid-template-columns: var(--sidebar-w) 1fr; min-height:100vh; }
+
+  /* Sidebar */
+  aside {
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+  }
+  .logo {
+    padding: 0 18px 18px;
+    font-weight: 700; font-size: 1.05em; letter-spacing: -0.02em;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .nav-section {
+    color: var(--text-faint);
+    text-transform: uppercase; font-size: .7em; font-weight: 600;
+    letter-spacing: .08em; padding: 14px 18px 6px;
+  }
+  nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 18px; color: var(--text-dim);
+    text-decoration: none; font-size: .92em;
+    border-left: 2px solid transparent;
+    transition: background .12s, color .12s;
+    cursor: pointer;
+  }
+  nav a:hover { background: var(--bg-elev-2); color: var(--text); }
+  nav a.active { background: var(--bg-elev-2); color: var(--text); border-left-color: var(--accent); }
+  nav a .ico { width: 16px; text-align: center; opacity: .8; }
+  nav a .badge {
+    margin-left: auto;
+    background: var(--bg-row); color: var(--text-dim);
+    padding: 1px 7px; border-radius: 99px;
+    font-size: .75em; font-weight: 600;
+  }
+  nav a .badge.alert { background: rgba(248,81,73,0.15); color: var(--bad); }
+
+  /* Top bar */
+  header.top {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 5;
+  }
+  header.top .breadcrumbs { color: var(--text-dim); font-size: .9em; }
+  header.top .breadcrumbs strong { color: var(--text); font-weight: 600; }
+  header.top .right { display: flex; align-items: center; gap: 14px; }
+  header.top .user {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text); font-size: .88em;
+    cursor: pointer;
+  }
+  header.top .user .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: .85em;
+  }
+  .pause-pill {
+    background: var(--bg-elev-2); border: 1px solid var(--border-strong);
+    color: var(--text); padding: 5px 12px; border-radius: 99px;
+    font-size: .82em; font-weight: 600; cursor: pointer;
+  }
+  .pause-pill.active { background: var(--good); color: #06210b; border-color: transparent; }
+
+  main { padding: 22px 24px; min-width: 0; }
+
+  /* Cards & layout */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+  .stat-card .label { color: var(--text-dim); font-size: .8em; }
+  .stat-card .value { font-size: 1.6em; font-weight: 700; color: var(--text); letter-spacing: -0.02em; margin-top: 4px; }
+  .stat-card .value.accent { color: var(--accent); }
+  .stat-card .value.good { color: var(--good); }
+  .stat-card .value.bad { color: var(--bad); }
+  .stat-card .sub { font-size: .76em; color: var(--text-faint); margin-top: 3px; }
+
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+  .card-head { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-head .title { font-size: .92em; font-weight: 600; color: var(--text); }
+  .card-head .meta { font-size: .76em; color: var(--text-faint); }
+  .card-body { padding: 16px 18px; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .row-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+
+  /* Bar chart */
+  svg.bar-chart { width: 100%; height: 140px; display: block; }
+  svg.bar-chart .bar.up { fill: #79c0ff; }
+  svg.bar-chart .bar.down { fill: #ffa657; }
+  svg.bar-chart .axis { stroke: var(--border); stroke-width: 1; }
+  svg.bar-chart .label { fill: var(--text-faint); font-size: 9px; }
+  .chart-totals { display: flex; gap: 24px; margin-bottom: 12px; }
+  .chart-totals .total .num { font-size: 1.4em; font-weight: 700; color: var(--text); }
+  .chart-totals .total .lbl { font-size: .75em; color: var(--text-faint); margin-top: 2px; }
+  .chart-totals .total .num.up { color: #79c0ff; }
+  .chart-totals .total .num.down { color: #ffa657; }
+  .chart-totals .total .num.total { color: var(--good); }
+
+  /* Donut */
+  .donut-card { display: flex; align-items: center; gap: 14px; padding: 6px 0; }
+  .donut-card svg { width: 90px; height: 90px; flex-shrink: 0; }
+  .donut-card .info { flex: 1; min-width: 0; }
+  .donut-card .info .v { font-size: 1.05em; font-weight: 700; }
+  .donut-card .info .l { font-size: .76em; color: var(--text-faint); margin-top: 2px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .75em; color: var(--text-dim); font-weight: 600; padding: 10px 18px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; }
+  td { padding: 10px 18px; font-size: .88em; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-row); }
+  td.num { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+  td.right { text-align: right; }
+  td .flag { display: inline-block; width: 16px; text-align: center; margin-right: 6px; }
+  td .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .75em; font-weight: 600; background: var(--bg-row); color: var(--text-dim); }
+  td .pill.online { background: rgba(63,185,80,0.15); color: var(--good); }
+  td .pill.offline { background: rgba(248,81,73,0.12); color: var(--bad); }
+  td .pill.warn { background: rgba(210,153,34,0.15); color: var(--warn); }
+  td .pill.blocked { background: rgba(248,81,73,0.15); color: var(--bad); }
+
+  .empty { text-align: center; color: var(--text-faint); padding: 28px; font-size: .9em; }
+  .loading { color: var(--text-faint); padding: 18px; font-size: .85em; }
+  .err { color: var(--bad); padding: 18px; font-size: .85em; }
+
+  button.ghost { background: transparent; border: 1px solid var(--border-strong); color: var(--text-dim); padding: 6px 12px; border-radius: 6px; font-size: .82em; cursor: pointer; }
+  button.ghost:hover { background: var(--bg-elev-2); color: var(--text); }
+  button.primary { background: var(--accent); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: .85em; cursor: pointer; }
+  button.primary:hover { background: var(--accent-2); }
+
+  /* Login screen */
+  .login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: var(--bg);
+  }
+  .login-card {
+    background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px; width: 100%; max-width: 380px;
+  }
+  .login-card .logo { padding: 0; border: none; margin-bottom: 18px; font-size: 1.3em; }
+  .login-card h1 { margin: 0 0 6px 0; font-size: 1.3em; font-weight: 700; }
+  .login-card p { margin: 0 0 22px 0; color: var(--text-dim); font-size: .9em; }
+  .login-card label { display: block; margin-bottom: 6px; font-size: .8em; color: var(--text-dim); font-weight: 600; }
+  .login-card input { width: 100%; background: var(--bg-row); border: 1px solid var(--border-strong); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: .95em; margin-bottom: 14px; font-family: inherit; }
+  .login-card input:focus { outline: none; border-color: var(--accent); }
+  .login-card button { width: 100%; padding: 12px; background: var(--accent); border: none; color: #fff; font-weight: 700; font-size: .95em; border-radius: 8px; cursor: pointer; }
+  .login-card button:hover { background: var(--accent-2); }
+  .login-card .hint { font-size: .78em; color: var(--text-faint); margin-top: 14px; line-height: 1.55; }
+  .login-err { background: rgba(248,81,73,0.1); color: var(--bad); padding: 10px 12px; border-radius: 6px; font-size: .85em; margin-bottom: 14px; display: none; }
+
+  /* Mobile responsive — collapse to single column */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: fixed; top:0; left:-240px; width: 240px; z-index: 20; transition: left .25s; box-shadow: 8px 0 32px rgba(0,0,0,0.4); }
+    aside.open { left: 0; }
+    .menu-toggle { display: inline-flex !important; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .row-2, .row-3 { grid-template-columns: 1fr; }
+    main { padding: 14px; }
+    /* Top stat cards — 4 → 2 on tablet */
+    #top-stats { grid-template-columns: repeat(2, 1fr) !important; }
+    /* Speedometer card stacks vertically */
+    #speedo-card .card-body > div { grid-template-columns: 1fr !important; gap: 14px !important; }
+    #speedo-card svg[viewBox="0 0 200 200"] { margin: 0 auto; }
+  }
+  @media (max-width: 600px) {
+    body { font-size: 13px; }
+    header.top { padding: 0 14px; height: 52px; }
+    main { padding: 12px; }
+    .stat-row { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+    #top-stats { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+    .stat-card { padding: 12px 14px; }
+    .stat-card .value { font-size: 1.35em; }
+    .card-head { padding: 10px 14px; }
+    .card-head .title { font-size: .88em; }
+    .card-body { padding: 12px 14px; }
+    th, td { padding: 8px 12px; font-size: .82em; }
+    th { font-size: .68em; }
+    /* World map — smaller on phones */
+    #world-map { max-height: 200px; }
+    /* Login card — full width on phone */
+    .login-card { padding: 24px 18px; }
+    /* Speedometer compact */
+    #speedo-card svg[viewBox="0 0 200 200"] { width: 160px; height: 110px; }
+    /* Sheet on mobile takes full bottom */
+    .sheet { border-radius: 16px 16px 0 0 !important; max-width: 100% !important; }
+    /* Inputs prevent iOS zoom */
+    .field input, .field select, .field textarea { font-size: 16px; }
+    /* Pause pill text shorter on phone */
+    .pause-pill { font-size: .75em; padding: 5px 10px; }
+    /* Hide username text in topbar on phones, keep avatar */
+    header.top .user span:not(.avatar) { display: none; }
+  }
+  .menu-toggle { display: none; align-items: center; justify-content: center; background: transparent; border: none; color: var(--text); font-size: 1.4em; padding: 0 8px; cursor: pointer; }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 15; display: none; }
+  .scrim.show { display: block; }
+
+  /* Action sheet (bottom sheet on mobile, centered modal on desktop) */
+  .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: none; align-items: flex-end; justify-content: center; }
+  .sheet-overlay.show { display: flex; }
+  .sheet {
+    background: var(--bg-elev); width: 100%; max-width: 460px;
+    border-radius: 16px 16px 0 0; padding: 20px 18px 18px;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+    animation: sheetUp .25s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @media (min-width: 700px) {
+    .sheet-overlay { align-items: center; }
+    .sheet { border-radius: 14px; max-width: 440px; margin-bottom: 0; }
+    @keyframes sheetUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  }
+  .sheet-header {
+    display: flex; align-items: center; gap: 12px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+  }
+  .sheet-header .ico { width: 48px; height: 48px; border-radius: 12px; background: var(--bg-elev-2); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6em; flex-shrink: 0; }
+  .sheet-header .info { flex: 1; min-width: 0; }
+  .sheet-header .info .n { font-weight: 700; font-size: 1.05em; }
+  .sheet-header .info .m { color: var(--text-faint); font-size: .8em; font-family: ui-monospace, monospace; margin-top: 2px; }
+  .sheet-header .close { background: transparent; border: none; color: var(--text-dim); font-size: 1.5em; cursor: pointer; padding: 0 4px; }
+  .sheet-actions { display: flex; flex-direction: column; gap: 4px; }
+  .sheet-action {
+    display: flex; align-items: center; gap: 12px;
+    background: transparent; border: none; color: var(--text);
+    padding: 12px 8px; font-size: .96em; cursor: pointer;
+    border-radius: 8px; text-align: left; font-family: inherit;
+    transition: background .12s;
+  }
+  .sheet-action:hover { background: var(--bg-elev-2); }
+  .sheet-action .ai { width: 32px; height: 32px; border-radius: 8px; background: var(--bg-row); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.05em; }
+  .sheet-action .at { flex: 1; }
+  .sheet-action .at .t { font-weight: 600; }
+  .sheet-action .at .s { color: var(--text-faint); font-size: .82em; margin-top: 1px; }
+  .sheet-action.danger { color: var(--bad); }
+  .sheet-action.danger .ai { background: rgba(248,81,73,0.12); }
+
+  /* Long-press hint */
+  tr[data-mac] { cursor: pointer; user-select: none; }
+  tr[data-mac]:active { background: var(--bg-elev-2); }
+
+  /* ─── Modal system ───────────────────────────────────────────────────── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; animation: fadeIn .15s ease; }
+  .modal-overlay.show { display: flex; }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .modal {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    width: 100%; max-width: 460px; overflow: hidden;
+    animation: modalIn .2s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes modalIn { from { transform: translateY(20px) scale(.96); opacity:0; } to { transform: translateY(0) scale(1); opacity:1; } }
+  .modal-header { padding: 20px 22px 8px; }
+  .modal-header h3 { margin: 0; font-size: 1.15em; font-weight: 700; letter-spacing: -0.01em; }
+  .modal-header p { margin: 4px 0 0; color: var(--text-dim); font-size: .88em; }
+  .modal-body { padding: 14px 22px; max-height: 60vh; overflow-y: auto; }
+  .modal-footer { padding: 14px 22px 18px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); margin-top: 8px; }
+  .modal-footer button { min-width: 90px; }
+
+  /* Form fields */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: .82em; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; letter-spacing: .01em; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg-row); border: 1px solid var(--border-strong); color: var(--text);
+    border-radius: 8px; font-size: .95em; font-family: inherit;
+    transition: border-color .12s, background .12s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+  .field .hint { font-size: .78em; color: var(--text-faint); margin-top: 5px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Radio cards */
+  .radio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .radio-card {
+    padding: 12px; border: 1.5px solid var(--border-strong); border-radius: 10px;
+    text-align: center; cursor: pointer; background: var(--bg-row);
+    transition: border-color .12s, background .12s;
+  }
+  .radio-card:hover { border-color: var(--text-dim); }
+  .radio-card.selected { border-color: var(--accent); background: rgba(47,129,247,0.08); }
+  .radio-card .ico { font-size: 1.6em; margin-bottom: 4px; }
+  .radio-card .lbl { font-size: .82em; font-weight: 600; }
+
+  /* Checkbox list */
+  .check-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: 10px; }
+  .check-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  .check-item:last-child { border-bottom: none; }
+  .check-item:hover { background: var(--bg-row); }
+  .check-item input { margin: 0; flex-shrink: 0; cursor: pointer; }
+  .check-item .label { flex: 1; min-width: 0; font-size: .9em; }
+  .check-item .label .meta { color: var(--text-faint); font-size: .82em; margin-top: 1px; }
+
+  /* ─── Toast system ───────────────────────────────────────────────────── */
+  .toast-host { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  @media (max-width: 640px) { .toast-host { bottom: 12px; right: 12px; left: 12px; } }
+  .toast {
+    background: var(--bg-elev); border: 1px solid var(--border-strong);
+    border-radius: 10px; padding: 12px 14px; min-width: 280px; max-width: 380px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    display: flex; align-items: start; gap: 10px;
+    animation: toastIn .25s cubic-bezier(.16,1,.3,1);
+    pointer-events: auto;
+  }
+  @keyframes toastIn { from { transform: translateX(20px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+  @keyframes toastOut { to { transform: translateX(20px); opacity:0; } }
+  .toast.out { animation: toastOut .2s ease forwards; }
+  .toast .ico { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .85em; font-weight: 700; }
+  .toast.success .ico { background: rgba(63,185,80,0.18); color: var(--good); }
+  .toast.error   .ico { background: rgba(248,81,73,0.18); color: var(--bad); }
+  .toast.info    .ico { background: rgba(47,129,247,0.18); color: var(--accent); }
+  .toast.warn    .ico { background: rgba(210,153,34,0.18); color: var(--warn); }
+  .toast .body { flex: 1; min-width: 0; }
+  .toast .body .t { font-weight: 600; font-size: .92em; }
+  .toast .body .s { color: var(--text-dim); font-size: .82em; margin-top: 2px; }
+  .toast .x { background: transparent; border: none; color: var(--text-faint); font-size: 1.1em; cursor: pointer; padding: 0 4px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="screen-login" class="login-screen">
+  <div class="login-card">
+    <div class="logo"><span class="dot"></span> mes Network</div>
+    <h1>Sign in</h1>
+    <p>Manage your home network</p>
+    <div id="login-err" class="login-err"></div>
+    <form id="login-form" autocomplete="off">
+      <label>Phone number</label>
+      <input id="phone" type="tel" placeholder="+961 71 555 0001" autocomplete="tel">
+      <label>OTP code</label>
+      <input id="otp" type="text" maxlength="4" inputmode="numeric" placeholder="0000" autocomplete="one-time-code" value="0000">
+      <button type="submit" id="login-btn">Sign in</button>
+    </form>
+    <p class="hint">Demo: any seeded customer phone (Ahmad, Layla, Maya, Mona, Hassan, Fatima) and code 0000.</p>
+  </div>
+</div>
+
+<!-- MODAL HOST -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">—</h3>
+      <p id="modal-desc"></p>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer">
+      <button class="ghost" onclick="closeModal()">Cancel</button>
+      <button class="primary" id="modal-submit">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div class="toast-host" id="toast-host"></div>
+
+<!-- ACTION SHEET (device long-press / right-click) -->
+<div class="sheet-overlay" id="sheet-overlay" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet">
+    <div class="sheet-header">
+      <div class="ico" id="sheet-ico">📱</div>
+      <div class="info"><div class="n" id="sheet-name">—</div><div class="m" id="sheet-mac">—</div></div>
+      <button class="close" onclick="closeSheet()">×</button>
+    </div>
+    <div class="sheet-actions" id="sheet-actions"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="screen-app" class="app" style="display:none;">
+  <div class="scrim" id="scrim" onclick="toggleSidebar(false)"></div>
+  <aside id="sidebar">
+    <div class="logo"><span class="dot"></span> mes Network</div>
+    <div class="nav-section">Overview</div>
+    <nav>
+      <a class="active" data-view="dashboard"><span class="ico">📊</span> Dashboard</a>
+      <a data-view="boxes"><span class="ico">📦</span> My boxes <span class="badge" id="nav-box-ct">—</span></a>
+      <a data-view="devices"><span class="ico">📱</span> Devices <span class="badge" id="nav-dev-ct">—</span></a>
+      <a data-view="alarms"><span class="ico">⚠</span> Alarms <span class="badge" id="nav-alarm-ct">—</span></a>
+    </nav>
+    <div class="nav-section">Network</div>
+    <nav>
+      <a data-view="rules"><span class="ico">🛡</span> Rules</a>
+      <a data-view="schedules"><span class="ico">📅</span> Schedules</a>
+      <a data-view="family"><span class="ico">👨‍👩‍👧</span> Family</a>
+      <a data-view="flows"><span class="ico">🔀</span> Flows</a>
+    </nav>
+    <div class="nav-section">Account</div>
+    <nav>
+      <a data-view="invoices"><span class="ico">💳</span> Billing</a>
+      <a data-view="tickets"><span class="ico">🎫</span> Support</a>
+      <a data-view="settings"><span class="ico">⚙</span> Settings</a>
+      <a id="logout-link"><span class="ico">🚪</span> Sign out</a>
+    </nav>
+  </aside>
+
+  <div>
+    <header class="top">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="breadcrumbs"><strong id="breadcrumb-title">Dashboard</strong></div>
+      </div>
+      <div class="right">
+        <button class="pause-pill" id="pause-btn" onclick="togglePause()">Pause Internet</button>
+        <div class="user" onclick="showView('settings')"><span class="avatar" id="user-avatar">—</span><span id="user-name" style="display:none;"></span></div>
+      </div>
+    </header>
+
+    <main>
+      <!-- DASHBOARD -->
+      <section id="view-dashboard">
+        <!-- Auto-discover banner: unclaimed box on the same network → one-tap claim -->
+        <div id="auto-discover-banner" style="margin-bottom:12px;"></div>
+        <!-- TOP STAT CARDS — like Firewalla 3-card row, but 4 wider on desktop -->
+        <div class="stat-row" id="top-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
+          <div class="stat-card" style="cursor:pointer;" onclick="showView('devices')"><div class="label">Devices</div><div class="value" id="stat-devices">—</div><div class="sub" id="stat-devices-sub">—</div></div>
+          <div class="stat-card" style="cursor:pointer;" onclick="showView('alarms')"><div class="label">Alarms (24h)</div><div class="value bad" id="stat-alarms-top">—</div><div class="sub" id="stat-alarms-sub">—</div></div>
+          <div class="stat-card" style="cursor:pointer;" onclick="showView('rules')"><div class="label">Rules</div><div class="value" id="stat-rules-top">—</div><div class="sub" id="stat-rules-sub">—</div></div>
+          <div class="stat-card" style="cursor:pointer;" onclick="showView('boxes')"><div class="label">Boxes</div><div class="value good" id="stat-boxes-top">—</div><div class="sub" id="stat-boxes-sub">—</div></div>
+        </div>
+
+        <!-- LIVE SPEEDOMETER -->
+        <div class="card" id="speedo-card">
+          <div class="card-head">
+            <span class="title">Live throughput</span>
+            <span class="meta" id="speedo-status">connecting…</span>
+          </div>
+          <div class="card-body" style="padding:14px 18px 8px;">
+            <div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center;">
+              <!-- Curved gauge: 270° arc with a needle -->
+              <svg viewBox="0 0 200 200" style="width:200px;height:140px;">
+                <defs>
+                  <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%"  stop-color="#3fb950"/>
+                    <stop offset="50%" stop-color="#d29922"/>
+                    <stop offset="100%" stop-color="#f85149"/>
+                  </linearGradient>
+                </defs>
+                <!-- Background arc -->
+                <path d="M 30 150 A 70 70 0 1 1 170 150" fill="none" stroke="var(--bg-row)" stroke-width="14" stroke-linecap="round"/>
+                <!-- Active arc (animates with current usage) -->
+                <path id="gauge-arc" d="M 30 150 A 70 70 0 1 1 170 150" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 330" style="transition: stroke-dasharray .6s ease;"/>
+                <!-- Center number -->
+                <text id="gauge-mbps" x="100" y="120" text-anchor="middle" font-size="34" font-weight="800" fill="var(--text)" style="font-variant-numeric: tabular-nums;">0.0</text>
+                <text x="100" y="140" text-anchor="middle" font-size="11" fill="var(--text-faint)">Mbps total</text>
+                <!-- Min/max labels -->
+                <text x="20" y="170" text-anchor="middle" font-size="9" fill="var(--text-faint)">0</text>
+                <text x="180" y="170" text-anchor="middle" font-size="9" fill="var(--text-faint)" id="gauge-max">100</text>
+              </svg>
+              <div>
+                <div style="display:flex;gap:24px;margin-bottom:14px;">
+                  <div>
+                    <div style="font-size:.75em;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;">↑ Upload</div>
+                    <div style="font-size:1.6em;font-weight:700;color:#79c0ff;font-variant-numeric:tabular-nums;" id="live-up">— Mbps</div>
+                  </div>
+                  <div>
+                    <div style="font-size:.75em;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;">↓ Download</div>
+                    <div style="font-size:1.6em;font-weight:700;color:#ffa657;font-variant-numeric:tabular-nums;" id="live-down">— Mbps</div>
+                  </div>
+                </div>
+                <!-- 5-minute spark chart -->
+                <svg id="spark-chart" viewBox="0 0 400 60" preserveAspectRatio="none" style="width:100%;height:60px;display:block;">
+                  <polyline id="spark-up" fill="none" stroke="#79c0ff" stroke-width="1.5" points=""/>
+                  <polyline id="spark-down" fill="none" stroke="#ffa657" stroke-width="1.5" points=""/>
+                  <polygon id="spark-down-fill" fill="rgba(255,166,87,0.1)" points=""/>
+                </svg>
+                <div style="font-size:.7em;color:var(--text-faint);margin-top:6px;">Last 5 minutes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-3">
+          <div class="card">
+            <div class="card-head">
+              <span class="title">Network Data Transferred</span>
+              <span class="meta">Last 7 days</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-totals">
+                <div class="total"><div class="num up" id="t-up">—</div><div class="lbl">Upload</div></div>
+                <div class="total"><div class="num down" id="t-down">—</div><div class="lbl">Download</div></div>
+                <div class="total"><div class="num total" id="t-total">—</div><div class="lbl">Total</div></div>
+              </div>
+              <svg id="bar-chart" class="bar-chart" viewBox="0 0 700 140" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><span class="title">Usage</span></div>
+            <div class="card-body">
+              <div class="donut-card">
+                <svg viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-row)" stroke-width="3.2"/>
+                  <circle id="donut-flows" cx="18" cy="18" r="15.9" fill="none" stroke="#2f81f7" stroke-width="3.2" stroke-dasharray="0 100" stroke-dashoffset="25" transform="rotate(-90 18 18)" stroke-linecap="round"/>
+                  <text x="18" y="20.5" text-anchor="middle" font-size="6.5" font-weight="700" fill="var(--text)" id="donut-flows-pct">—</text>
+                </svg>
+                <div class="info"><div class="v" id="donut-flows-num">—</div><div class="l">Total flows (7d)</div></div>
+              </div>
+              <div class="donut-card" style="border-top:1px solid var(--border);padding-top:14px;margin-top:10px;">
+                <svg viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-row)" stroke-width="3.2"/>
+                  <circle id="donut-blocked" cx="18" cy="18" r="15.9" fill="none" stroke="#f85149" stroke-width="3.2" stroke-dasharray="0 100" stroke-dashoffset="25" transform="rotate(-90 18 18)" stroke-linecap="round"/>
+                  <text x="18" y="20.5" text-anchor="middle" font-size="6.5" font-weight="700" fill="var(--text)" id="donut-blocked-pct">—</text>
+                </svg>
+                <div class="info"><div class="v" id="donut-blocked-num">—</div><div class="l">Blocked flows</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Regions by Data Transfer with world map -->
+        <div class="row-3">
+          <div class="card">
+            <div class="card-head"><span class="title">Top Regions by Data Transfer</span><span class="meta">Last 7 days</span></div>
+            <div class="card-body" style="padding:0;">
+              <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:0;">
+                <!-- Simplified world map SVG. Highlights regions where you have flows. -->
+                <div style="padding:18px;border-right:1px solid var(--border);">
+                  <svg id="world-map" viewBox="0 0 600 320" style="width:100%;height:auto;display:block;">
+                    <!-- Simplified continent shapes (very abstract — no real geographic accuracy needed for visual filler) -->
+                    <g fill="#1a2332" stroke="#243049" stroke-width="0.5">
+                      <!-- North America -->
+                      <path d="M60,80 L130,55 L180,70 L210,90 L195,140 L160,180 L120,200 L80,180 L50,140 Z"/>
+                      <!-- South America -->
+                      <path d="M150,200 L180,200 L195,240 L185,290 L160,300 L145,260 L140,220 Z"/>
+                      <!-- Europe -->
+                      <path d="M280,80 L340,75 L360,95 L350,115 L310,120 L285,105 Z"/>
+                      <!-- Africa -->
+                      <path d="M295,130 L355,130 L375,170 L370,220 L345,250 L320,250 L300,210 L290,170 Z"/>
+                      <!-- Asia -->
+                      <path d="M360,75 L500,65 L540,90 L555,140 L520,170 L470,165 L420,150 L380,130 L355,105 Z"/>
+                      <!-- Australia -->
+                      <path d="M495,225 L545,220 L555,250 L530,265 L500,260 Z"/>
+                    </g>
+                    <g id="map-dots"></g>
+                  </svg>
+                </div>
+                <table style="margin:0;">
+                  <thead><tr><th>Region</th><th class="right">Total</th></tr></thead>
+                  <tbody id="top-regions-tbody"><tr><td colspan="2" class="loading">Loading…</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="title">Help & Support</span></div>
+            <div class="card-body">
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <a href="#" onclick="showView('tickets');return false;" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-row);border-radius:8px;text-decoration:none;color:var(--text);">
+                  <div style="width:32px;height:32px;border-radius:8px;background:rgba(47,129,247,0.12);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.1em;">🎫</div>
+                  <div><div style="font-weight:600;font-size:.9em;">Open a ticket</div><div style="color:var(--text-faint);font-size:.78em;">Get help from support</div></div>
+                </a>
+                <a href="/pwa/" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-row);border-radius:8px;text-decoration:none;color:var(--text);">
+                  <div style="width:32px;height:32px;border-radius:8px;background:rgba(63,185,80,0.12);color:var(--good);display:flex;align-items:center;justify-content:center;font-size:1.1em;">📱</div>
+                  <div><div style="font-weight:600;font-size:.9em;">Mobile app</div><div style="color:var(--text-faint);font-size:.78em;">Pin to phone home screen</div></div>
+                </a>
+                <a href="#" onclick="showView('settings');return false;" style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-row);border-radius:8px;text-decoration:none;color:var(--text);">
+                  <div style="width:32px;height:32px;border-radius:8px;background:rgba(210,153,34,0.12);color:var(--warn);display:flex;align-items:center;justify-content:center;font-size:1.1em;">⚙</div>
+                  <div><div style="font-weight:600;font-size:.9em;">Settings</div><div style="color:var(--text-faint);font-size:.78em;">Profile, theme, 2FA</div></div>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Devices: Upload | Download (side-by-side, like Firewalla) -->
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><span class="title">Top Devices by Upload</span><span class="meta">Last 7 days</span></div>
+            <table>
+              <thead><tr><th>Device</th><th class="right">Upload</th><th class="right">Download</th></tr></thead>
+              <tbody id="top-devices-up"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="title">Top Devices by Download</span><span class="meta">Last 7 days</span></div>
+            <table>
+              <thead><tr><th>Device</th><th class="right">Upload</th><th class="right">Download</th></tr></thead>
+              <tbody id="top-devices-down"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Destinations: Upload | Download (with country flags) -->
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><span class="title">Top Destinations by Upload</span><span class="meta">Last 7 days</span></div>
+            <table>
+              <thead><tr><th>Destination</th><th>Region</th><th class="right">GB</th></tr></thead>
+              <tbody id="top-dest-up"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="title">Top Destinations by Download</span><span class="meta">Last 7 days</span></div>
+            <table>
+              <thead><tr><th>Destination</th><th>Region</th><th class="right">GB</th></tr></thead>
+              <tbody id="top-dest-down"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- BOXES -->
+      <section id="view-boxes" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">My boxes</span><button class="primary" onclick="addBox()">＋ Add box</button></div>
+          <table>
+            <thead><tr><th>Box</th><th>Status</th><th>Version</th><th class="right">Devices</th><th class="right">CPU</th><th class="right">RAM</th><th class="right">Last seen</th></tr></thead>
+            <tbody id="boxes-tbody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- DEVICES -->
+      <section id="view-devices" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">All devices</span><span class="meta" id="dev-count">—</span></div>
+          <table>
+            <thead><tr><th>Device</th><th>MAC</th><th>Vendor</th><th>Type</th><th>Status</th><th class="right">IP</th></tr></thead>
+            <tbody id="devices-tbody"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ALARMS -->
+      <section id="view-alarms" style="display:none;">
+        <div class="card">
+          <div class="card-head">
+            <span class="title">Alarms</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="meta" id="alarm-count">—</span>
+              <button onclick="openCustomerAI()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;padding:6px 14px;border-radius:99px;font-size:.82em;font-weight:600;cursor:pointer;">✨ Ask AI</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Time</th><th>Severity</th><th>Kind</th><th>Title</th></tr></thead>
+            <tbody id="alarms-tbody"><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- RULES -->
+      <section id="view-rules" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">Block rules</span><button class="primary" onclick="addRule()">＋ Add rule</button></div>
+          <table>
+            <thead><tr><th>Type</th><th>Value</th><th>Action</th><th>Status</th><th class="right">Created</th></tr></thead>
+            <tbody id="rules-tbody"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FLOWS -->
+      <section id="view-flows" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">Recent flows</span><span class="meta">Last 100</span></div>
+          <table>
+            <thead><tr><th>Time</th><th>Device</th><th>Domain / IP</th><th>Matched By</th><th>Country</th><th class="right">Bytes</th><th>Status</th></tr></thead>
+            <tbody id="flows-tbody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- INVOICES -->
+      <section id="view-invoices" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">Billing history</span></div>
+          <table>
+            <thead><tr><th>Period</th><th>Plan</th><th>Amount</th><th>Status</th><th class="right">Due</th></tr></thead>
+            <tbody id="invoices-tbody"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FAMILY -->
+      <section id="view-family" style="display:none;">
+        <div class="card">
+          <div class="card-head">
+            <span class="title">Family members</span>
+            <button class="primary" onclick="addFamilyMember()">＋ Add member</button>
+          </div>
+          <div class="card-body" style="padding:14px;">
+            <div id="family-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"><div class="loading">Loading…</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCHEDULES -->
+      <section id="view-schedules" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">Schedules</span><button class="primary" onclick="addScheduleQuick()">＋ Add schedule</button></div>
+          <table>
+            <thead><tr><th>Name</th><th>Devices/Family</th><th>Days</th><th>Hours</th><th>Status</th></tr></thead>
+            <tbody id="schedules-tbody"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SETTINGS / TICKETS — shared placeholder -->
+      <section id="view-placeholder" style="display:none;">
+        <div class="card"><div class="card-body">
+          <p style="color:var(--text-dim);">This page is under construction in the new portal.</p>
+          <p style="color:var(--text-faint);font-size:.85em;">Use the legacy mobile portal at <a href="/pwa/" style="color:var(--accent);">/pwa/</a> to manage <strong id="placeholder-name">these</strong> for now.</p>
+        </div></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const FLAG = { LB:'🇱🇧', US:'🇺🇸', GB:'🇬🇧', FR:'🇫🇷', DE:'🇩🇪', RU:'🇷🇺', CN:'🇨🇳', JP:'🇯🇵', IN:'🇮🇳', BR:'🇧🇷', SA:'🇸🇦', AE:'🇦🇪', EG:'🇪🇬', TR:'🇹🇷', NL:'🇳🇱', IE:'🇮🇪', CA:'🇨🇦', AU:'🇦🇺', IT:'🇮🇹', ES:'🇪🇸', SE:'🇸🇪', SG:'🇸🇬', KR:'🇰🇷', HK:'🇭🇰', XX:'🌐' };
+let token = localStorage.getItem('mes_token') || '';
+
+function fmt(n) {
+  if (n == null) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'G';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+function fmtBytes(b) {
+  if (b == null) return '—';
+  if (b >= 1024 ** 3) return (b / 1024 ** 3).toFixed(2) + ' GB';
+  if (b >= 1024 ** 2) return (b / 1024 ** 2).toFixed(1) + ' MB';
+  if (b >= 1024) return (b / 1024).toFixed(0) + ' KB';
+  return b + ' B';
+}
+function timeAgo(ts) {
+  if (!ts) return 'never';
+  const s = (Date.now() - ts) / 1000;
+  if (s < 60) return Math.round(s) + 's ago';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  if (s < 86400) return Math.round(s / 3600) + 'h ago';
+  return Math.round(s / 86400) + 'd ago';
+}
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[<>"&]/g, c => ({ '<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;' })[c]); }
+async function api(p, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (token) headers.Authorization = 'Bearer ' + token;
+  const r = await fetch('/api' + p, { ...opts, headers });
+  if (r.status === 401) { localStorage.removeItem('mes_token'); token=''; showLogin(); throw new Error('signed out'); }
+  if (!r.ok) {
+    let msg = 'HTTP ' + r.status;
+    try { const j = await r.json(); msg = j.error || j.message || msg; } catch {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+/* Login */
+function showLogin() {
+  document.getElementById('screen-login').style.display = '';
+  document.getElementById('screen-app').style.display = 'none';
+}
+function showApp() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-app').style.display = 'grid';
+}
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const phone = document.getElementById('phone').value.trim();
+  const code  = document.getElementById('otp').value.trim();
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  if (!/^\d{4}$/.test(code)) { errEl.textContent = 'OTP must be 4 digits'; errEl.style.display = 'block'; return; }
+  try {
+    await fetch('/api/customer/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) }).then(r => { if (!r.ok) throw new Error('phone not found'); });
+    const r = await fetch('/api/customer/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'login failed'); }
+    const d = await r.json();
+    token = d.token;
+    localStorage.setItem('mes_token', token);
+    showApp();
+    bootDashboard();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+});
+document.getElementById('logout-link').addEventListener('click', () => {
+  localStorage.removeItem('mes_token'); token = ''; location.reload();
+});
+
+/* Navigation */
+const VIEW_TITLES = {
+  dashboard:'Dashboard', boxes:'My boxes', devices:'Devices', alarms:'Alarms',
+  rules:'Rules', schedules:'Schedules', family:'Family', flows:'Flows',
+  invoices:'Billing', tickets:'Support', settings:'Settings',
+};
+function showView(v) {
+  document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+  const target = document.getElementById('view-' + v);
+  if (target) target.style.display = '';
+  else { document.getElementById('view-placeholder').style.display = ''; document.getElementById('placeholder-name').textContent = VIEW_TITLES[v] || v; }
+  document.querySelectorAll('nav a[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === v));
+  document.getElementById('breadcrumb-title').textContent = VIEW_TITLES[v] || v;
+  if (window.innerWidth <= 900) toggleSidebar(false);
+  if (v === 'boxes') loadBoxes();
+  if (v === 'devices') loadDevices();
+  if (v === 'alarms') loadAlarms();
+  if (v === 'rules') loadRules();
+  if (v === 'flows') loadFlows();
+  if (v === 'invoices') loadInvoices();
+  if (v === 'family') loadFamily();
+  if (v === 'schedules') loadSchedules();
+}
+document.querySelectorAll('nav a[data-view]').forEach(a => a.addEventListener('click', () => showView(a.dataset.view)));
+
+function toggleSidebar(force) {
+  const sb = document.getElementById('sidebar'), sc = document.getElementById('scrim');
+  const open = force == null ? !sb.classList.contains('open') : force;
+  sb.classList.toggle('open', open); sc.classList.toggle('show', open);
+}
+
+/* Bar chart */
+function drawBarChart(svg, days) {
+  const W = 700, H = 140;
+  const N = days.length;
+  if (!N) { svg.innerHTML = '<text x="350" y="70" text-anchor="middle" fill="var(--text-faint)" font-size="11">No data</text>'; return; }
+  const max = Math.max(1, ...days.map(d => d.up + d.down));
+  const bw = (W - 40) / N;
+  const margin = 4;
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    const d = days[i];
+    const x = 20 + i * bw;
+    const upH = (d.up / max) * (H - 30);
+    const downH = (d.down / max) * (H - 30);
+    html += '<rect class="bar up" x="' + (x + margin) + '" y="' + (H - 20 - upH - downH) + '" width="' + (bw - margin * 2) + '" height="' + upH + '" rx="1"/>';
+    html += '<rect class="bar down" x="' + (x + margin) + '" y="' + (H - 20 - downH) + '" width="' + (bw - margin * 2) + '" height="' + downH + '" rx="1"/>';
+    html += '<text class="label" x="' + (x + bw / 2) + '" y="' + (H - 5) + '" text-anchor="middle">' + d.label + '</text>';
+  }
+  html += '<line class="axis" x1="20" y1="' + (H - 20) + '" x2="' + (W - 20) + '" y2="' + (H - 20) + '"/>';
+  svg.innerHTML = html;
+}
+function setDonut(elPct, elNum, fillEl, value, total) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
+  elPct.textContent = pct.toFixed(0) + '%';
+  elNum.textContent = fmt(value) + ' / ' + fmt(total);
+  fillEl.setAttribute('stroke-dasharray', pct + ' 100');
+}
+
+/* Loaders */
+async function bootDashboard() {
+  try {
+    const me = await api('/customer/me');
+    document.getElementById('user-avatar').textContent = (me.name || '?').slice(0, 1).toUpperCase();
+    document.getElementById('user-name').textContent = me.name;
+    loadDashboard();
+    setInterval(loadDashboard, 60_000);
+    refreshAutoDiscover();
+    setInterval(refreshAutoDiscover, 30_000);
+  } catch (e) { console.error(e); }
+}
+
+// Auto-discover unclaimed boxes on the same network → one-tap claim
+async function refreshAutoDiscover() {
+  try {
+    const r = await api('/customer/box/discover');
+    const host = document.getElementById('auto-discover-banner');
+    if (!host) return;
+    if (!r.candidates || !r.candidates.length) { host.innerHTML = ''; return; }
+    host.innerHTML = r.candidates.map(c => {
+      const hw = c.hw && c.hw.hw_model ? c.hw.hw_model : 'mes Box';
+      return '<div class="card" style="margin:0;background:linear-gradient(135deg, rgba(63,185,80,0.18), rgba(0,212,170,0.08));border:1px solid rgba(63,185,80,0.3);">'
+        + '<div style="padding:14px 18px;display:flex;align-items:center;gap:14px;">'
+        +   '<div style="width:44px;height:44px;border-radius:12px;background:rgba(63,185,80,0.18);display:flex;align-items:center;justify-content:center;font-size:1.4em;">📦</div>'
+        +   '<div style="flex:1;min-width:0;">'
+        +     '<div style="font-weight:700;color:var(--text);">A new box is on your network</div>'
+        +     '<div style="color:var(--text-dim);font-size:.85em;margin-top:2px;">' + escapeHtml(hw) + ' · ' + escapeHtml(c.mac) + ' · just plug it in and tap below</div>'
+        +   '</div>'
+        +   '<button onclick="autoClaim(\'' + c.mac + '\')" style="background:var(--good);color:#06210b;border:none;padding:9px 18px;border-radius:8px;font-weight:700;font-size:.9em;cursor:pointer;">＋ Add this box</button>'
+        + '</div></div>';
+    }).join('');
+  } catch {}
+}
+async function autoClaim(mac) {
+  try {
+    await api('/customer/box/auto-claim', { method: 'POST', body: JSON.stringify({ mac }) });
+    if (typeof toast === 'function') toast('Box paired', 'success', 'Live data starting in a few seconds');
+    refreshAutoDiscover();
+    loadDashboard();
+    if (typeof loadBoxes === 'function') loadBoxes();
+  } catch (e) {
+    if (typeof toast === 'function') toast('Auto-claim failed', 'error', e.message);
+    else alert('Failed: ' + e.message);
+  }
+}
+// Country code → approximate (x,y) on our 600x320 simplified world map
+const COUNTRY_XY = {
+  US:[110,110], CA:[110,80], MX:[100,150], BR:[170,250], AR:[160,290],
+  GB:[290,90], FR:[300,100], DE:[310,95], IT:[315,105], ES:[290,110], NL:[305,90], SE:[315,75], RU:[420,80],
+  EG:[330,150], SA:[365,160], AE:[400,165], IL:[340,140], TR:[360,115], LB:[345,135],
+  IN:[440,160], CN:[480,120], JP:[535,125], KR:[520,120], HK:[490,150], SG:[480,200],
+  AU:[525,250], ZA:[345,265],
+};
+function renderWorldMap(byCountry) {
+  const max = Math.max(1, ...Object.values(byCountry).map(v => v.flows || 0));
+  const dotsEl = document.getElementById('map-dots');
+  if (!dotsEl) return;
+  let html = '';
+  for (const [cc, v] of Object.entries(byCountry)) {
+    const xy = COUNTRY_XY[cc];
+    if (!xy) continue;
+    const r = 4 + Math.sqrt(v.flows / max) * 14;
+    const blocked = (v.blocked || 0) > 0;
+    const color = blocked ? '#f85149' : '#2f81f7';
+    html += '<g transform="translate(' + xy[0] + ',' + xy[1] + ')">'
+      + '<circle r="' + r + '" fill="' + color + '" fill-opacity="0.3"/>'
+      + '<circle r="' + Math.min(r, 4) + '" fill="' + color + '"/>'
+      + '<text x="' + (r + 4) + '" y="3" font-size="9" fill="var(--text-dim)">' + cc + '</text>'
+      + '</g>';
+  }
+  dotsEl.innerHTML = html;
+}
+
+async function loadDashboard() {
+  try {
+    const [dev, rules, alarms, boxes, flowsData] = await Promise.all([
+      api('/customer/devices').catch(() => ({ devices: [] })),
+      api('/customer/rules').catch(() => ({ rules: [] })),
+      api('/customer/alarms').catch(() => ({ alarms: [] })),
+      api('/customer/boxes').catch(() => ({ boxes: [] })),
+      api('/customer/flows?limit=2000').catch(() => ({ flows: [] })),
+    ]);
+    const devices = dev.devices || [];
+    const onlineCount = devices.filter(d => d.online).length;
+    const totalDevs = devices.length;
+    document.getElementById('nav-dev-ct').textContent = totalDevs;
+    document.getElementById('nav-box-ct').textContent = (boxes.boxes || []).length;
+    const flowsToday = (flowsData.flows || []).filter(f => f.ts >= Date.now() - 86400_000);
+    const blockedToday = flowsToday.filter(f => f.blocked).length;
+    const a24 = (alarms.alarms || []).filter(a => a.ts >= Date.now() - 86400_000);
+    document.getElementById('nav-alarm-ct').textContent = a24.length;
+
+    // Populate top stat cards
+    document.getElementById('stat-devices').textContent = totalDevs;
+    document.getElementById('stat-devices-sub').textContent = onlineCount + ' online · ' + blockedToday + ' blocked today';
+    document.getElementById('stat-alarms-top').textContent = a24.length;
+    document.getElementById('stat-alarms-sub').textContent = a24.filter(a => a.severity === 'high' || a.severity === 'critical').length + ' high+ severity';
+    document.getElementById('stat-rules-top').textContent = (rules.rules || []).filter(r => r.enabled !== false).length;
+    document.getElementById('stat-rules-sub').textContent = (rules.rules || []).length + ' total';
+    const onlineBoxes = (boxes.boxes || []).filter(b => b.online).length;
+    document.getElementById('stat-boxes-top').textContent = onlineBoxes;
+    document.getElementById('stat-boxes-sub').textContent = 'of ' + (boxes.boxes || []).length + ' total';
+
+    // Bar chart per-day for last 7 days
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400_000);
+      days.push({ key: d.toISOString().slice(0,10), label: d.toLocaleDateString('en', { weekday: 'short' }), up: 0, down: 0 });
+    }
+    const dayMap = Object.fromEntries(days.map(d => [d.key, d]));
+    let totalUp = 0, totalDown = 0, totalFlows = 0, blockedFlows = 0;
+    const flowsArr = flowsData.flows || [];
+    for (const f of flowsArr) {
+      const k = new Date(f.ts).toISOString().slice(0, 10);
+      if (dayMap[k]) {
+        dayMap[k].up   += (f.bytes_up   || 0);
+        dayMap[k].down += (f.bytes_down || 0);
+      }
+      if (f.ts >= Date.now() - 7 * 86400_000) {
+        totalUp   += (f.bytes_up   || 0);
+        totalDown += (f.bytes_down || 0);
+        totalFlows++;
+        if (f.blocked) blockedFlows++;
+      }
+    }
+    drawBarChart(document.getElementById('bar-chart'), days);
+    document.getElementById('t-up').textContent = fmtBytes(totalUp);
+    document.getElementById('t-down').textContent = fmtBytes(totalDown);
+    document.getElementById('t-total').textContent = fmtBytes(totalUp + totalDown);
+    setDonut(document.getElementById('donut-flows-pct'), document.getElementById('donut-flows-num'), document.getElementById('donut-flows'), totalFlows, totalFlows || 1);
+    setDonut(document.getElementById('donut-blocked-pct'), document.getElementById('donut-blocked-num'), document.getElementById('donut-blocked'), blockedFlows, totalFlows || 1);
+
+    // Top devices — aggregated by src_mac
+    const byMac = {};
+    for (const f of flowsArr) {
+      const m = f.src_mac || f.src_ip || 'unknown';
+      if (!byMac[m]) byMac[m] = { up: 0, down: 0 };
+      byMac[m].up   += (f.bytes_up   || 0);
+      byMac[m].down += (f.bytes_down || 0);
+    }
+    const macToName = {};
+    const macToIcon = {};
+    for (const d of devices) { macToName[d.mac] = d.name || d.hostname || d.mac; macToIcon[d.mac] = d.icon || '📱'; }
+    const renderDevRow = ([m, v]) =>
+      '<tr><td>' + (macToIcon[m] || '📱') + ' ' + escapeHtml(macToName[m] || m) + '</td>'
+      + '<td class="num right">' + fmtBytes(v.up) + '</td>'
+      + '<td class="num right">' + fmtBytes(v.down) + '</td></tr>';
+    const topByUp   = Object.entries(byMac).sort((a, b) => b[1].up - a[1].up).slice(0, 6);
+    const topByDown = Object.entries(byMac).sort((a, b) => b[1].down - a[1].down).slice(0, 6);
+    document.getElementById('top-devices-up').innerHTML   = topByUp.length   ? topByUp.map(renderDevRow).join('')   : '<tr><td colspan="3" class="empty">No traffic yet</td></tr>';
+    document.getElementById('top-devices-down').innerHTML = topByDown.length ? topByDown.map(renderDevRow).join('') : '<tr><td colspan="3" class="empty">No traffic yet</td></tr>';
+
+    // Top destinations (domains) — by upload + by download
+    const byDomain = {};
+    for (const f of flowsArr) {
+      const d = f.dst_domain || f.dst_ip || '—';
+      if (!byDomain[d]) byDomain[d] = { up: 0, down: 0, country: f.country };
+      byDomain[d].up   += (f.bytes_up   || 0);
+      byDomain[d].down += (f.bytes_down || 0);
+    }
+    const renderDestRow = ([dom, v]) => {
+      const cc = v.country || 'XX';
+      return '<tr><td><span style="color:var(--text);">' + escapeHtml(dom) + '</span></td>'
+        + '<td>' + (FLAG[cc] || FLAG.XX) + ' ' + escapeHtml(cc) + '</td>'
+        + '<td class="num right">' + fmtBytes(v.up + v.down) + '</td></tr>';
+    };
+    const topDestUp   = Object.entries(byDomain).sort((a, b) => b[1].up - a[1].up).slice(0, 6);
+    const topDestDown = Object.entries(byDomain).sort((a, b) => b[1].down - a[1].down).slice(0, 6);
+    document.getElementById('top-dest-up').innerHTML   = topDestUp.length   ? topDestUp.map(renderDestRow).join('')   : '<tr><td colspan="3" class="empty">No flows yet</td></tr>';
+    document.getElementById('top-dest-down').innerHTML = topDestDown.length ? topDestDown.map(renderDestRow).join('') : '<tr><td colspan="3" class="empty">No flows yet</td></tr>';
+
+    // Top regions + world map
+    const byCountry = {};
+    for (const f of flowsArr) {
+      const c = f.country || 'XX';
+      if (!byCountry[c]) byCountry[c] = { flows: 0, blocked: 0, bytes: 0 };
+      byCountry[c].flows++;
+      byCountry[c].bytes += (f.bytes_up || 0) + (f.bytes_down || 0);
+      if (f.blocked) byCountry[c].blocked++;
+    }
+    const topC = Object.entries(byCountry).sort((a, b) => b[1].bytes - a[1].bytes).slice(0, 8);
+    document.getElementById('top-regions-tbody').innerHTML = topC.length
+      ? topC.map(([cc, v]) => '<tr><td>' + (FLAG[cc] || FLAG.XX) + ' ' + escapeHtml(cc) + '</td><td class="num right">' + fmtBytes(v.bytes) + '</td></tr>').join('')
+      : '<tr><td colspan="2" class="empty">No flows yet</td></tr>';
+    renderWorldMap(byCountry);
+  } catch (e) {
+    console.error('dash err', e);
+  }
+}
+async function loadBoxes() {
+  try {
+    const r = await api('/customer/boxes');
+    const tbody = document.getElementById('boxes-tbody');
+    tbody.innerHTML = (r.boxes || []).map(b => {
+      const cls = b.online ? 'online' : 'offline';
+      const name = b.friendly_name || b.mac;
+      return '<tr><td><strong>' + escapeHtml(name) + '</strong>' + (b.friendly_name ? '<div style="color:var(--text-faint);font-size:.78em;font-family:ui-monospace,monospace;">' + b.mac + '</div>' : '') + '</td>'
+        + '<td><span class="pill ' + cls + '">' + (b.online ? 'online' : 'offline') + '</span></td>'
+        + '<td class="num">' + (b.version || '—') + '</td>'
+        + '<td class="num right">' + (b.device_count || 0) + '</td>'
+        + '<td class="num right">' + (b.cpu_pct != null ? b.cpu_pct + '%' : '—') + '</td>'
+        + '<td class="num right">' + (b.ram_pct != null ? b.ram_pct + '%' : '—') + '</td>'
+        + '<td class="num right">' + timeAgo(b.last_heartbeat) + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="empty">No boxes yet — click Add box</td></tr>';
+  } catch (e) { document.getElementById('boxes-tbody').innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>'; }
+}
+let _devicesCache = [];
+async function loadDevices() {
+  try {
+    const r = await api('/customer/devices');
+    _devicesCache = r.devices || [];
+    document.getElementById('dev-count').textContent = _devicesCache.length + ' total';
+    document.getElementById('devices-tbody').innerHTML = _devicesCache.map(d => {
+      const cls = d.online ? 'online' : 'offline';
+      return '<tr data-mac="' + escapeHtml(d.mac) + '">'
+        + '<td>' + (d.icon || '📱') + ' ' + escapeHtml(d.name || d.hostname || '—') + '</td>'
+        + '<td><code style="color:var(--text-faint);font-size:.85em;">' + escapeHtml(d.mac) + '</code></td>'
+        + '<td>' + escapeHtml(d.vendor || '—') + '</td>'
+        + '<td>' + escapeHtml(d.device_type || '—') + '</td>'
+        + '<td><span class="pill ' + cls + '">' + (d.online ? 'online' : 'offline') + '</span></td>'
+        + '<td class="num right">' + escapeHtml(d.ip || '—') + '</td></tr>';
+    }).join('') || '<tr><td colspan="6" class="empty">No devices yet</td></tr>';
+    // Wire long-press + right-click + click on each row to open the action sheet
+    document.querySelectorAll('#devices-tbody tr[data-mac]').forEach(tr => {
+      const mac = tr.dataset.mac;
+      // Right-click (desktop)
+      tr.addEventListener('contextmenu', e => { e.preventDefault(); openDeviceSheet(mac); });
+      // Long-press (mobile + desktop)
+      let pressTimer = null;
+      tr.addEventListener('pointerdown', () => { pressTimer = setTimeout(() => { openDeviceSheet(mac); pressTimer = null; }, 450); });
+      tr.addEventListener('pointerup', () => { if (pressTimer) clearTimeout(pressTimer); });
+      tr.addEventListener('pointerleave', () => { if (pressTimer) clearTimeout(pressTimer); });
+      // Plain click (open immediately on tap — better UX than waiting for long-press)
+      tr.addEventListener('click', e => { if (pressTimer) clearTimeout(pressTimer); openDeviceSheet(mac); });
+    });
+  } catch (e) { document.getElementById('devices-tbody').innerHTML = '<tr><td colspan="6" class="err">' + e.message + '</td></tr>'; }
+}
+
+/* ─── Device action sheet ─────────────────────────────────────────────── */
+function openDeviceSheet(mac) {
+  const d = _devicesCache.find(x => x.mac === mac);
+  if (!d) return;
+  document.getElementById('sheet-ico').textContent = d.icon || '📱';
+  document.getElementById('sheet-name').textContent = d.name || d.hostname || mac;
+  document.getElementById('sheet-mac').textContent = mac + (d.ip ? ' · ' + d.ip : '') + (d.vendor ? ' · ' + d.vendor : '');
+  const actions = document.getElementById('sheet-actions');
+  const isBlocked = d.blocked;
+  actions.innerHTML = '';
+  const add = (icon, title, sub, fn, danger) => {
+    const b = document.createElement('button');
+    b.className = 'sheet-action' + (danger ? ' danger' : '');
+    b.innerHTML = '<span class="ai">' + icon + '</span><span class="at"><div class="t">' + escapeHtml(title) + '</div><div class="s">' + escapeHtml(sub) + '</div></span>';
+    b.onclick = () => { closeSheet(); fn(); };
+    actions.appendChild(b);
+  };
+  add('✏️', 'Rename', 'Give this device a friendly name', () => actRename(mac, d));
+  if (isBlocked) {
+    add('✓', 'Unblock', 'Restore internet access', () => actUnblock(mac), false);
+  } else {
+    add('🚫', 'Block this device', 'Cut internet access immediately', () => actBlock(mac), true);
+  }
+  add('⏱', 'Set time limit', 'Daily internet allowance (minutes)', () => actTimeLimit(mac));
+  add('📊', 'Set bandwidth limit', 'Max upload/download speed', () => actQos(mac));
+  add('📅', 'Add to a schedule', 'Block during specific hours', () => actSchedule(mac));
+  add('💾', 'Set monthly data cap', 'Block when GB threshold reached', () => actQuota(mac));
+  document.getElementById('sheet-overlay').classList.add('show');
+}
+function closeSheet() {
+  document.getElementById('sheet-overlay').classList.remove('show');
+}
+
+async function actRename(mac, d) {
+  const newName = prompt('Rename ' + (d.name || mac) + ':', d.name || '');
+  if (newName === null) return;
+  try {
+    await api('/customer/device/rename', { method: 'POST', body: JSON.stringify({ mac, name: newName.trim() }) });
+    loadDevices();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function actBlock(mac) {
+  if (!confirm('Block ' + mac + '? It will lose internet immediately.')) return;
+  try {
+    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ scope: 'device', target: mac, type: 'domain', value: '*', action: 'block', note: 'device-block from action sheet' }) });
+    alert('Blocked. Open the Rules tab to undo.');
+    loadDevices();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function actUnblock(mac) {
+  // Find any rule with scope=device, target=mac, action=block
+  try {
+    const r = await api('/customer/rules');
+    const rule = (r.rules || []).find(x => x.scope === 'device' && x.target === mac && x.action === 'block');
+    if (!rule) return alert('No active block rule found for this device.');
+    await api('/customer/rules/delete', { method: 'POST', body: JSON.stringify({ id: rule.id }) });
+    loadDevices();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function actTimeLimit(mac) {
+  const minutes = parseInt(prompt('Daily minutes of internet allowed (e.g. 120 for 2 hours):', '120'));
+  if (!minutes || minutes < 1) return;
+  try {
+    await api('/customer/time-bank/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, daily_minutes: minutes }) });
+    alert('Time limit set: ' + minutes + ' min/day. Resets at midnight.');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function actQos(mac) {
+  const down = parseInt(prompt('Max DOWNLOAD speed for this device (kbps, e.g. 5000 for 5 Mbps):', '5000')) || 0;
+  if (!down) return;
+  const up = parseInt(prompt('Max UPLOAD speed for this device (kbps, e.g. 1000 for 1 Mbps):', '1000')) || 0;
+  try {
+    await api('/customer/qos/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, down_kbps: down, up_kbps: up }) });
+    alert('Bandwidth limit set: ' + down + '↓ / ' + up + '↑ kbps');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function actSchedule(mac) {
+  const start = prompt('Block START time (HH:MM, 24h, e.g. 22:00 for 10pm):', '22:00');
+  if (!start) return;
+  const end = prompt('Block END time (HH:MM, e.g. 06:00 for 6am):', '06:00');
+  if (!end) return;
+  const name = prompt('Schedule name:', 'Bedtime ' + (_devicesCache.find(d=>d.mac===mac)?.name || ''));
+  try {
+    await api('/customer/schedules/add', { method: 'POST', body: JSON.stringify({
+      name: name || 'Schedule', device_macs: [mac],
+      days: [0,1,2,3,4,5,6], start_hhmm: start, end_hhmm: end, enabled: true,
+    }) });
+    alert('Schedule created. Internet blocked ' + start + '–' + end + ' daily.');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function actQuota(mac) {
+  const gb = parseInt(prompt('Monthly data cap in GB (e.g. 50). Block when reached.', '50'));
+  if (!gb || gb < 1) return;
+  try {
+    await api('/customer/quotas/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, monthly_gb: gb }) });
+    alert('Monthly cap set: ' + gb + ' GB. Resets on the 1st.');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function loadAlarms() {
+  try {
+    const r = await api('/customer/alarms');
+    document.getElementById('alarm-count').textContent = (r.alarms || []).length + ' total';
+    document.getElementById('alarms-tbody').innerHTML = (r.alarms || []).slice(0, 100).map(a => {
+      const sev = a.severity || 'low';
+      const cls = sev === 'high' || sev === 'critical' ? 'offline' : sev === 'medium' ? 'warn' : '';
+      return '<tr><td class="num">' + new Date(a.ts).toLocaleString() + '</td><td><span class="pill ' + cls + '">' + sev + '</span></td><td>' + escapeHtml(a.kind || '—') + '</td><td>' + escapeHtml(a.title || '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="empty">No alarms 🎉</td></tr>';
+  } catch (e) { document.getElementById('alarms-tbody').innerHTML = '<tr><td colspan="4" class="err">' + e.message + '</td></tr>'; }
+}
+async function loadRules() {
+  try {
+    const r = await api('/customer/rules');
+    document.getElementById('rules-tbody').innerHTML = (r.rules || []).map(rl => {
+      const enabled = rl.enabled !== false;
+      const cls = enabled ? (rl.action === 'block' ? 'blocked' : 'online') : 'offline';
+      return '<tr><td>' + escapeHtml(rl.type) + '</td><td>' + escapeHtml(rl.value) + '</td><td><span class="pill ' + (rl.action === 'block' ? 'blocked' : 'online') + '">' + rl.action + '</span></td><td><span class="pill ' + cls + '">' + (enabled ? 'on' : 'off') + '</span></td><td class="num right">' + (rl.created_at ? new Date(rl.created_at).toLocaleDateString() : '—') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">No rules yet — click Add rule</td></tr>';
+  } catch (e) { document.getElementById('rules-tbody').innerHTML = '<tr><td colspan="5" class="err">' + e.message + '</td></tr>'; }
+}
+async function loadFlows() {
+  try {
+    const r = await api('/customer/flows?limit=100');
+    document.getElementById('flows-tbody').innerHTML = (r.flows || []).map(f => {
+      const matchedCell = f.matched_by
+        ? '<span class="pill blocked" style="cursor:pointer;" onclick="openRuleDetails(\'' + f.matched_rule_id + '\')" title="Click for rule details">' + escapeHtml(f.matched_by.slice(0, 36)) + '</span>'
+        : '<span style="color:var(--text-faint);">' + escapeHtml(f.category || '—') + '</span>';
+      return '<tr><td class="num">' + new Date(f.ts).toLocaleTimeString() + '</td>'
+        + '<td><code style="font-size:.82em;color:var(--text-faint);">' + escapeHtml(f.src_mac || f.src_ip || '—') + '</code></td>'
+        + '<td>' + escapeHtml(f.dst_domain || f.dst_ip || '—') + '</td>'
+        + '<td>' + matchedCell + '</td>'
+        + '<td>' + (FLAG[f.country] || FLAG.XX) + ' ' + escapeHtml(f.country || '—') + '</td>'
+        + '<td class="num right">' + fmtBytes((f.bytes_up || 0) + (f.bytes_down || 0)) + '</td>'
+        + '<td>' + (f.blocked ? '<span class="pill blocked">blocked</span>' : '<span class="pill online">allowed</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="empty">No flows yet</td></tr>';
+  } catch (e) { document.getElementById('flows-tbody').innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>'; }
+}
+
+async function openRuleDetails(ruleId) {
+  try {
+    const r = await api('/customer/rule/' + ruleId + '/details');
+    const flows7d = (r.recent_flows || []).slice(0, 10);
+    const dailyKeys = Object.keys(r.hits.daily || {}).sort();
+    const last7days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
+      last7days.push({ d, hits: (r.hits.daily || {})[d] || 0 });
+    }
+    const v = await showModal({
+      title: 'Rule details', desc: r.rule.action.toUpperCase() + ' · ' + r.rule.type + ': ' + r.rule.value,
+      fields: [],
+      submitLabel: 'View matched flows',
+    });
+    if (v !== null) {
+      // User clicked "View matched flows" → navigate to flows tab filtered by this rule
+      window.location.hash = 'flows?rule=' + ruleId;
+      // Reload flows with rule filter
+      try {
+        const fr = await api('/customer/flows?limit=100&rule_id=' + encodeURIComponent(ruleId));
+        showView('flows');
+        document.getElementById('flows-tbody').innerHTML = (fr.flows || []).map(f =>
+          '<tr><td class="num">' + new Date(f.ts).toLocaleTimeString() + '</td>'
+          + '<td><code style="font-size:.82em;color:var(--text-faint);">' + escapeHtml(f.src_mac || f.src_ip || '—') + '</code></td>'
+          + '<td>' + escapeHtml(f.dst_domain || f.dst_ip || '—') + '</td>'
+          + '<td><span class="pill blocked">' + escapeHtml((f.matched_by || '').slice(0, 36)) + '</span></td>'
+          + '<td>' + (FLAG[f.country] || FLAG.XX) + ' ' + escapeHtml(f.country || '—') + '</td>'
+          + '<td class="num right">' + fmtBytes((f.bytes_up || 0) + (f.bytes_down || 0)) + '</td>'
+          + '<td><span class="pill blocked">blocked</span></td></tr>'
+        ).join('') || '<tr><td colspan="7" class="empty">No matched flows</td></tr>';
+      } catch (e) { toast('Failed', 'error', e.message); }
+    }
+  } catch (e) {
+    toast('Failed to load rule', 'error', e.message);
+  }
+}
+/* ─── Family + Time Bank ─────────────────────────────────────────────── */
+async function loadFamily() {
+  try {
+    const [famR, timeBank, devR] = await Promise.all([
+      api('/customer/family'),
+      api('/customer/time-bank').catch(() => ({ entries: [] })),
+      api('/customer/devices').catch(() => ({ devices: [] })),
+    ]);
+    const fam = famR.family || [];
+    const bankEntries = timeBank.entries || timeBank.time_bank || [];
+    const devices = devR.devices || [];
+    const macToDev = Object.fromEntries(devices.map(d => [d.mac, d]));
+    const grid = document.getElementById('family-grid');
+    if (!fam.length) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1;">No family members yet. Click <strong>＋ Add member</strong> to start (e.g. "Kids", "Spouse", "Guests").</div>';
+      return;
+    }
+    grid.innerHTML = fam.map(m => {
+      const macs = m.device_macs || [];
+      // Aggregate time-bank usage across this member's devices
+      const myBanks = bankEntries.filter(b => macs.includes(b.device_mac));
+      const totalDaily = myBanks.reduce((s, b) => s + (b.daily_minutes || 0), 0);
+      const totalUsed = myBanks.reduce((s, b) => s + (b.used_minutes || 0), 0);
+      const pct = totalDaily > 0 ? Math.min(100, Math.round((totalUsed / totalDaily) * 100)) : 0;
+      const barColor = pct >= 90 ? 'var(--bad)' : pct >= 60 ? 'var(--warn)' : 'var(--good)';
+      const onlineCount = macs.filter(mac => macToDev[mac] && macToDev[mac].online).length;
+      const roleColor = m.role === 'Kid' ? '#f7768e' : m.role === 'Teen' ? '#bb9af7' : m.role === 'Admin' ? '#7aa2f7' : '#9ece6a';
+      return '<div class="card" style="margin:0;padding:0;">'
+        + '<div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">'
+        +   '<div style="width:48px;height:48px;border-radius:50%;background:var(--bg-elev-2);display:flex;align-items:center;justify-content:center;font-size:1.6em;flex-shrink:0;">' + (m.icon || '👤') + '</div>'
+        +   '<div style="flex:1;min-width:0;">'
+        +     '<div style="font-weight:700;font-size:1em;color:var(--text);">' + escapeHtml(m.name) + '</div>'
+        +     '<div style="font-size:.78em;color:' + roleColor + ';font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;">' + escapeHtml(m.role) + '</div>'
+        +   '</div>'
+        +   '<button class="ghost" style="padding:4px 8px;font-size:.75em;" onclick="editFamilyMember(\'' + m.id + '\')">⋯</button>'
+        + '</div>'
+        + '<div style="padding:14px 16px;">'
+        +   (totalDaily > 0
+              ? '<div style="display:flex;justify-content:space-between;font-size:.8em;color:var(--text-dim);margin-bottom:4px;">'
+              +   '<span>Time bank today</span><span style="font-variant-numeric:tabular-nums;">' + totalUsed + ' / ' + totalDaily + ' min</span>'
+              + '</div>'
+              + '<div style="height:8px;background:var(--bg-row);border-radius:99px;overflow:hidden;margin-bottom:12px;">'
+              +   '<div style="height:100%;background:' + barColor + ';width:' + pct + '%;transition:width .4s;"></div>'
+              + '</div>'
+              : '<div style="font-size:.8em;color:var(--text-faint);margin-bottom:10px;">No time limit set</div>')
+        +   '<div style="display:flex;justify-content:space-between;font-size:.8em;color:var(--text-dim);margin-bottom:10px;">'
+        +     '<span>📱 ' + macs.length + ' device' + (macs.length === 1 ? '' : 's') + '</span>'
+        +     '<span style="color:' + (onlineCount > 0 ? 'var(--good)' : 'var(--text-faint)') + ';">● ' + onlineCount + ' online</span>'
+        +   '</div>'
+        +   '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +     '<button class="ghost" style="padding:6px 10px;font-size:.8em;flex:1;" onclick="assignDevicesToMember(\'' + m.id + '\')">📱 Devices</button>'
+        +     '<button class="ghost" style="padding:6px 10px;font-size:.8em;flex:1;" onclick="setMemberTimeBank(\'' + m.id + '\')">⏱ Time</button>'
+        +     '<button class="ghost danger" style="padding:6px 10px;font-size:.8em;flex:1;border-color:rgba(248,81,73,0.3);color:var(--bad);" onclick="pauseMember(\'' + m.id + '\')">⏸ Pause</button>'
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  } catch (e) {
+    document.getElementById('family-grid').innerHTML = '<div class="err">' + e.message + '</div>';
+  }
+}
+
+async function addFamilyMember() {
+  const name = prompt('Family member name (e.g. "Kids", "Sara", "Office"):');
+  if (!name) return;
+  const role = prompt('Role: Admin / Adult / Teen / Kid / Member', 'Kid');
+  if (!role) return;
+  try {
+    await api('/customer/family/add', { method: 'POST', body: JSON.stringify({ name: name.trim(), role: role.trim() }) });
+    loadFamily();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function editFamilyMember(id) {
+  const m = await api('/customer/family').then(r => (r.family || []).find(x => x.id === id));
+  if (!m) return;
+  const choice = prompt('Choose: rename / delete / cancel', 'rename');
+  if (!choice) return;
+  if (choice === 'delete') {
+    if (!confirm('Delete ' + m.name + '?')) return;
+    await api('/customer/family/delete', { method: 'POST', body: JSON.stringify({ id }) });
+  } else if (choice === 'rename') {
+    const newName = prompt('New name:', m.name);
+    if (!newName) return;
+    await api('/customer/family/update', { method: 'POST', body: JSON.stringify({ id, name: newName.trim() }) });
+  }
+  loadFamily();
+}
+
+async function assignDevicesToMember(id) {
+  const fam = (await api('/customer/family')).family || [];
+  const m = fam.find(x => x.id === id);
+  if (!m) return;
+  const devs = (await api('/customer/devices')).devices || [];
+  const current = new Set(m.device_macs || []);
+  // Build a checklist via prompt — simple version (TODO: real modal in future iteration)
+  const list = devs.map((d, i) => (i + 1) + '. ' + (current.has(d.mac) ? '✓ ' : '  ') + (d.name || d.hostname || d.mac) + '  [' + d.mac.slice(-8) + ']').join('\n');
+  const input = prompt('Devices for ' + m.name + ':\n' + list + '\n\nEnter comma-separated numbers to TOGGLE (e.g. 1,3,5):');
+  if (!input) return;
+  const toggle = input.split(',').map(s => parseInt(s.trim()) - 1).filter(i => i >= 0 && i < devs.length);
+  for (const idx of toggle) {
+    const mac = devs[idx].mac;
+    if (current.has(mac)) current.delete(mac); else current.add(mac);
+  }
+  try {
+    await api('/customer/family/assign-devices', { method: 'POST', body: JSON.stringify({ id, device_macs: Array.from(current) }) });
+    loadFamily();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function setMemberTimeBank(id) {
+  const fam = (await api('/customer/family')).family || [];
+  const m = fam.find(x => x.id === id);
+  if (!m) return;
+  if (!m.device_macs || !m.device_macs.length) return alert('Assign devices to this member first.');
+  const minutes = parseInt(prompt('Daily internet minutes for ' + m.name + ' (e.g. 120 for 2 hours):', '120'));
+  if (!minutes || minutes < 1) return;
+  try {
+    for (const mac of m.device_macs) {
+      await api('/customer/time-bank/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, daily_minutes: minutes }) });
+    }
+    alert('Set ' + minutes + ' min/day across ' + m.device_macs.length + ' device(s).');
+    loadFamily();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function pauseMember(id) {
+  const fam = (await api('/customer/family')).family || [];
+  const m = fam.find(x => x.id === id);
+  if (!m) return;
+  if (!m.device_macs || !m.device_macs.length) return alert('Assign devices to this member first.');
+  const minutes = parseInt(prompt('Pause ' + m.name + "'s internet for how many minutes?", '60')) || 60;
+  try {
+    // Block each device via a temporary rule (simplest path that works today)
+    for (const mac of m.device_macs) {
+      await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({
+        scope: 'device', target: mac, type: 'domain', value: '*', action: 'block',
+        note: 'paused via family panel', expires_at: Date.now() + minutes * 60_000,
+      }) });
+    }
+    alert('Paused for ' + minutes + ' min. Will auto-resume.');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+/* ─── Schedules ──────────────────────────────────────────────────────── */
+async function loadSchedules() {
+  try {
+    const [schR, famR] = await Promise.all([
+      api('/customer/schedules'),
+      api('/customer/family').catch(() => ({ family: [] })),
+    ]);
+    const fam = famR.family || [];
+    const famName = id => (fam.find(f => f.id === id) || {}).name || id;
+    const tbody = document.getElementById('schedules-tbody');
+    const list = schR.schedules || [];
+    tbody.innerHTML = list.length ? list.map(s => {
+      const targets = (s.family_ids || []).map(famName).join(', ') ||
+                      (s.device_macs || []).slice(0, 2).map(m => m.slice(-8)).join(', ') + ((s.device_macs || []).length > 2 ? ' +' + ((s.device_macs).length - 2) : '');
+      const dnames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const days = (s.days || []).map(d => dnames[d]).join(' ') || 'Daily';
+      const cls = s.enabled !== false ? 'online' : 'offline';
+      return '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(targets || '—') + '</td><td class="num">' + days + '</td><td class="num">' + s.start_hhmm + ' – ' + s.end_hhmm + '</td><td><span class="pill ' + cls + '">' + (s.enabled !== false ? 'on' : 'off') + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="5" class="empty">No schedules yet</td></tr>';
+  } catch (e) {
+    document.getElementById('schedules-tbody').innerHTML = '<tr><td colspan="5" class="err">' + e.message + '</td></tr>';
+  }
+}
+
+async function addScheduleQuick() {
+  const name = prompt('Schedule name (e.g. "Bedtime"):');
+  if (!name) return;
+  const start = prompt('Block START (HH:MM 24h):', '22:00');
+  if (!start) return;
+  const end = prompt('Block END (HH:MM 24h):', '06:00');
+  if (!end) return;
+  const fam = (await api('/customer/family').catch(() => ({ family: [] }))).family || [];
+  let target = { device_macs: [], family_ids: [] };
+  if (fam.length) {
+    const list = fam.map((f, i) => (i + 1) + '. ' + f.name + ' (' + f.role + ')').join('\n');
+    const idx = parseInt(prompt('Apply to which family member?\n' + list + '\n0 for none/all-network', '1')) - 1;
+    if (idx >= 0 && idx < fam.length) target.family_ids = [fam[idx].id];
+  }
+  try {
+    await api('/customer/schedules/add', { method: 'POST', body: JSON.stringify({
+      name: name.trim(), days: [0,1,2,3,4,5,6], start_hhmm: start, end_hhmm: end, enabled: true, ...target,
+    }) });
+    loadSchedules();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function loadInvoices() {
+  try {
+    const r = await api('/customer/invoices');
+    document.getElementById('invoices-tbody').innerHTML = (r.invoices || []).map(inv => {
+      const cls = inv.status === 'paid' ? 'online' : inv.status === 'overdue' ? 'offline' : 'warn';
+      return '<tr><td>' + escapeHtml(inv.period || '—') + '</td><td>' + escapeHtml(inv.plan || '—') + '</td><td class="num">' + escapeHtml(String(inv.amount || 0)) + ' ' + escapeHtml(inv.currency || '') + '</td><td><span class="pill ' + cls + '">' + escapeHtml(inv.status || '—') + '</span></td><td class="num right">' + (inv.due_at ? new Date(inv.due_at).toLocaleDateString() : '—') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">No invoices yet</td></tr>';
+  } catch (e) { document.getElementById('invoices-tbody').innerHTML = '<tr><td colspan="5" class="err">' + e.message + '</td></tr>'; }
+}
+
+/* Actions */
+async function addBox() {
+  const code = prompt('Enter the 6-character pairing code from your box:');
+  if (!code) return;
+  try {
+    await api('/customer/box/claim', { method: 'POST', body: JSON.stringify({ code: code.trim() }) });
+    alert('Box added!');
+    loadBoxes(); loadDashboard();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function addRule() {
+  const value = prompt('Domain or category to block (e.g. facebook.com or "social"):');
+  if (!value) return;
+  const isCategory = !value.includes('.');
+  try {
+    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: isCategory ? 'category' : 'domain', value: value.trim(), action: 'block' }) });
+    loadRules();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function togglePause() {
+  try {
+    const r = await api('/customer/pause/status').catch(() => ({}));
+    const isPaused = r.paused;
+    if (isPaused) {
+      await api('/customer/pause/resume', { method: 'POST', body: '{}' });
+    } else {
+      const minutes = parseInt(prompt('Pause for how many minutes?', '60')) || 60;
+      await api('/customer/pause/start', { method: 'POST', body: JSON.stringify({ minutes }) });
+    }
+    updatePauseButton();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+async function updatePauseButton() {
+  try {
+    const r = await api('/customer/pause/status').catch(() => ({}));
+    const btn = document.getElementById('pause-btn');
+    if (r.paused) {
+      btn.textContent = '▶ Resume';
+      btn.classList.add('active');
+    } else {
+      btn.textContent = '⏸ Pause Internet';
+      btn.classList.remove('active');
+    }
+  } catch {}
+}
+
+/* ─── Real-time speedometer ─────────────────────────────────────────── */
+let _maxMbps = 100;   // gauge max — auto-scales
+let _hist = [];       // {ts, up, down} samples for spark
+function updateSpeedo(rxBps, txBps) {
+  const upMbps   = (txBps * 8) / 1e6;
+  const downMbps = (rxBps * 8) / 1e6;
+  const totalMbps = upMbps + downMbps;
+  document.getElementById('live-up').textContent   = upMbps.toFixed(2)   + ' Mbps';
+  document.getElementById('live-down').textContent = downMbps.toFixed(2) + ' Mbps';
+  document.getElementById('gauge-mbps').textContent = totalMbps.toFixed(1);
+  // Auto-scale gauge max
+  if (totalMbps > _maxMbps * 0.8) _maxMbps = Math.ceil(totalMbps * 1.4 / 50) * 50;
+  if (totalMbps < _maxMbps * 0.1 && _maxMbps > 100) _maxMbps = Math.max(100, Math.ceil(totalMbps * 4 / 50) * 50);
+  document.getElementById('gauge-max').textContent = _maxMbps;
+  // Update arc fill (270° arc, full path length ≈ 330 in our viewBox)
+  const pct = Math.min(1, totalMbps / _maxMbps);
+  const arcLen = pct * 330;
+  document.getElementById('gauge-arc').setAttribute('stroke-dasharray', arcLen + ' 330');
+  // Update sparkline history
+  _hist.push({ ts: Date.now(), up: upMbps, down: downMbps });
+  if (_hist.length > 60) _hist.shift();
+  drawSpark();
+  document.getElementById('speedo-status').textContent = 'live · ' + new Date().toLocaleTimeString();
+}
+function drawSpark() {
+  if (_hist.length < 2) return;
+  const W = 400, H = 60;
+  const max = Math.max(0.5, ..._hist.map(h => Math.max(h.up, h.down)));
+  const ptsUp = _hist.map((h, i) => `${(i / (60 - 1)) * W},${H - (h.up / max) * (H - 4)}`).join(' ');
+  const ptsDown = _hist.map((h, i) => `${(i / (60 - 1)) * W},${H - (h.down / max) * (H - 4)}`).join(' ');
+  document.getElementById('spark-up').setAttribute('points', ptsUp);
+  document.getElementById('spark-down').setAttribute('points', ptsDown);
+  document.getElementById('spark-down-fill').setAttribute('points',
+    `0,${H} ${ptsDown} ${W},${H}`);
+}
+
+let _sse = null;
+function connectSSE() {
+  if (!token) return;
+  if (_sse) try { _sse.close(); } catch {}
+  _sse = new EventSource('/api/customer/events/stream?token=' + encodeURIComponent(token));
+  _sse.addEventListener('throughput', e => {
+    try {
+      const d = JSON.parse(e.data);
+      updateSpeedo(d.rx_bps, d.tx_bps);
+    } catch {}
+  });
+  _sse.addEventListener('alarm', () => loadDashboard());   // refresh stats on new alarm
+  _sse.onerror = () => { document.getElementById('speedo-status').textContent = 'reconnecting…'; setTimeout(connectSSE, 5000); };
+}
+// Poll fallback in case SSE doesn't arrive within 12s
+async function pollThroughput() {
+  try {
+    const r = await api('/customer/throughput');
+    const t = Object.values(r.throughput || {}).find(x => x);
+    if (t) updateSpeedo(t.rx_bps, t.tx_bps);
+  } catch {}
+}
+setInterval(pollThroughput, 12_000);
+
+/* ─── Modal + toast system ───────────────────────────────────────────── */
+let _modalResolve = null;
+function showModal({ title, desc = '', fields = [], submitLabel = 'Save', cancelLabel = 'Cancel', danger = false }) {
+  return new Promise(resolve => {
+    _modalResolve = resolve;
+    document.getElementById('modal-title').textContent = title;
+    const descEl = document.getElementById('modal-desc');
+    descEl.textContent = desc;
+    descEl.style.display = desc ? '' : 'none';
+    const body = document.getElementById('modal-body');
+    body.innerHTML = fields.map(f => {
+      const id = 'f-' + (f.name || Math.random().toString(36).slice(2, 8));
+      f._id = id;
+      if (f.type === 'select') {
+        const opts = (f.options || []).map(o => {
+          const v = typeof o === 'string' ? o : o.value;
+          const l = typeof o === 'string' ? o : (o.label || o.value);
+          return '<option value="' + escapeHtml(v) + '"' + (v === f.default ? ' selected' : '') + '>' + escapeHtml(l) + '</option>';
+        }).join('');
+        return '<div class="field"><label for="' + id + '">' + escapeHtml(f.label) + '</label><select id="' + id + '">' + opts + '</select>' + (f.hint ? '<div class="hint">' + escapeHtml(f.hint) + '</div>' : '') + '</div>';
+      }
+      if (f.type === 'radio-cards') {
+        return '<div class="field"><label>' + escapeHtml(f.label) + '</label><div class="radio-grid" id="' + id + '">' +
+          (f.options || []).map(o => '<div class="radio-card' + (o.value === f.default ? ' selected' : '') + '" data-value="' + escapeHtml(o.value) + '"><div class="ico">' + (o.icon || '') + '</div><div class="lbl">' + escapeHtml(o.label) + '</div></div>').join('') +
+          '</div>' + (f.hint ? '<div class="hint">' + escapeHtml(f.hint) + '</div>' : '') + '</div>';
+      }
+      if (f.type === 'checkbox-list') {
+        return '<div class="field"><label>' + escapeHtml(f.label) + '</label><div class="check-list" id="' + id + '">' +
+          (f.options || []).map((o, i) => '<label class="check-item"><input type="checkbox" value="' + escapeHtml(o.value) + '"' + ((f.default || []).includes(o.value) ? ' checked' : '') + '><div class="label">' + escapeHtml(o.label) + (o.meta ? '<div class="meta">' + escapeHtml(o.meta) + '</div>' : '') + '</div></label>').join('') +
+          '</div>' + (f.hint ? '<div class="hint">' + escapeHtml(f.hint) + '</div>' : '') + '</div>';
+      }
+      if (f.type === 'row') {
+        // f.fields = [field, field]  side-by-side
+        return '<div class="field-row">' + f.fields.map(sub => {
+          sub._id = 'f-' + (sub.name || Math.random().toString(36).slice(2, 8));
+          return '<div class="field" style="margin:0;"><label for="' + sub._id + '">' + escapeHtml(sub.label) + '</label><input id="' + sub._id + '" type="' + (sub.type || 'text') + '" value="' + escapeHtml(sub.default || '') + '" placeholder="' + escapeHtml(sub.placeholder || '') + '"></div>';
+        }).join('') + '</div>';
+      }
+      // text / number / time / etc.
+      return '<div class="field"><label for="' + id + '">' + escapeHtml(f.label) + '</label><input id="' + id + '" type="' + (f.type || 'text') + '" value="' + escapeHtml(f.default == null ? '' : String(f.default)) + '" placeholder="' + escapeHtml(f.placeholder || '') + '"' + (f.min != null ? ' min="' + f.min + '"' : '') + (f.max != null ? ' max="' + f.max + '"' : '') + '>' + (f.hint ? '<div class="hint">' + escapeHtml(f.hint) + '</div>' : '') + '</div>';
+    }).join('');
+    // Wire radio cards
+    body.querySelectorAll('.radio-grid').forEach(g => {
+      g.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
+        g.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+        c.classList.add('selected');
+      });
+    });
+    const submitBtn = document.getElementById('modal-submit');
+    submitBtn.textContent = submitLabel;
+    submitBtn.style.background = danger ? 'var(--bad)' : 'var(--accent)';
+    submitBtn.onclick = () => {
+      // Collect values
+      const values = {};
+      for (const f of fields) {
+        if (f.type === 'radio-cards') {
+          const sel = document.querySelector('#' + f._id + ' .radio-card.selected');
+          values[f.name] = sel ? sel.dataset.value : null;
+        } else if (f.type === 'checkbox-list') {
+          values[f.name] = Array.from(document.querySelectorAll('#' + f._id + ' input:checked')).map(x => x.value);
+        } else if (f.type === 'row') {
+          for (const sub of f.fields) {
+            const el = document.getElementById(sub._id);
+            values[sub.name] = el ? el.value : null;
+          }
+        } else {
+          const el = document.getElementById(f._id);
+          values[f.name] = el ? el.value : null;
+        }
+      }
+      closeModal();
+      resolve(values);
+    };
+    document.getElementById('modal-overlay').classList.add('show');
+    // Auto-focus first input
+    setTimeout(() => {
+      const first = body.querySelector('input, select, textarea');
+      if (first) first.focus();
+    }, 50);
+  });
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  if (_modalResolve) { _modalResolve(null); _modalResolve = null; }
+}
+// Confirm dialog (replaces native confirm)
+function showConfirm({ title, desc, confirmLabel = 'Confirm', danger = false }) {
+  return new Promise(resolve => {
+    showModal({
+      title, desc,
+      fields: [],
+      submitLabel: confirmLabel,
+      danger,
+    }).then(v => resolve(v !== null));
+  });
+}
+
+// Toasts
+let _toastSeq = 0;
+function toast(t, kind = 'info', sub = '') {
+  const id = ++_toastSeq;
+  const ico = ({ success: '✓', error: '!', info: 'i', warn: '⚠' })[kind] || 'i';
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.dataset.id = id;
+  el.innerHTML = '<div class="ico">' + ico + '</div><div class="body"><div class="t">' + escapeHtml(t) + '</div>' + (sub ? '<div class="s">' + escapeHtml(sub) + '</div>' : '') + '</div><button class="x">×</button>';
+  el.querySelector('.x').onclick = () => dismissToast(el);
+  document.getElementById('toast-host').appendChild(el);
+  setTimeout(() => dismissToast(el), kind === 'error' ? 6000 : 3500);
+}
+function dismissToast(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.add('out');
+  setTimeout(() => el.remove(), 220);
+}
+
+/* ─── REPLACE old prompt()/alert() actions with proper modals ────────── */
+
+// Override addBox
+addBox = async function() {
+  const v = await showModal({
+    title: 'Add a box', desc: 'Plug in your mes Box. Find the 6-character pairing code from the device screen, sticker, or SSH terminal.',
+    fields: [{ name: 'code', label: 'Pairing code', placeholder: 'e.g. WS6JFF', hint: '6 letters/numbers, uppercase.' }],
+    submitLabel: 'Claim box',
+  });
+  if (!v || !v.code) return;
+  try {
+    await api('/customer/box/claim', { method: 'POST', body: JSON.stringify({ code: v.code.trim().toUpperCase() }) });
+    toast('Box added', 'success');
+    loadBoxes(); loadDashboard();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+// Override addRule
+addRule = async function() {
+  const v = await showModal({
+    title: 'Block a domain or category',
+    fields: [
+      { name: 'type', label: 'Block what?', type: 'radio-cards', default: 'domain', options: [
+        { value: 'domain',   label: 'Domain',   icon: '🌐' },
+        { value: 'category', label: 'Category', icon: '🏷' },
+        { value: 'ip',       label: 'IP',       icon: '🔢' },
+        { value: 'geo',      label: 'Country',  icon: '🌍' },
+      ]},
+      { name: 'value', label: 'Value', placeholder: 'e.g. facebook.com / social / 1.2.3.4 / RU' },
+    ],
+    submitLabel: 'Add rule',
+  });
+  if (!v || !v.value) return;
+  try {
+    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: v.type, value: v.value.trim().toLowerCase(), action: 'block' }) });
+    toast('Rule added', 'success');
+    loadRules();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+// Override actRename
+actRename = async function(mac, d) {
+  const v = await showModal({
+    title: 'Rename device', desc: mac,
+    fields: [{ name: 'name', label: 'Device name', default: d.name || '', placeholder: 'e.g. Living Room TV' }],
+    submitLabel: 'Save name',
+  });
+  if (!v) return;
+  try {
+    await api('/customer/device/rename', { method: 'POST', body: JSON.stringify({ mac, name: (v.name || '').trim() }) });
+    toast('Renamed', 'success');
+    loadDevices();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+actBlock = async function(mac) {
+  const ok = await showConfirm({ title: 'Block this device?', desc: mac + ' will lose internet access immediately.', confirmLabel: 'Block now', danger: true });
+  if (!ok) return;
+  try {
+    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ scope: 'device', target: mac, type: 'domain', value: '*', action: 'block', note: 'device-block from action sheet' }) });
+    toast('Device blocked', 'success', 'Open the Rules tab to undo.');
+    loadDevices();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+actTimeLimit = async function(mac) {
+  const v = await showModal({
+    title: 'Daily time limit', desc: 'Internet is paused for this device once the daily allowance is used. Resets at midnight.',
+    fields: [{ name: 'minutes', label: 'Minutes per day', type: 'number', default: 120, min: 1, max: 1440, placeholder: '120' }],
+    submitLabel: 'Set limit',
+  });
+  if (!v || !v.minutes) return;
+  const minutes = parseInt(v.minutes);
+  try {
+    await api('/customer/time-bank/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, daily_minutes: minutes }) });
+    toast('Time limit set', 'success', minutes + ' min/day');
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+actQos = async function(mac) {
+  const v = await showModal({
+    title: 'Bandwidth limit', desc: 'Cap this device\'s speed in kbps (1000 kbps = 1 Mbps).',
+    fields: [{ type: 'row', fields: [
+      { name: 'down_kbps', label: 'Download (kbps)', type: 'number', default: 5000 },
+      { name: 'up_kbps',   label: 'Upload (kbps)',   type: 'number', default: 1000 },
+    ]}],
+    submitLabel: 'Apply',
+  });
+  if (!v) return;
+  try {
+    await api('/customer/qos/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, down_kbps: parseInt(v.down_kbps) || 0, up_kbps: parseInt(v.up_kbps) || 0 }) });
+    toast('Bandwidth set', 'success');
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+actSchedule = async function(mac) {
+  const v = await showModal({
+    title: 'Block schedule', desc: 'Internet for this device is blocked during the selected hours, every day.',
+    fields: [
+      { name: 'name', label: 'Schedule name', default: 'Bedtime', placeholder: 'e.g. Bedtime' },
+      { type: 'row', fields: [
+        { name: 'start', label: 'From', type: 'time', default: '22:00' },
+        { name: 'end',   label: 'Until', type: 'time', default: '06:00' },
+      ]},
+    ],
+    submitLabel: 'Create',
+  });
+  if (!v) return;
+  try {
+    await api('/customer/schedules/add', { method: 'POST', body: JSON.stringify({
+      name: v.name || 'Schedule', device_macs: [mac], days: [0,1,2,3,4,5,6],
+      start_hhmm: v.start, end_hhmm: v.end, enabled: true,
+    }) });
+    toast('Schedule created', 'success', v.start + '–' + v.end + ' daily');
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+actQuota = async function(mac) {
+  const v = await showModal({
+    title: 'Monthly data cap', desc: 'Block this device when it exceeds the monthly GB cap. Resets on the 1st.',
+    fields: [{ name: 'gb', label: 'Cap (GB)', type: 'number', default: 50, min: 1, max: 10000 }],
+    submitLabel: 'Set cap',
+  });
+  if (!v || !v.gb) return;
+  try {
+    await api('/customer/quotas/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, monthly_gb: parseInt(v.gb) }) });
+    toast('Cap set', 'success', v.gb + ' GB/month');
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+addFamilyMember = async function() {
+  const v = await showModal({
+    title: 'Add family member', desc: 'Each member gets their own profile, devices, and rules.',
+    fields: [
+      { name: 'name', label: 'Name', placeholder: 'e.g. Sara, Office, Kids' },
+      { name: 'role', label: 'Role', type: 'radio-cards', default: 'Kid', options: [
+        { value: 'Kid',    label: 'Kid',    icon: '👧' },
+        { value: 'Teen',   label: 'Teen',   icon: '🧑' },
+        { value: 'Adult',  label: 'Adult',  icon: '👤' },
+        { value: 'Admin',  label: 'Admin',  icon: '🛡' },
+        { value: 'Guest',  label: 'Guest',  icon: '👋' },
+      ]},
+    ],
+    submitLabel: 'Add member',
+  });
+  if (!v || !v.name) return;
+  try {
+    await api('/customer/family/add', { method: 'POST', body: JSON.stringify({ name: v.name.trim(), role: v.role || 'Member' }) });
+    toast('Member added', 'success');
+    loadFamily();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+editFamilyMember = async function(id) {
+  const m = await api('/customer/family').then(r => (r.family || []).find(x => x.id === id));
+  if (!m) return;
+  const v = await showModal({
+    title: 'Edit ' + m.name,
+    fields: [
+      { name: 'name', label: 'Name', default: m.name },
+      { name: 'role', label: 'Role', type: 'select', default: m.role, options: ['Admin','Adult','Teen','Kid','Guest','Member'] },
+      { name: 'icon', label: 'Icon (emoji)', default: m.icon, placeholder: '👧' },
+    ],
+    submitLabel: 'Save',
+  });
+  if (!v) return;
+  try {
+    await api('/customer/family/update', { method: 'POST', body: JSON.stringify({ id, name: v.name, role: v.role, icon: v.icon }) });
+    toast('Saved', 'success');
+    loadFamily();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+assignDevicesToMember = async function(id) {
+  const fam = (await api('/customer/family')).family || [];
+  const m = fam.find(x => x.id === id);
+  if (!m) return;
+  const devs = (await api('/customer/devices')).devices || [];
+  const v = await showModal({
+    title: 'Devices for ' + m.name, desc: 'Select which devices belong to this member.',
+    fields: [{ name: 'macs', label: 'Devices', type: 'checkbox-list',
+      default: m.device_macs || [],
+      options: devs.map(d => ({ value: d.mac, label: (d.icon || '📱') + ' ' + (d.name || d.hostname || d.mac), meta: d.mac + (d.ip ? ' · ' + d.ip : '') })),
+    }],
+    submitLabel: 'Save',
+  });
+  if (!v) return;
+  try {
+    await api('/customer/family/assign-devices', { method: 'POST', body: JSON.stringify({ id, device_macs: v.macs || [] }) });
+    toast('Devices updated', 'success');
+    loadFamily();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+setMemberTimeBank = async function(id) {
+  const fam = (await api('/customer/family')).family || [];
+  const m = fam.find(x => x.id === id);
+  if (!m) return;
+  if (!m.device_macs || !m.device_macs.length) return toast('Assign devices first', 'warn');
+  const v = await showModal({
+    title: 'Daily time bank for ' + m.name,
+    desc: 'Internet pauses once daily allowance is used. Resets at midnight.',
+    fields: [{ name: 'minutes', label: 'Minutes per day', type: 'number', default: 120, min: 1, max: 1440 }],
+    submitLabel: 'Set limit',
+  });
+  if (!v) return;
+  const minutes = parseInt(v.minutes);
+  if (!minutes || minutes < 1) return;
+  try {
+    for (const mac of m.device_macs) {
+      await api('/customer/time-bank/set', { method: 'POST', body: JSON.stringify({ device_mac: mac, daily_minutes: minutes }) });
+    }
+    toast('Time bank set', 'success', minutes + ' min/day across ' + m.device_macs.length + ' device(s)');
+    loadFamily();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+pauseMember = async function(id) {
+  const fam = (await api('/customer/family')).family || [];
+  const m = fam.find(x => x.id === id);
+  if (!m) return;
+  if (!m.device_macs || !m.device_macs.length) return toast('Assign devices first', 'warn');
+  const v = await showModal({
+    title: 'Pause ' + m.name + "'s internet?",
+    desc: 'Block all assigned devices temporarily. Auto-resumes after the chosen time.',
+    fields: [{ name: 'minutes', label: 'Pause for (minutes)', type: 'number', default: 60, min: 1, max: 1440 }],
+    submitLabel: 'Pause now',
+    danger: true,
+  });
+  if (!v) return;
+  const minutes = parseInt(v.minutes);
+  try {
+    for (const mac of m.device_macs) {
+      await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({
+        scope: 'device', target: mac, type: 'domain', value: '*', action: 'block',
+        note: 'paused via family panel', expires_at: Date.now() + minutes * 60_000,
+      }) });
+    }
+    toast('Paused', 'success', minutes + ' min — auto-resumes');
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+addScheduleQuick = async function() {
+  const fam = (await api('/customer/family').catch(() => ({ family: [] }))).family || [];
+  const v = await showModal({
+    title: 'New schedule', desc: 'Block internet during chosen hours, daily.',
+    fields: [
+      { name: 'name', label: 'Name', placeholder: 'e.g. Bedtime, Homework, Office hours' },
+      { type: 'row', fields: [
+        { name: 'start', label: 'From', type: 'time', default: '22:00' },
+        { name: 'end',   label: 'Until', type: 'time', default: '06:00' },
+      ]},
+      ...(fam.length ? [{
+        name: 'family_id', label: 'Apply to', type: 'select', default: '',
+        options: [{ value: '', label: '— Whole network —' }, ...fam.map(f => ({ value: f.id, label: f.name + ' (' + f.role + ')' }))],
+      }] : []),
+    ],
+    submitLabel: 'Create',
+  });
+  if (!v || !v.name) return;
+  try {
+    await api('/customer/schedules/add', { method: 'POST', body: JSON.stringify({
+      name: v.name, days: [0,1,2,3,4,5,6], start_hhmm: v.start, end_hhmm: v.end, enabled: true,
+      family_ids: v.family_id ? [v.family_id] : [], device_macs: [],
+    }) });
+    toast('Schedule created', 'success');
+    loadSchedules();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+togglePause = async function() {
+  try {
+    const r = await api('/customer/pause/status').catch(() => ({}));
+    if (r.paused) {
+      await api('/customer/pause/resume', { method: 'POST', body: '{}' });
+      toast('Internet resumed', 'success');
+    } else {
+      const v = await showModal({
+        title: 'Pause internet?', desc: 'Block all internet across your network. Auto-resumes after the chosen time.',
+        fields: [{ name: 'minutes', label: 'Pause for (minutes)', type: 'number', default: 60, min: 1, max: 1440 }],
+        submitLabel: 'Pause now', danger: true,
+      });
+      if (!v) return;
+      await api('/customer/pause/start', { method: 'POST', body: JSON.stringify({ minutes: parseInt(v.minutes) }) });
+      toast('Paused', 'success');
+    }
+    updatePauseButton();
+  } catch (e) { toast('Failed', 'error', e.message); }
+};
+
+/* ─── Customer AI ────────────────────────────────────────────────────── */
+async function openCustomerAI() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.onclick = e => { if (e.target === overlay) document.body.removeChild(overlay); };
+  overlay.innerHTML = '<div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;width:100%;max-width:540px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:start;">'
+    +   '<div style="display:flex;align-items:center;gap:10px;">'
+    +     '<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1em;">✨</div>'
+    +     '<div><h3 style="margin:0;font-size:1.1em;">Network AI</h3><div style="color:var(--text-dim);font-size:.85em;margin-top:2px;" id="cai-subtitle">Analyzing…</div></div>'
+    +   '</div>'
+    +   '<button style="background:transparent;border:none;color:var(--text-dim);font-size:1.5em;cursor:pointer;" onclick="this.closest(\'[style*=position]\').remove()">×</button>'
+    + '</div>'
+    + '<div style="padding:18px 22px;flex:1;overflow:auto;" id="cai-body">'
+    +   '<div style="padding:40px 0;text-align:center;color:var(--text-dim);">'
+    +     '<div style="display:inline-block;width:32px;height:32px;border:3px solid var(--bg-row);border-top-color:#7c3aed;border-radius:50%;animation:cai-spin 0.8s linear infinite;"></div>'
+    +     '<div style="margin-top:12px;">Looking for patterns…</div>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+  if (!document.getElementById('cai-spin')) {
+    const st = document.createElement('style'); st.id = 'cai-spin';
+    st.textContent = '@keyframes cai-spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(st);
+  }
+  document.body.appendChild(overlay);
+  try {
+    const r = await api('/customer/ai/analyze-events', { method: 'POST', body: JSON.stringify({ window_h: 24 }) });
+    document.getElementById('cai-subtitle').textContent = `${r.events_analyzed} event(s) · last ${r.window_hours}h · ${r.engine === 'llm' ? 'LLM' : 'pattern engine'}`;
+    const steps = (r.troubleshooting || []).map((s, i) => `<li style="padding:7px 0;color:var(--text);font-size:.92em;line-height:1.5;"><span style="color:#a78bfa;font-variant-numeric:tabular-nums;margin-right:8px;font-weight:700;">${i+1}.</span>${escapeHtml(s)}</li>`).join('');
+    document.getElementById('cai-body').innerHTML =
+      '<div style="margin-bottom:16px;">'
+      + '<div style="font-weight:600;color:#a78bfa;font-size:.74em;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Analysis</div>'
+      + '<div style="color:var(--text);line-height:1.55;">' + escapeHtml(r.analysis) + '</div>'
+      + '</div>'
+      + '<div>'
+      + '<div style="font-weight:600;color:#a78bfa;font-size:.74em;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">What to try</div>'
+      + '<ol style="padding:0;margin:0;list-style:none;">' + steps + '</ol>'
+      + '</div>';
+  } catch (e) {
+    document.getElementById('cai-body').innerHTML = '<div style="color:var(--bad);">' + e.message + '</div>';
+  }
+}
+
+/* Boot */
+if (token) {
+  showApp();
+  bootDashboard();
+  connectSSE();
+  pollThroughput();
+} else {
+  showLogin();
+}
+</script>
+</body>
+</html>

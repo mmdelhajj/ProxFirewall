@@ -1,0 +1,18 @@
+{
+  "name": "mock-firewalla-cloud",
+  "version": "1.0.0",
+  "description": "Drop-in stand-in for firewalla.encipher.io for local development and learning",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
+  },
+  "license": "MIT"
+}

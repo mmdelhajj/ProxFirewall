@@ -1,0 +1,37 @@
+{
+  "name": "mes Network — Home Network Guardian",
+  "short_name": "mes Net",
+  "description": "Manage your home network: block ads, set kid screen time, control VPN, monitor everything.",
+  "start_url": "/pwa/",
+  "scope": "/pwa/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1419",
+  "theme_color": "#ff8c42",
+  "categories": ["utilities", "productivity"],
+  "lang": "en",
+  "dir": "ltr",
+  "shortcuts": [
+    {
+      "name": "Pause Internet",
+      "short_name": "Pause",
+      "description": "Pause internet for 1 hour",
+      "url": "/pwa/?action=pause",
+      "icons": [{"src": "/pwa/icon.svg", "sizes": "any"}]
+    },
+    {
+      "name": "Add a box",
+      "short_name": "Add box",
+      "url": "/pwa/?action=add-box",
+      "icons": [{"src": "/pwa/icon.svg", "sizes": "any"}]
+    }
+  ],
+  "icons": [
+    {
+      "src": "/pwa/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

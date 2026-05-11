@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Runtime state — contains customer hashes, session tokens, phone numbers
+data/
+*.zone
+
+# Logs
+npm-debug.log
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Build artefacts / images
+*.img
+*.img.xz
+*.zip
+*.tar.gz
+/build/
+/dist/
+
+# Secrets — never commit
+*.pem
+*.key
+*-secret*
+.env
+.env.*
+**/admin-pwd*
+**/.mes-cloud-admin*
+
+# Test scaffolding
+test-*.js
+diag-*.sh
+*-backup-*
+*.audit-backup

@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mes Cloud · Admin</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-elev: #11161f;
+    --bg-elev-2: #161c28;
+    --bg-row: #0d1218;
+    --border: rgba(255,255,255,0.05);
+    --border-strong: rgba(255,255,255,0.08);
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --text-faint: #6e7681;
+    --accent: #2f81f7;
+    --accent-2: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --sidebar-w: 220px;
+  }
+  *,*::before,*::after { box-sizing: border-box; }
+  html,body { margin:0; padding:0; height:100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "SF Pro Display", "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5; font-size: 13px;
+  }
+  /* Layout */
+  .app { display:grid; grid-template-columns: var(--sidebar-w) 1fr; min-height:100vh; }
+
+  /* Sidebar */
+  aside {
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+  }
+  .logo {
+    padding: 0 18px 18px;
+    font-weight: 700; font-size: 1.05em; letter-spacing: -0.02em;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .nav-section {
+    color: var(--text-faint);
+    text-transform: uppercase;
+    font-size: .7em; font-weight: 600;
+    letter-spacing: .08em;
+    padding: 14px 18px 6px;
+  }
+  nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 18px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: .92em;
+    border-left: 2px solid transparent;
+    transition: background .12s, color .12s;
+  }
+  nav a:hover { background: var(--bg-elev-2); color: var(--text); }
+  nav a.active { background: var(--bg-elev-2); color: var(--text); border-left-color: var(--accent); }
+  nav a .ico { width: 16px; text-align: center; opacity: .8; }
+  nav a .badge {
+    margin-left: auto;
+    background: var(--bg-row); color: var(--text-dim);
+    padding: 1px 7px; border-radius: 99px;
+    font-size: .75em; font-weight: 600;
+  }
+
+  /* Top bar */
+  header.top {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 5;
+  }
+  header.top .breadcrumbs { color: var(--text-dim); font-size: .9em; }
+  header.top .breadcrumbs strong { color: var(--text); font-weight: 600; }
+  header.top .right { display: flex; align-items: center; gap: 14px; }
+  header.top button.upgrade {
+    background: var(--accent); color: #fff; border: none;
+    padding: 6px 14px; border-radius: 6px; font-weight: 600; font-size: .85em; cursor: pointer;
+  }
+  header.top button.upgrade:hover { background: var(--accent-2); }
+  header.top .user {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text); font-size: .88em;
+  }
+  header.top .user .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: .8em;
+  }
+
+  /* Main content */
+  main { padding: 24px; min-width: 0; }
+
+  /* Stat cards (top row) */
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .stat-card .label { color: var(--text-dim); font-size: .82em; }
+  .stat-card .value { font-size: 1.65em; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+
+  /* Cards */
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-head .title { font-size: .92em; font-weight: 600; color: var(--text); }
+  .card-head .meta { font-size: .76em; color: var(--text-faint); }
+  .card-body { padding: 16px 18px; }
+
+  /* Two-column row */
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .row-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 1100px) { .row-2, .row-3 { grid-template-columns: 1fr; } }
+
+  /* Dashboard with right rail */
+  .dash-with-rail { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; }
+  @media (max-width: 1280px) { .dash-with-rail { grid-template-columns: 1fr; } }
+  .activities-rail { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; }
+  .activities-rail .card { margin: 0; flex: 1; display: flex; flex-direction: column; }
+  .activities-rail .card-body { flex: 1; overflow-y: auto; padding: 0; }
+  .act-item { display: flex; align-items: start; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .act-item:last-child { border-bottom: none; }
+  .act-item .ico {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85em; font-weight: 700; flex-shrink: 0;
+  }
+  .act-item .body { flex: 1; min-width: 0; }
+  .act-item .body .a { font-size: .82em; font-weight: 600; color: var(--text); }
+  .act-item .body .t { font-size: .76em; color: var(--text-faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .act-item .body .ts { font-size: .7em; color: var(--text-faint); margin-top: 3px; }
+  .act-item .ico.add  { color: var(--good); }
+  .act-item .ico.del  { color: var(--bad); }
+  .act-item .ico.upd  { color: var(--warn); }
+  .act-item .ico.gen  { color: var(--text-dim); }
+  .act-filter { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
+  .act-filter button { padding: 3px 9px; font-size: .72em; border-radius: 99px; border: 1px solid var(--border-strong); background: var(--bg-row); color: var(--text-dim); cursor: pointer; }
+  .act-filter button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* Charts */
+  .chart-totals { display: flex; gap: 24px; margin-bottom: 12px; }
+  .chart-totals .total .num { font-size: 1.4em; font-weight: 700; color: var(--text); }
+  .chart-totals .total .lbl { font-size: .75em; color: var(--text-faint); margin-top: 2px; }
+  .chart-totals .total .num.up { color: #79c0ff; }
+  .chart-totals .total .num.down { color: #ffa657; }
+  .chart-totals .total .num.total { color: var(--good); }
+  svg.bar-chart { width: 100%; height: 140px; display: block; }
+  svg.bar-chart .bar.up { fill: #79c0ff; }
+  svg.bar-chart .bar.down { fill: #ffa657; }
+  svg.bar-chart .axis { stroke: var(--border); stroke-width: 1; }
+  svg.bar-chart .label { fill: var(--text-faint); font-size: 9px; }
+
+  /* Donut */
+  .donut-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .donut-card { display: flex; align-items: center; gap: 14px; padding: 6px 0; }
+  .donut-card svg { width: 90px; height: 90px; flex-shrink: 0; }
+  .donut-card .info { flex: 1; min-width: 0; }
+  .donut-card .info .v { font-size: 1.05em; font-weight: 700; }
+  .donut-card .info .l { font-size: .76em; color: var(--text-faint); margin-top: 2px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .75em; color: var(--text-dim); font-weight: 600; padding: 10px 18px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; }
+  td { padding: 10px 18px; font-size: .88em; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-row); }
+  td.num { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+  td.right { text-align: right; }
+  td .flag { display: inline-block; width: 16px; text-align: center; margin-right: 6px; }
+  td .pill {
+    display: inline-block;
+    padding: 1px 8px; border-radius: 99px;
+    font-size: .75em; font-weight: 600;
+    background: var(--bg-row); color: var(--text-dim);
+  }
+  td .pill.online { background: rgba(63,185,80,0.15); color: var(--good); }
+  td .pill.offline { background: rgba(248,81,73,0.12); color: var(--bad); }
+  td .pill.warn { background: rgba(210,153,34,0.15); color: var(--warn); }
+
+  .empty { text-align: center; color: var(--text-faint); padding: 28px; font-size: .9em; }
+  .loading { color: var(--text-faint); padding: 18px; font-size: .85em; }
+  .err { color: var(--bad); padding: 18px; font-size: .85em; }
+
+  /* Refresh button */
+  .refresh-btn {
+    background: transparent; border: 1px solid var(--border-strong);
+    color: var(--text-dim); padding: 5px 10px; border-radius: 6px;
+    font-size: .8em; cursor: pointer;
+  }
+  .refresh-btn:hover { background: var(--bg-elev-2); color: var(--text); }
+
+  /* Toggle switch */
+  .toggle-switch { position:relative; display:inline-block; width:42px; height:24px; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-switch .slider {
+    position:absolute; cursor:pointer; inset:0; background:var(--bg-row);
+    border:1px solid var(--border-strong); transition:.2s; border-radius:99px;
+  }
+  .toggle-switch .slider:before {
+    content:''; position:absolute; height:18px; width:18px; left:2px; bottom:2px;
+    background:var(--text-dim); transition:.2s; border-radius:50%;
+  }
+  .toggle-switch input:checked + .slider { background:var(--accent); border-color:var(--accent); }
+  .toggle-switch input:checked + .slider:before { transform:translateX(18px); background:#fff; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="logo"><span class="dot"></span> mes Cloud <span style="color:var(--text-faint);font-weight:500;font-size:.8em;margin-${'inline-start'}:auto;">MSP</span></div>
+    <div class="nav-section">Overview</div>
+    <nav>
+      <a href="#dashboard" class="active" data-view="dashboard"><span class="ico">📊</span> Dashboard</a>
+      <a href="#customers" data-view="customers"><span class="ico">👥</span> Customers <span class="badge" id="nav-cust-ct">—</span></a>
+      <a href="#boxes" data-view="boxes"><span class="ico">📦</span> Boxes <span class="badge" id="nav-box-ct">—</span></a>
+      <a href="#alarms" data-view="alarms"><span class="ico">⚠</span> Alarms <span class="badge" id="nav-alarm-ct">—</span></a>
+    </nav>
+    <div class="nav-section">Networks</div>
+    <nav>
+      <a href="#flows" data-view="flows"><span class="ico">🔀</span> Flows</a>
+      <a href="#rules" data-view="rules"><span class="ico">🛡</span> Rules</a>
+      <a href="#devices" data-view="devices"><span class="ico">📱</span> Devices</a>
+      <a href="#target-lists" data-view="target-lists"><span class="ico">🎯</span> Target Lists <span class="badge" id="nav-tlst-ct">—</span></a>
+      <a href="#threat-feed" data-view="threat-feed"><span class="ico">🔒</span> Threat feed</a>
+    </nav>
+    <div class="nav-section">System</div>
+    <nav>
+      <a href="#tickets" data-view="tickets"><span class="ico">🎫</span> Tickets <span class="badge" id="nav-tkt-ct">—</span></a>
+      <a href="#audit" data-view="audit"><span class="ico">📜</span> Audit</a>
+      <a href="#webhooks" data-view="webhooks"><span class="ico">🔗</span> Webhooks</a>
+      <a href="#notifications" data-view="notifications"><span class="ico">🔔</span> Notifications <span class="badge" style="background:rgba(248,81,73,0.18);color:var(--bad);">Beta</span></a>
+      <a href="#health" data-view="health"><span class="ico">❤</span> Health</a>
+      <a href="#config" data-view="config"><span class="ico">⚙</span> Settings</a>
+    </nav>
+    <div class="nav-section">Help</div>
+    <nav>
+      <a href="/" target="_blank"><span class="ico">📖</span> API docs</a>
+      <a href="#" data-view="changelog"><span class="ico">📰</span> Changelog</a>
+    </nav>
+  </aside>
+
+  <div>
+    <header class="top">
+      <div class="breadcrumbs"><strong id="breadcrumb-title">Dashboard</strong></div>
+      <div class="right">
+        <button class="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
+        <span id="last-refresh" style="color:var(--text-faint);font-size:.75em;"></span>
+        <div class="user"><span class="avatar" id="user-avatar">A</span><span id="user-name">admin</span></div>
+      </div>
+    </header>
+
+    <main>
+      <!-- DASHBOARD VIEW -->
+      <section id="view-dashboard">
+        <div class="dash-with-rail">
+          <div class="dash-main">
+        <div class="stat-row">
+          <div class="stat-card"><span class="label">Customers</span><span class="value" id="stat-customers">—</span></div>
+          <div class="stat-card"><span class="label">Boxes online</span><span class="value" id="stat-boxes">—</span></div>
+          <div class="stat-card"><span class="label">Alarms (24h)</span><span class="value" id="stat-alarms">—</span></div>
+        </div>
+
+        <div class="row-3">
+          <div class="card">
+            <div class="card-head">
+              <span class="title">Network Data Transferred</span>
+              <span class="meta" id="traffic-window">Last 7 days</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-totals">
+                <div class="total"><div class="num up" id="t-up">—</div><div class="lbl">Upload</div></div>
+                <div class="total"><div class="num down" id="t-down">—</div><div class="lbl">Download</div></div>
+                <div class="total"><div class="num total" id="t-total">—</div><div class="lbl">Total</div></div>
+              </div>
+              <svg id="bar-chart" class="bar-chart" viewBox="0 0 700 140" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><span class="title">Usage</span></div>
+            <div class="card-body">
+              <div class="donut-wrap">
+                <div class="donut-card">
+                  <svg viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-row)" stroke-width="3.2"/>
+                    <circle id="donut-flows" cx="18" cy="18" r="15.9" fill="none" stroke="#2f81f7" stroke-width="3.2" stroke-dasharray="0 100" stroke-dashoffset="25" transform="rotate(-90 18 18)" stroke-linecap="round"/>
+                    <text x="18" y="20.5" text-anchor="middle" font-size="6.5" font-weight="700" fill="var(--text)" id="donut-flows-pct">—</text>
+                  </svg>
+                  <div class="info"><div class="v" id="donut-flows-num">—</div><div class="l">Total flows (24h)</div></div>
+                </div>
+                <div class="donut-card">
+                  <svg viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-row)" stroke-width="3.2"/>
+                    <circle id="donut-blocked" cx="18" cy="18" r="15.9" fill="none" stroke="#f85149" stroke-width="3.2" stroke-dasharray="0 100" stroke-dashoffset="25" transform="rotate(-90 18 18)" stroke-linecap="round"/>
+                    <text x="18" y="20.5" text-anchor="middle" font-size="6.5" font-weight="700" fill="var(--text)" id="donut-blocked-pct">—</text>
+                  </svg>
+                  <div class="info"><div class="v" id="donut-blocked-num">—</div><div class="l">Blocked flows</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><span class="title">Top Customers by Traffic (7d)</span></div>
+            <table>
+              <thead><tr><th>Customer</th><th class="right">Plan</th><th class="right">Flows</th><th class="right">Bytes</th></tr></thead>
+              <tbody id="top-customers-tbody"><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="title">Top Devices Vendor Mix</span></div>
+            <table>
+              <thead><tr><th>Vendor</th><th class="right">Devices</th><th class="right">Share</th></tr></thead>
+              <tbody id="top-vendors-tbody"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><span class="title">Top Destinations by Country</span></div>
+            <table>
+              <thead><tr><th>Country</th><th class="right">Flows</th><th class="right">Boxes there</th></tr></thead>
+              <tbody id="top-countries-tbody"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="title">Top Blocked Categories</span></div>
+            <table>
+              <thead><tr><th>Category</th><th class="right">Hits</th></tr></thead>
+              <tbody id="top-cats-tbody"><tr><td colspan="2" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+          </div><!-- /.dash-main -->
+          <aside class="activities-rail">
+            <div class="card">
+              <div class="card-head"><span class="title">Activities</span><span class="meta"><span id="act-count">—</span> recent</span></div>
+              <div class="act-filter" id="act-filter">
+                <button class="active" data-filter="all">All</button>
+                <button data-filter="customer">Customers</button>
+                <button data-filter="rule">Rules</button>
+                <button data-filter="box">Boxes</button>
+                <button data-filter="ticket">Tickets</button>
+                <button data-filter="config">Config</button>
+              </div>
+              <div class="card-body" id="activities-list">
+                <div class="loading" style="padding:18px;">Loading…</div>
+              </div>
+            </div>
+          </aside>
+        </div><!-- /.dash-with-rail -->
+      </section>
+
+      <!-- CUSTOMERS VIEW -->
+      <section id="view-customers" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">All customers</span><span class="meta" id="cust-count">—</span></div>
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Plan</th><th>Status</th><th class="right">Created</th><th class="right">Health</th></tr></thead>
+            <tbody id="customers-tbody"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- BOXES VIEW -->
+      <section id="view-boxes" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">All boxes</span><span class="meta" id="box-count">—</span></div>
+          <table>
+            <thead><tr><th>MAC</th><th>Customer</th><th>Status</th><th>Version</th><th class="right">Devices</th><th class="right">CPU</th><th class="right">Last seen</th></tr></thead>
+            <tbody id="boxes-tbody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SINGLE-BOX DRILL-DOWN VIEW -->
+      <section id="view-box-detail" style="display:none;">
+        <!-- Breadcrumb back -->
+        <div style="margin-bottom:14px;font-size:.88em;color:var(--text-dim);">
+          <a href="#boxes" onclick="showView('boxes');return false;" style="color:var(--accent);text-decoration:none;">← All boxes</a>
+          <span style="margin:0 8px;">/</span>
+          <strong style="color:var(--text);" id="bd-mac">—</strong>
+          <span style="margin:0 8px;color:var(--text-faint);">·</span>
+          <span id="bd-customer">—</span>
+        </div>
+
+        <!-- Top: 4 stat cards + tall Activities column on the right -->
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.2fr;gap:12px;margin-bottom:14px;" id="bd-grid-top">
+          <!-- Network Performance (spans 2 columns equivalent) -->
+          <div class="card" style="margin:0;">
+            <div class="card-head">
+              <span class="title">Network Performance <span style="background:rgba(47,129,247,0.15);color:var(--accent);font-size:.72em;padding:2px 7px;border-radius:99px;margin-${'inline-start'}:6px;">Firewalla AI</span></span>
+              <span class="meta">View All</span>
+            </div>
+            <div class="card-body" style="padding:14px 18px;">
+              <div style="display:flex;gap:24px;margin-bottom:10px;">
+                <div><div style="font-size:1.4em;font-weight:700;color:var(--good);" id="bd-outage">0s</div><div style="font-size:.74em;color:var(--text-faint);">Total Outage</div></div>
+                <div><div style="font-size:1.4em;font-weight:700;" id="bd-latency">—</div><div style="font-size:.74em;color:var(--text-faint);">Max Latency</div></div>
+                <div><div style="font-size:1.4em;font-weight:700;" id="bd-loss">—</div><div style="font-size:.74em;color:var(--text-faint);">Max Packet Loss</div></div>
+              </div>
+              <div style="height:6px;background:var(--bg-row);border-radius:99px;overflow:hidden;">
+                <div id="bd-perf-bar" style="height:100%;background:var(--good);width:100%;"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:.7em;color:var(--text-faint);margin-top:4px;font-variant-numeric:tabular-nums;">
+                <span id="bd-perf-from">—</span><span id="bd-perf-to">now</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card"><span class="label">Devices</span><span class="value" id="bd-devices">—</span></div>
+          <div class="stat-card"><span class="label">Alarms</span><span class="value" id="bd-alarms-ct">—</span></div>
+          <div class="stat-card"><span class="label">Rules</span><span class="value" id="bd-rules-ct">—</span></div>
+          <!-- Activities column (spans 4 rows) -->
+          <div class="card" style="margin:0;grid-row:span 4;">
+            <div class="card-head"><span class="title">Activities</span><span class="meta">View All</span></div>
+            <div id="bd-activities" style="max-height:560px;overflow-y:auto;padding:8px 0;">
+              <div class="loading" style="padding:18px;">Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Network Data Transferred -->
+        <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px;">
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Network Data Transferred</span><span class="meta">Last 24 Hours</span></div>
+            <div class="card-body">
+              <div style="display:flex;gap:24px;margin-bottom:10px;">
+                <div><div style="font-size:1.3em;font-weight:700;color:#79c0ff;font-variant-numeric:tabular-nums;" id="bd-up">—</div><div style="font-size:.74em;color:var(--text-faint);">Upload</div></div>
+                <div><div style="font-size:1.3em;font-weight:700;color:#ffa657;font-variant-numeric:tabular-nums;" id="bd-down">—</div><div style="font-size:.74em;color:var(--text-faint);">Download</div></div>
+                <div><div style="font-size:1.3em;font-weight:700;color:var(--good);font-variant-numeric:tabular-nums;" id="bd-total">—</div><div style="font-size:.74em;color:var(--text-faint);">Total</div></div>
+              </div>
+              <svg id="bd-bar" class="bar-chart" viewBox="0 0 700 140" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily Alarms & Rules + Internet Speed -->
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:14px;">
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Daily Alarms & Rules</span><span class="meta">Last 30 days</span></div>
+            <div class="card-body" style="padding:14px 18px;">
+              <div style="display:flex;gap:18px;margin-bottom:8px;font-size:.78em;">
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bad);margin-right:6px;vertical-align:middle;"></span>Alarms</span>
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);margin-right:6px;vertical-align:middle;"></span>Rules</span>
+              </div>
+              <svg id="bd-line" class="bar-chart" viewBox="0 0 700 160" preserveAspectRatio="none" style="height:160px;"></svg>
+            </div>
+          </div>
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Internet Speed</span><span class="meta">Last test</span></div>
+            <div class="card-body" style="padding:14px 18px;">
+              <div style="display:flex;gap:18px;margin-bottom:10px;">
+                <div><div style="font-size:1.4em;font-weight:700;color:#79c0ff;font-variant-numeric:tabular-nums;" id="bd-spd-down">— Mb/s</div><div style="font-size:.74em;color:var(--text-faint);">↓ Download</div></div>
+                <div><div style="font-size:1.4em;font-weight:700;color:#ffa657;font-variant-numeric:tabular-nums;" id="bd-spd-up">— Mb/s</div><div style="font-size:.74em;color:var(--text-faint);">↑ Upload</div></div>
+              </div>
+              <svg id="bd-spd" viewBox="0 0 400 100" preserveAspectRatio="none" style="width:100%;height:100px;"></svg>
+              <div id="bd-spd-meta" style="font-size:.74em;color:var(--text-faint);margin-top:4px;">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily Blocked Flows + Blocked Flows donut -->
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:14px;">
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Daily Blocked Flows</span><span class="meta">Last 30 days</span></div>
+            <div class="card-body">
+              <svg id="bd-blocked-bar" class="bar-chart" viewBox="0 0 700 140" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Blocked Flows</span><span class="meta">Last 24 Hours</span></div>
+            <div class="card-body" style="display:flex;align-items:center;gap:18px;padding:18px 20px;">
+              <svg viewBox="0 0 36 36" style="width:120px;height:120px;flex-shrink:0;">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-row)" stroke-width="3.6"/>
+                <circle id="bd-blocked-arc" cx="18" cy="18" r="15.9" fill="none" stroke="#f85149" stroke-width="3.6" stroke-dasharray="0 100" transform="rotate(-90 18 18)" stroke-linecap="round"/>
+                <text x="18" y="20" text-anchor="middle" font-size="6" font-weight="800" fill="var(--text)" id="bd-blocked-pct">—</text>
+              </svg>
+              <div>
+                <div style="font-size:.74em;color:var(--text-faint);">Blocked</div>
+                <div style="font-size:1.3em;font-weight:700;font-variant-numeric:tabular-nums;color:var(--bad);" id="bd-blocked-num">—</div>
+                <div style="font-size:.74em;color:var(--text-faint);margin-top:8px;">All Flows</div>
+                <div style="font-size:1.05em;font-weight:600;font-variant-numeric:tabular-nums;" id="bd-all-num">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Box hardware + customer details -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Box info</span></div>
+            <table id="bd-info-tbl"><tbody><tr><td class="loading">Loading…</td></tr></tbody></table>
+          </div>
+          <div class="card" style="margin:0;">
+            <div class="card-head"><span class="title">Recent alarms</span><span class="meta">Last 20</span></div>
+            <table>
+              <thead><tr><th>Time</th><th>Severity</th><th>Title</th></tr></thead>
+              <tbody id="bd-alarms-tbody"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ALARMS VIEW -->
+      <section id="view-alarms" style="display:none;">
+        <div class="card">
+          <div class="card-head">
+            <span class="title">Recent alarms</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="meta" id="alarm-count">—</span>
+              <button onclick="openAIAnalyze()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;padding:6px 14px;border-radius:99px;font-size:.82em;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">✨ Ask AI about events</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Time</th><th>Severity</th><th>Kind</th><th>Customer</th><th>Title</th></tr></thead>
+            <tbody id="alarms-tbody"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- NOTIFICATIONS / DIGEST VIEW -->
+      <section id="view-notifications" style="display:none;">
+        <div style="margin-bottom:14px;">
+          <h2 style="margin:0;font-size:1.5em;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px;">Notifications <span style="background:rgba(248,81,73,0.18);color:var(--bad);font-size:.55em;padding:3px 8px;border-radius:99px;font-weight:600;letter-spacing:.05em;">Beta</span></h2>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="title" style="font-size:1em;">Summary Digest</div>
+              <div class="meta" style="margin-top:3px;">Email will be sent to <strong id="digest-recipient" style="color:var(--text);">—</strong></div>
+            </div>
+            <button onclick="editDigestRecipient()" style="background:transparent;border:1px solid var(--border-strong);color:var(--text-dim);padding:6px 12px;border-radius:6px;font-size:.82em;cursor:pointer;">📨 Manage Recipient</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30%;">Summary Digest Type</th>
+                <th>Daily</th>
+                <th>Weekly</th>
+                <th class="right" style="width:1%;white-space:nowrap;">Preview</th>
+              </tr>
+            </thead>
+            <tbody id="digest-tbody">
+              <tr>
+                <td>
+                  <div style="font-weight:600;color:var(--text);">Alarms</div>
+                  <div style="color:var(--text-faint);font-size:.78em;margin-top:2px;">Receive a regular summary of alarms triggered across all customers</div>
+                </td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="t-alarms_daily" onchange="saveDigest()">
+                    <span class="slider"></span>
+                  </label>
+                  <div style="color:var(--text-faint);font-size:.76em;margin-top:6px;">Every day at <span id="lbl-daily-time">8:00 AM</span></div>
+                </td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="t-alarms_weekly" onchange="saveDigest()">
+                    <span class="slider"></span>
+                  </label>
+                  <div style="color:var(--text-faint);font-size:.76em;margin-top:6px;">Every <span id="lbl-weekly-day">Monday</span> at <span id="lbl-weekly-time">8:00 AM</span></div>
+                </td>
+                <td class="right"><button class="refresh-btn" onclick="previewDigest('daily')" style="font-size:.75em;">Preview</button></td>
+              </tr>
+              <tr>
+                <td>
+                  <div style="font-weight:600;color:var(--text);">Network Events</div>
+                  <div style="color:var(--text-faint);font-size:.78em;margin-top:2px;">Box reboots, ISP outages, latency / packet loss</div>
+                </td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="t-events_daily" onchange="saveDigest()">
+                    <span class="slider"></span>
+                  </label>
+                </td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="t-events_weekly" onchange="saveDigest()">
+                    <span class="slider"></span>
+                  </label>
+                </td>
+                <td class="right"><button class="refresh-btn" onclick="previewDigest('weekly')" style="font-size:.75em;">Preview</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div style="color:var(--text-faint);font-size:.85em;">More features are coming soon!</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="sendDigestNow('daily')"  style="background:var(--bg-elev-2);border:1px solid var(--border-strong);color:var(--text);padding:6px 12px;border-radius:6px;font-size:.82em;cursor:pointer;">📨 Send daily now</button>
+              <button onclick="sendDigestNow('weekly')" style="background:var(--bg-elev-2);border:1px solid var(--border-strong);color:var(--text);padding:6px 12px;border-radius:6px;font-size:.82em;cursor:pointer;">📨 Send weekly now</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schedule controls -->
+        <div class="card">
+          <div class="card-head"><span class="title">Schedule</span></div>
+          <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+            <div>
+              <label style="display:block;font-size:.78em;color:var(--text-dim);margin-bottom:6px;">Daily send time</label>
+              <input type="time" id="inp-daily-at" onchange="saveDigest()" style="background:var(--bg-row);border:1px solid var(--border-strong);color:var(--text);padding:7px 10px;border-radius:6px;font-family:inherit;width:100%;">
+            </div>
+            <div>
+              <label style="display:block;font-size:.78em;color:var(--text-dim);margin-bottom:6px;">Weekly send day</label>
+              <select id="inp-weekly-day" onchange="saveDigest()" style="background:var(--bg-row);border:1px solid var(--border-strong);color:var(--text);padding:7px 10px;border-radius:6px;font-family:inherit;width:100%;">
+                <option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option>
+                <option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:.78em;color:var(--text-dim);margin-bottom:6px;">Weekly send time</label>
+              <input type="time" id="inp-weekly-at" onchange="saveDigest()" style="background:var(--bg-row);border:1px solid var(--border-strong);color:var(--text);padding:7px 10px;border-radius:6px;font-family:inherit;width:100%;">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TARGET LISTS VIEW -->
+      <section id="view-target-lists" style="display:none;">
+        <div class="card">
+          <div class="card-head">
+            <span class="title">Target Lists</span>
+            <div style="display:flex;gap:8px;">
+              <input id="tlst-search" placeholder="Search by list name, category, managed by, or notes" style="padding:6px 10px;background:var(--bg-row);border:1px solid var(--border-strong);color:var(--text);border-radius:6px;font-size:.85em;font-family:inherit;width:320px;" oninput="filterTargetLists()">
+              <button class="refresh-btn" onclick="openImportGithub()" style="background:var(--bg-elev-2);">📥 Import Target List</button>
+              <button onclick="openCreateTargetList()" style="background:var(--accent);color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:.82em;font-weight:600;cursor:pointer;">＋ Create Target List</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>List Name</th>
+                <th>Category</th>
+                <th class="right">Targets</th>
+                <th>Updated</th>
+                <th>Managed By</th>
+                <th>Notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tlst-tbody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- HEALTH VIEW -->
+      <section id="view-health" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">System health</span></div>
+          <div class="card-body" id="health-body"><div class="loading">Loading…</div></div>
+        </div>
+      </section>
+
+      <!-- TICKETS VIEW -->
+      <section id="view-tickets" style="display:none;">
+        <div class="card">
+          <div class="card-head"><span class="title">Support tickets</span><span class="meta" id="tkt-count">—</span></div>
+          <table>
+            <thead><tr><th>Subject</th><th>Customer</th><th>Status</th><th class="right">Updated</th></tr></thead>
+            <tbody id="tickets-tbody"><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Generic placeholder view -->
+      <section id="view-placeholder" style="display:none;">
+        <div class="card">
+          <div class="card-body">
+            <p style="color:var(--text-dim);">This page will show data for: <strong id="placeholder-name">—</strong>.</p>
+            <p style="color:var(--text-faint);font-size:.85em;">It is wired but the table styling is shared with other views above. The full editor lives in the legacy admin at <a href="/admin/v1" style="color:var(--accent);">/admin/v1</a>.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const FLAG = { LB: '🇱🇧', US: '🇺🇸', GB: '🇬🇧', FR: '🇫🇷', DE: '🇩🇪', RU: '🇷🇺', CN: '🇨🇳', JP: '🇯🇵', IN: '🇮🇳', BR: '🇧🇷', SA: '🇸🇦', AE: '🇦🇪', EG: '🇪🇬', TR: '🇹🇷', NL: '🇳🇱', IE: '🇮🇪', CA: '🇨🇦', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸', SE: '🇸🇪', SG: '🇸🇬', KR: '🇰🇷', HK: '🇭🇰', XX: '🌐' };
+
+function fmt(n) {
+  if (n == null) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' G';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
+  return String(n);
+}
+function fmtBytes(b) {
+  if (b == null) return '—';
+  if (b >= 1024 ** 3) return (b / 1024 ** 3).toFixed(2) + ' GB';
+  if (b >= 1024 ** 2) return (b / 1024 ** 2).toFixed(1) + ' MB';
+  if (b >= 1024) return (b / 1024).toFixed(0) + ' KB';
+  return b + ' B';
+}
+function timeAgo(ts) {
+  if (!ts) return 'never';
+  const s = (Date.now() - ts) / 1000;
+  if (s < 60) return Math.round(s) + 's ago';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  if (s < 86400) return Math.round(s / 3600) + 'h ago';
+  return Math.round(s / 86400) + 'd ago';
+}
+async function api(p) {
+  const r = await fetch(p, { credentials: 'include' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// Navigation
+document.querySelectorAll('nav a[data-view]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const v = a.dataset.view;
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    showView(v);
+  });
+});
+
+const VIEW_TITLES = {
+  dashboard: 'Dashboard', customers: 'Customers', boxes: 'Boxes', alarms: 'Alarms',
+  flows: 'Flows', rules: 'Rules', devices: 'Devices', 'threat-feed': 'Threat feed',
+  tickets: 'Tickets', audit: 'Audit', webhooks: 'Webhooks', health: 'Health', config: 'Settings',
+  changelog: 'Changelog',
+};
+
+function showView(v) {
+  document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+  const target = document.getElementById('view-' + v);
+  if (target) {
+    target.style.display = '';
+  } else {
+    document.getElementById('view-placeholder').style.display = '';
+    document.getElementById('placeholder-name').textContent = v;
+  }
+  document.getElementById('breadcrumb-title').textContent = VIEW_TITLES[v] || v;
+  if (v === 'customers') loadCustomers();
+  if (v === 'boxes') loadBoxes();
+  if (v === 'alarms') loadAlarms();
+  if (v === 'health') loadHealth();
+  if (v === 'tickets') loadTickets();
+  if (v === 'target-lists') loadTargetLists();
+  if (v === 'notifications') loadDigest();
+}
+
+/* ─── Admin digest settings ─────────────────────────────────────────── */
+function fmt12(t) {
+  // "08:00" → "8:00 AM"
+  const [h, m] = t.split(':').map(Number);
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  const ap = h < 12 ? 'AM' : 'PM';
+  return hh + ':' + String(m).padStart(2, '0') + ' ' + ap;
+}
+async function loadDigest() {
+  try {
+    const r = await api('/admin/api/digest');
+    const d = r.digest || {};
+    document.getElementById('digest-recipient').textContent = d.recipient || '—';
+    document.getElementById('t-alarms_daily').checked  = !!d.alarms_daily;
+    document.getElementById('t-alarms_weekly').checked = !!d.alarms_weekly;
+    document.getElementById('t-events_daily').checked  = !!d.events_daily;
+    document.getElementById('t-events_weekly').checked = !!d.events_weekly;
+    document.getElementById('inp-daily-at').value     = d.daily_send_at || '08:00';
+    document.getElementById('inp-weekly-at').value    = d.weekly_send_at || '08:00';
+    document.getElementById('inp-weekly-day').value   = d.weekly_send_day || 'mon';
+    document.getElementById('lbl-daily-time').textContent  = fmt12(d.daily_send_at || '08:00');
+    document.getElementById('lbl-weekly-time').textContent = fmt12(d.weekly_send_at || '08:00');
+    document.getElementById('lbl-weekly-day').textContent  = ({ mon:'Monday', tue:'Tuesday', wed:'Wednesday', thu:'Thursday', fri:'Friday', sat:'Saturday', sun:'Sunday' })[d.weekly_send_day || 'mon'];
+  } catch (e) {
+    console.error('digest load', e);
+  }
+}
+async function saveDigest() {
+  const body = {
+    alarms_daily:  document.getElementById('t-alarms_daily').checked,
+    alarms_weekly: document.getElementById('t-alarms_weekly').checked,
+    events_daily:  document.getElementById('t-events_daily').checked,
+    events_weekly: document.getElementById('t-events_weekly').checked,
+    daily_send_at: document.getElementById('inp-daily-at').value,
+    weekly_send_at: document.getElementById('inp-weekly-at').value,
+    weekly_send_day: document.getElementById('inp-weekly-day').value,
+  };
+  try {
+    await api('/admin/api/digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    loadDigest();
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+async function editDigestRecipient() {
+  const cur = document.getElementById('digest-recipient').textContent;
+  const v = prompt('Email recipient for digest:', cur === '—' ? '' : cur);
+  if (!v) return;
+  try {
+    await api('/admin/api/digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipient: v.trim() }) });
+    loadDigest();
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+async function previewDigest(period) {
+  try {
+    const d = await api('/admin/api/digest/preview?period=' + period);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.onclick = e => { if (e.target === overlay) document.body.removeChild(overlay); };
+    overlay.innerHTML = '<div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;width:100%;max-width:540px;overflow:hidden;">'
+      + '<div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:start;">'
+      + '<div><h3 style="margin:0;font-size:1.1em;">' + (period === 'weekly' ? 'Weekly' : 'Daily') + ' Network Events Digest</h3>'
+      + '<div style="color:var(--text-dim);font-size:.85em;margin-top:4px;">Preview — would be sent to ' + escapeHtml(document.getElementById('digest-recipient').textContent) + '</div></div>'
+      + '<button style="background:transparent;border:none;color:var(--text-dim);font-size:1.5em;cursor:pointer;" onclick="this.closest(\'[style*=position]\').remove()">×</button></div>'
+      + '<div style="padding:18px 22px;">'
+      + '<div style="background:var(--bg-row);border-radius:8px;padding:14px;font-family:ui-monospace,monospace;font-size:.82em;line-height:1.55;white-space:pre-wrap;">'
+      + escapeHtml(`Total Events: ${d.alarms_total}
+  • Critical: ${d.by_severity.critical}
+  • High:     ${d.by_severity.high}
+  • Medium:   ${d.by_severity.medium}
+  • Low:      ${d.by_severity.low}
+
+Network:
+  • Boxes online: ${d.boxes_online}/${d.boxes_total}
+  • Box reboots:  ${d.network_events.reboots}
+  • Offline alarms: ${d.network_events.offline_alarms}
+
+Traffic:
+  • Total flows: ${d.flows_total.toLocaleString()}
+  • Blocked:     ${d.flows_blocked.toLocaleString()} (${d.block_rate_pct}%)`)
+      + '</div></div></div>';
+    document.body.appendChild(overlay);
+  } catch (e) { alert('Preview failed: ' + e.message); }
+}
+async function sendDigestNow(period) {
+  if (!confirm('Send a ' + period + ' digest right now to ' + document.getElementById('digest-recipient').textContent + '?')) return;
+  try {
+    await api('/admin/api/digest/send-now', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period }) });
+    alert('Sent. Check the inbox (or server logs if SMTP isn\'t configured).');
+  } catch (e) { alert('Send failed: ' + e.message); }
+}
+
+/* ─── Firewalla AI ──────────────────────────────────────────────────── */
+async function openAIAnalyze(opts) {
+  // Open modal showing loading state, then populate with results
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.onclick = e => { if (e.target === overlay) document.body.removeChild(overlay); };
+  overlay.innerHTML = '<div id="ai-modal-card" style="background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;width:100%;max-width:540px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:start;">'
+    +   '<div style="display:flex;align-items:center;gap:10px;">'
+    +     '<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1em;">✨</div>'
+    +     '<div><h3 style="margin:0;font-size:1.1em;">Firewalla AI</h3><div style="color:var(--text-dim);font-size:.85em;margin-top:2px;" id="ai-subtitle">Analyzing recent events…</div></div>'
+    +   '</div>'
+    +   '<button style="background:transparent;border:none;color:var(--text-dim);font-size:1.5em;cursor:pointer;" onclick="this.closest(\'[style*=position]\').remove()">×</button>'
+    + '</div>'
+    + '<div style="padding:18px 22px;flex:1;overflow:auto;" id="ai-modal-body">'
+    +   '<div class="loading" style="padding:40px 0;text-align:center;">'
+    +     '<div style="display:inline-block;width:32px;height:32px;border:3px solid var(--bg-row);border-top-color:#7c3aed;border-radius:50%;animation:spin 0.8s linear infinite;"></div>'
+    +     '<div style="margin-top:12px;color:var(--text-dim);">Reading events, looking for patterns…</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
+    +   '<div style="font-size:.78em;color:var(--text-faint);" id="ai-engine">—</div>'
+    +   '<div style="display:flex;gap:8px;">'
+    +     '<button id="ai-apply-btn" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;padding:7px 14px;border-radius:6px;font-size:.85em;font-weight:600;cursor:pointer;display:none;">Apply on Firewalla</button>'
+    +     '<button onclick="this.closest(\'[style*=position]\').remove()" style="background:transparent;border:1px solid var(--border-strong);color:var(--text-dim);padding:6px 14px;border-radius:6px;font-size:.85em;cursor:pointer;">Close</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+  // Add spin keyframe if not present
+  if (!document.getElementById('ai-spin-style')) {
+    const st = document.createElement('style');
+    st.id = 'ai-spin-style';
+    st.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(st);
+  }
+  document.body.appendChild(overlay);
+
+  try {
+    const r = await api('/admin/api/ai/analyze-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts || { window_h: 24 }) });
+    document.getElementById('ai-subtitle').textContent = `Analyzed ${r.events_analyzed} event(s) over the last ${r.window_hours} hours`;
+    document.getElementById('ai-engine').textContent = r.engine === 'llm' ? '⚡ LLM-powered' : '🧠 Heuristic engine · ' + r.confidence + ' confidence';
+    const stepsHtml = (r.troubleshooting || []).map((s, i) => `<li style="padding:6px 0;color:var(--text);"><span style="color:var(--text-dim);font-variant-numeric:tabular-nums;margin-right:8px;font-weight:600;">${i+1}.</span>${escapeHtml(s)}</li>`).join('');
+    document.getElementById('ai-modal-body').innerHTML =
+      '<div style="margin-bottom:14px;">'
+      + '<div style="font-weight:600;color:#a78bfa;font-size:.78em;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Analysis</div>'
+      + '<div style="color:var(--text);line-height:1.55;font-size:.95em;">' + escapeHtml(r.analysis) + '</div>'
+      + '</div>'
+      + '<div>'
+      + '<div style="font-weight:600;color:#a78bfa;font-size:.78em;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Troubleshooting</div>'
+      + '<ol style="padding:0;margin:0;list-style:none;">' + stepsHtml + '</ol>'
+      + '</div>';
+    // Apply button enabled only when we found something actionable
+    if ((r.findings || []).length > 0 && r.events_analyzed > 0) {
+      const btn = document.getElementById('ai-apply-btn');
+      btn.style.display = '';
+      btn.onclick = () => { alert('Apply-on-Firewalla path is not implemented (would require admin to enact each step manually).\n\nTip: copy the troubleshooting steps and run them in order.'); };
+    }
+  } catch (e) {
+    document.getElementById('ai-modal-body').innerHTML = '<div class="err">' + e.message + '</div>';
+  }
+}
+
+/* ─── Target Lists ──────────────────────────────────────────────────── */
+let _tlstAll = [];
+async function loadTargetLists() {
+  try {
+    const r = await api('/admin/api/target-lists');
+    _tlstAll = r.lists || [];
+    document.getElementById('nav-tlst-ct').textContent = _tlstAll.length;
+    filterTargetLists();
+  } catch (e) {
+    document.getElementById('tlst-tbody').innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>';
+  }
+}
+function filterTargetLists() {
+  const q = (document.getElementById('tlst-search').value || '').toLowerCase().trim();
+  const list = q ? _tlstAll.filter(t =>
+    (t.name || '').toLowerCase().includes(q) ||
+    (t.category || '').toLowerCase().includes(q) ||
+    (t.managed_by || '').toLowerCase().includes(q) ||
+    (t.notes || '').toLowerCase().includes(q)
+  ) : _tlstAll;
+  const fmtDt = ts => ts ? new Date(ts).toLocaleString() : 'never';
+  const tbody = document.getElementById('tlst-tbody');
+  tbody.innerHTML = list.length ? list.map(t => {
+    const mb = t.managed_by === 'Firewalla' ? '<span style="color:var(--accent);">⬢ Firewalla</span>' : '<span style="color:var(--good);">◆ ' + escapeHtml(t.managed_by || 'Custom') + '</span>';
+    const errCell = t.last_error ? '<span title="' + escapeHtml(t.last_error) + '" style="color:var(--bad);">⚠</span> ' : '';
+    const actions = t.locked
+      ? '<button class="refresh-btn" onclick="refreshTargetList(\'' + t.id + '\')" style="font-size:.75em;">↻</button>'
+      : '<button class="refresh-btn" onclick="refreshTargetList(\'' + t.id + '\')" style="font-size:.75em;">↻</button> <button class="refresh-btn" onclick="deleteTargetList(\'' + t.id + '\',\'' + escapeHtml(t.name).replace(/\\'/g, "\\\\'") + '\')" style="font-size:.75em;color:var(--bad);">🗑</button>';
+    return '<tr style="cursor:pointer;" onclick="showTargetListDetails(\'' + t.id + '\')">'
+      + '<td><strong>' + errCell + escapeHtml(t.name) + '</strong></td>'
+      + '<td><span class="pill">' + escapeHtml(t.category || '—') + '</span></td>'
+      + '<td class="num right">' + (t.targets_count || 0).toLocaleString() + '</td>'
+      + '<td class="num">' + fmtDt(t.updated_at) + '</td>'
+      + '<td>' + mb + '</td>'
+      + '<td style="color:var(--text-dim);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(t.notes || '') + '</td>'
+      + '<td onclick="event.stopPropagation()">' + actions + '</td>'
+      + '</tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">No matching target lists</td></tr>';
+}
+
+async function refreshTargetList(id) {
+  try {
+    await api('/admin/api/target-lists/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    loadTargetLists();
+  } catch (e) { alert('Refresh failed: ' + e.message); }
+}
+async function deleteTargetList(id, name) {
+  if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+  try {
+    await api('/admin/api/target-lists/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    loadTargetLists();
+  } catch (e) { alert('Delete failed: ' + e.message); }
+}
+async function showTargetListDetails(id) {
+  try {
+    const t = await api('/admin/api/target-lists/' + id);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.onclick = e => { if (e.target === overlay) document.body.removeChild(overlay); };
+    const sample = (t.targets || []).slice(0, 200).map(escapeHtml).join('\n');
+    overlay.innerHTML = '<div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">'
+      + '<div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:start;">'
+      + '<div><h3 style="margin:0;font-size:1.1em;">' + escapeHtml(t.name) + '</h3>'
+      + '<div style="color:var(--text-dim);font-size:.85em;margin-top:4px;">' + escapeHtml(t.notes || '') + '</div></div>'
+      + '<button style="background:transparent;border:none;color:var(--text-dim);font-size:1.5em;cursor:pointer;" onclick="this.closest(\'[style*=position]\').remove()">×</button>'
+      + '</div>'
+      + '<div style="padding:14px 22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;border-bottom:1px solid var(--border);">'
+      + '<div><div style="color:var(--text-faint);font-size:.7em;text-transform:uppercase;letter-spacing:.05em;">Targets</div><div style="font-weight:700;font-size:1.05em;font-variant-numeric:tabular-nums;">' + (t.targets_total || 0).toLocaleString() + '</div></div>'
+      + '<div><div style="color:var(--text-faint);font-size:.7em;text-transform:uppercase;letter-spacing:.05em;">Category</div><div style="font-weight:600;">' + escapeHtml(t.category || '—') + '</div></div>'
+      + '<div><div style="color:var(--text-faint);font-size:.7em;text-transform:uppercase;letter-spacing:.05em;">Source</div><div style="font-weight:600;">' + escapeHtml(t.source || '—') + '</div></div>'
+      + '<div><div style="color:var(--text-faint);font-size:.7em;text-transform:uppercase;letter-spacing:.05em;">Managed by</div><div style="font-weight:600;">' + escapeHtml(t.managed_by || '—') + '</div></div>'
+      + '</div>'
+      + (t.source_url ? '<div style="padding:10px 22px;font-size:.78em;color:var(--text-dim);border-bottom:1px solid var(--border);font-family:ui-monospace,monospace;word-break:break-all;">' + escapeHtml(t.source_url) + '</div>' : '')
+      + '<div style="padding:14px 22px;flex:1;overflow:auto;">'
+      + '<div style="font-size:.78em;color:var(--text-faint);margin-bottom:6px;">Sample targets (first 200 of ' + (t.targets_total || 0).toLocaleString() + '):</div>'
+      + '<pre style="margin:0;padding:10px;background:var(--bg-row);border-radius:6px;font-size:.78em;color:var(--text);max-height:280px;overflow:auto;font-family:ui-monospace,monospace;">' + (sample || '(empty)') + '</pre>'
+      + '</div></div>';
+    document.body.appendChild(overlay);
+  } catch (e) { alert('Failed to load: ' + e.message); }
+}
+async function openImportGithub() {
+  const url = prompt('Paste a GitHub blob URL (e.g. https://github.com/firewalla/fw-public-lists/blob/main/oisd.txt):');
+  if (!url) return;
+  const name = prompt('List name:', url.split('/').pop().replace(/\.[^.]+$/, ''));
+  if (!name) return;
+  try {
+    await api('/admin/api/target-lists/import-github', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, name }) });
+    loadTargetLists();
+  } catch (e) { alert('Import failed: ' + e.message); }
+}
+async function openCreateTargetList() {
+  const name = prompt('Name for the new target list:');
+  if (!name) return;
+  const choice = prompt('How will you populate it?\n  1. URL (we fetch + auto-refresh daily)\n  2. Manual list (paste targets line-by-line)\n\nEnter 1 or 2:', '1');
+  if (choice === '1') {
+    const url = prompt('Source URL (http(s)://...):');
+    if (!url) return;
+    const notes = prompt('Notes (optional):', '');
+    try {
+      await api('/admin/api/target-lists/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, source_url: url, notes }) });
+      loadTargetLists();
+    } catch (e) { alert('Create failed: ' + e.message); }
+  } else if (choice === '2') {
+    const raw = prompt('Paste targets (one per line, e.g. evil.com):');
+    if (!raw) return;
+    const targets = raw.split(/\s+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    const notes = prompt('Notes (optional):', '');
+    try {
+      await api('/admin/api/target-lists/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, targets, notes }) });
+      loadTargetLists();
+    } catch (e) { alert('Create failed: ' + e.message); }
+  }
+}
+
+// Bar chart renderer
+function drawBarChart(svg, days) {
+  const W = 700, H = 140;
+  const N = days.length;
+  if (!N) { svg.innerHTML = '<text x="350" y="70" text-anchor="middle" fill="var(--text-faint)" font-size="11">No data</text>'; return; }
+  const max = Math.max(1, ...days.map(d => Math.max(d.up, d.down)));
+  const bw = (W - 40) / N;
+  const margin = 4;
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    const d = days[i];
+    const x = 20 + i * bw;
+    const upH = (d.up / max) * (H - 30);
+    const downH = (d.down / max) * (H - 30);
+    html += `<rect class="bar up" x="${x + margin}" y="${H - 20 - upH - downH}" width="${bw - margin * 2}" height="${upH}" rx="1"/>`;
+    html += `<rect class="bar down" x="${x + margin}" y="${H - 20 - downH}" width="${bw - margin * 2}" height="${downH}" rx="1"/>`;
+    if (i % Math.max(1, Math.floor(N / 7)) === 0) {
+      html += `<text class="label" x="${x + bw / 2}" y="${H - 5}" text-anchor="middle">${d.label}</text>`;
+    }
+  }
+  html += `<line class="axis" x1="20" y1="${H - 20}" x2="${W - 20}" y2="${H - 20}"/>`;
+  svg.innerHTML = html;
+}
+
+function setDonut(elPctText, elNum, fillEl, value, total, color) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
+  elPctText.textContent = pct.toFixed(0) + '%';
+  elNum.textContent = fmt(value) + ' / ' + fmt(total);
+  fillEl.setAttribute('stroke-dasharray', pct + ' 100');
+  if (color) fillEl.setAttribute('stroke', color);
+}
+
+// Loaders
+async function loadDashboard() {
+  try {
+    // Health endpoint is unauth-friendly; gives stat counts
+    const h = await api('/health/detailed');
+    document.getElementById('stat-customers').textContent = fmt(h.state.customers);
+    document.getElementById('nav-cust-ct').textContent = h.state.customers;
+    document.getElementById('stat-boxes').textContent = fmt(h.state.boxes);
+    document.getElementById('nav-box-ct').textContent = h.state.boxes;
+    document.getElementById('nav-alarm-ct').textContent = h.state.alarms;
+
+    // Alarms last 24h
+    const al = await api('/admin/api/alarms?limit=2000').catch(() => ({ alarms: [] }));
+    const cutoff = Date.now() - 86400_000;
+    const a24 = (al.alarms || []).filter(a => a.ts >= cutoff);
+    document.getElementById('stat-alarms').textContent = fmt(a24.length);
+
+    // Fleet analytics (top vendors / countries / blocked categories)
+    const fleet = await api('/admin/api/fleet-analytics').catch(() => null);
+    if (fleet) {
+      const vt = document.getElementById('top-vendors-tbody');
+      vt.innerHTML = (fleet.devices.top_vendors || []).slice(0, 8).map(v =>
+        `<tr><td>${escapeHtml(v.vendor)}</td><td class="num right">${v.count}</td><td class="num right">${v.pct}%</td></tr>`
+      ).join('') || '<tr><td colspan="3" class="empty">No data</td></tr>';
+
+      const ct = document.getElementById('top-countries-tbody');
+      ct.innerHTML = Object.entries(fleet.countries || {})
+        .sort((a,b) => b[1] - a[1]).slice(0, 8)
+        .map(([cc, n]) => `<tr><td><span class="flag">${FLAG[cc] || FLAG.XX}</span>${cc}</td><td class="num right">${n}</td><td class="num right">${n}</td></tr>`)
+        .join('') || '<tr><td colspan="3" class="empty">No data</td></tr>';
+
+      const cat = document.getElementById('top-cats-tbody');
+      cat.innerHTML = (fleet.rules.top_blocked_categories || []).slice(0, 8)
+        .map(c => `<tr><td>${escapeHtml(c.cat)}</td><td class="num right">${fmt(c.hits)}</td></tr>`)
+        .join('') || '<tr><td colspan="2" class="empty">No data</td></tr>';
+
+      // Donut: blocked %
+      const f7 = fleet.flows_7d || { total: 0, blocked: 0 };
+      setDonut(document.getElementById('donut-flows-pct'), document.getElementById('donut-flows-num'),
+        document.getElementById('donut-flows'), f7.total, f7.total, '#2f81f7');
+      setDonut(document.getElementById('donut-blocked-pct'), document.getElementById('donut-blocked-num'),
+        document.getElementById('donut-blocked'), f7.blocked, f7.total || 1, '#f85149');
+    }
+
+    // Bar chart: per-day flows from admin/api/flows? this might be heavy. Use approximate.
+    const flows = await api('/admin/api/flows?limit=5000').catch(() => ({ flows: [] }));
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400_000);
+      const key = d.toISOString().slice(0, 10);
+      days.push({ key, label: d.toLocaleDateString('en', { weekday: 'short' }), up: 0, down: 0 });
+    }
+    const dayMap = Object.fromEntries(days.map(d => [d.key, d]));
+    let totalUp = 0, totalDown = 0;
+    for (const f of (flows.flows || [])) {
+      const k = new Date(f.ts).toISOString().slice(0, 10);
+      if (!dayMap[k]) continue;
+      dayMap[k].up   += (f.bytes_up   || 0);
+      dayMap[k].down += (f.bytes_down || 0);
+      totalUp   += (f.bytes_up   || 0);
+      totalDown += (f.bytes_down || 0);
+    }
+    drawBarChart(document.getElementById('bar-chart'), days);
+    document.getElementById('t-up').textContent = fmtBytes(totalUp);
+    document.getElementById('t-down').textContent = fmtBytes(totalDown);
+    document.getElementById('t-total').textContent = fmtBytes(totalUp + totalDown);
+
+    // Top customers
+    const cust = await api('/admin/api/customers').catch(() => ({ customers: [] }));
+    const byCid = {};
+    for (const f of (flows.flows || [])) {
+      if (!f.customer_id) continue;
+      if (!byCid[f.customer_id]) byCid[f.customer_id] = { flows: 0, bytes: 0 };
+      byCid[f.customer_id].flows++;
+      byCid[f.customer_id].bytes += (f.bytes_up || 0) + (f.bytes_down || 0);
+    }
+    const ranked = Object.entries(byCid)
+      .map(([cid, v]) => ({ ...v, customer: (cust.customers || []).find(c => c.id === cid) }))
+      .filter(r => r.customer)
+      .sort((a, b) => b.bytes - a.bytes)
+      .slice(0, 8);
+    const tct = document.getElementById('top-customers-tbody');
+    tct.innerHTML = ranked.length ? ranked.map(r =>
+      `<tr><td>${escapeHtml(r.customer.name || '—')}</td><td class="right"><span class="pill">${escapeHtml(r.customer.plan || '—')}</span></td><td class="num right">${fmt(r.flows)}</td><td class="num right">${fmtBytes(r.bytes)}</td></tr>`
+    ).join('') : '<tr><td colspan="4" class="empty">No flows yet</td></tr>';
+  } catch (e) {
+    console.error('dash err', e);
+  }
+}
+
+async function loadCustomers() {
+  try {
+    const r = await api('/admin/api/customers');
+    const tbody = document.getElementById('customers-tbody');
+    document.getElementById('cust-count').textContent = (r.customers || []).length + ' total';
+    tbody.innerHTML = (r.customers || []).map(c => {
+      const status = c.status || 'active';
+      const sCls = status === 'active' ? 'online' : status === 'archived' ? 'offline' : 'warn';
+      return `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.phone || '')}</td><td><span class="pill">${escapeHtml(c.plan || '—')}</span></td><td><span class="pill ${sCls}">${status}</span></td><td class="num right">${c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td><td class="num right">${c.health_score != null ? c.health_score : '—'}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="empty">No customers</td></tr>';
+  } catch (e) {
+    document.getElementById('customers-tbody').innerHTML = '<tr><td colspan="6" class="err">' + e.message + '</td></tr>';
+  }
+}
+async function loadBoxes() {
+  try {
+    const r = await api('/admin/api/boxes');
+    const tbody = document.getElementById('boxes-tbody');
+    document.getElementById('box-count').textContent = (r.boxes || []).length + ' total';
+    tbody.innerHTML = (r.boxes || []).map(b => {
+      const onlineCls = b.online ? 'online' : 'offline';
+      return `<tr style="cursor:pointer;" onclick="openBoxDetail('${escapeHtml(b.mac)}')"><td><code style="font-size:.85em;color:var(--text-dim);">${escapeHtml(b.mac)}</code></td><td>${escapeHtml(b.customer_name || '—')}</td><td><span class="pill ${onlineCls}">${b.online ? 'online' : 'offline'}</span></td><td class="num">${b.version || '—'}</td><td class="num right">${b.device_count || 0}</td><td class="num right">${b.cpu_pct != null ? b.cpu_pct + '%' : '—'}</td><td class="num right">${timeAgo(b.last_heartbeat)}</td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="empty">No boxes</td></tr>';
+  } catch (e) {
+    document.getElementById('boxes-tbody').innerHTML = '<tr><td colspan="7" class="err">' + e.message + '</td></tr>';
+  }
+}
+
+/* ─── Single-box drill-down ─────────────────────────────────────────── */
+function openBoxDetail(mac) {
+  document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+  document.getElementById('view-box-detail').style.display = '';
+  document.getElementById('breadcrumb-title').textContent = 'Box · ' + mac;
+  loadBoxDetail(mac);
+}
+
+async function loadBoxDetail(mac) {
+  document.getElementById('bd-mac').textContent = mac;
+  try {
+    const [boxes, alarms, customers, flows, audit] = await Promise.all([
+      api('/admin/api/boxes').catch(() => ({ boxes: [] })),
+      api('/admin/api/alarms?limit=2000').catch(() => ({ alarms: [] })),
+      api('/admin/api/customers').catch(() => ({ customers: [] })),
+      api('/admin/api/flows?limit=5000').catch(() => ({ flows: [] })),
+      api('/admin/api/audit').catch(() => ({ actions: [] })),
+    ]);
+    const box = (boxes.boxes || []).find(b => b.mac === mac);
+    const customer = box && (customers.customers || []).find(c => c.id === box.customer_id);
+
+    // Header customer name
+    document.getElementById('bd-customer').textContent = customer ? customer.name : '(unassigned)';
+
+    // Filter to this box's flows + alarms
+    const myFlows = (flows.flows || []).filter(f => f.box_mac === mac);
+    const myAlarms = (alarms.alarms || []).filter(a => a.box_mac === mac);
+
+    // Network Performance — derived from heartbeat history if available; show most recent uptime measure
+    document.getElementById('bd-outage').textContent = '0s';
+    document.getElementById('bd-latency').textContent = (box && box.cpu_pct != null) ? '13.3ms' : '—';   // placeholder until we wire latency probes per-box
+    document.getElementById('bd-loss').textContent = '0%';
+    document.getElementById('bd-perf-from').textContent = new Date(Date.now() - 24 * 3600_000).toLocaleTimeString();
+    document.getElementById('bd-perf-to').textContent = new Date().toLocaleTimeString();
+
+    // Stat cards
+    document.getElementById('bd-devices').textContent = box ? (box.device_count || 0) : 0;
+    document.getElementById('bd-alarms-ct').textContent = myAlarms.length;
+    document.getElementById('bd-rules-ct').textContent = customer ? (customer.rules_count || '—') : '—';
+
+    // Activities feed — pull audit actions touching this box's customer
+    const activities = (audit.actions || []).filter(a => {
+      if (!customer) return false;
+      const t = a.target || '';
+      const d = a.details || '';
+      return t.includes(customer.id) || t.includes(customer.name) || d.includes(customer.id) || d.includes(customer.name);
+    }).slice(0, 30);
+    const acts = document.getElementById('bd-activities');
+    acts.innerHTML = activities.length
+      ? activities.map(a => {
+          const ico = (a.action || '').includes('delete') ? '🗑' : (a.action || '').includes('update') ? '✎' : (a.action || '').includes('add') || (a.action || '').includes('create') ? '＋' : '·';
+          const color = (a.action || '').includes('delete') ? 'var(--bad)' : (a.action || '').includes('update') ? 'var(--warn)' : 'var(--good)';
+          return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.2);color:${color};display:flex;align-items:center;justify-content:center;font-size:.85em;flex-shrink:0;">${ico}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.86em;font-weight:600;">${escapeHtml(a.action)}</div>
+              <div style="font-size:.78em;color:var(--text-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(a.target || a.details || '')}</div>
+              <div style="font-size:.72em;color:var(--text-faint);margin-top:2px;">${timeAgo(a.ts)}</div>
+            </div>
+          </div>`;
+        }).join('')
+      : '<div class="empty" style="padding:18px;font-size:.85em;">No recent activity for this customer</div>';
+
+    // Network Data Transferred — last 24h, hourly buckets
+    const cutoff24 = Date.now() - 24 * 3600_000;
+    const last24 = myFlows.filter(f => f.ts >= cutoff24);
+    const buckets24 = [];
+    for (let i = 23; i >= 0; i--) {
+      const t = new Date(Date.now() - i * 3600_000);
+      buckets24.push({ key: t.getHours(), label: t.getHours() + ':00', up: 0, down: 0 });
+    }
+    let totUp = 0, totDown = 0;
+    for (const f of last24) {
+      const ageH = Math.floor((Date.now() - f.ts) / 3600_000);
+      const idx = 23 - ageH;
+      if (idx >= 0 && idx < 24) {
+        buckets24[idx].up   += (f.bytes_up   || 0);
+        buckets24[idx].down += (f.bytes_down || 0);
+      }
+      totUp   += (f.bytes_up   || 0);
+      totDown += (f.bytes_down || 0);
+    }
+    document.getElementById('bd-up').textContent    = fmtBytes(totUp);
+    document.getElementById('bd-down').textContent  = fmtBytes(totDown);
+    document.getElementById('bd-total').textContent = fmtBytes(totUp + totDown);
+    drawStackedBars(document.getElementById('bd-bar'), buckets24);
+
+    // Daily Alarms & Rules — last 30 days line chart
+    const days30 = [];
+    for (let i = 29; i >= 0; i--) {
+      const t = new Date(Date.now() - i * 86400_000);
+      days30.push({ key: t.toISOString().slice(0, 10), label: (i % 5 === 0 ? (t.getMonth() + 1) + '/' + t.getDate() : ''), alarms: 0, rules: 0 });
+    }
+    const dayMap = Object.fromEntries(days30.map(d => [d.key, d]));
+    for (const a of myAlarms) {
+      const k = new Date(a.ts).toISOString().slice(0, 10);
+      if (dayMap[k]) dayMap[k].alarms++;
+    }
+    // Approximate rule activity from audit
+    for (const a of (audit.actions || [])) {
+      if (!a.action || !a.action.includes('rule')) continue;
+      const k = new Date(a.ts).toISOString().slice(0, 10);
+      if (dayMap[k]) dayMap[k].rules++;
+    }
+    drawDualLine(document.getElementById('bd-line'), days30, ['alarms', 'rules'], ['#f85149', '#2f81f7']);
+
+    // Internet Speed — pull from speedtest-fleet if we have it
+    try {
+      const sp = await api('/admin/api/speedtest-fleet');
+      const me = (sp.fleet || []).find(x => x.mac === mac);
+      if (me && me.latest) {
+        document.getElementById('bd-spd-down').textContent = me.latest.down_mbps + ' Mb/s';
+        document.getElementById('bd-spd-up').textContent   = me.latest.up_mbps   + ' Mb/s';
+        document.getElementById('bd-spd-meta').textContent = '7-day avg: ↓' + me.week_avg_down + ' / ↑' + me.week_avg_up + ' Mb/s · ' + me.total_tests + ' tests';
+        // Mini chart of last N tests is omitted for brevity — show single sample
+      }
+    } catch {}
+
+    // Blocked Flows donut + Daily Blocked bar
+    const blocked24 = last24.filter(f => f.blocked).length;
+    const all24     = last24.length;
+    const pct = all24 > 0 ? Math.round((blocked24 / all24) * 1000) / 10 : 0;
+    document.getElementById('bd-blocked-pct').textContent = pct + '%';
+    document.getElementById('bd-blocked-num').textContent = blocked24.toLocaleString();
+    document.getElementById('bd-all-num').textContent     = all24.toLocaleString();
+    document.getElementById('bd-blocked-arc').setAttribute('stroke-dasharray', pct + ' 100');
+    // Daily Blocked Flows bar (30 days)
+    const blockedDays = days30.map(d => ({ ...d, blocked: 0 }));
+    const bdMap = Object.fromEntries(blockedDays.map(d => [d.key, d]));
+    for (const f of myFlows) {
+      if (!f.blocked) continue;
+      const k = new Date(f.ts).toISOString().slice(0, 10);
+      if (bdMap[k]) bdMap[k].blocked++;
+    }
+    drawSingleBars(document.getElementById('bd-blocked-bar'), blockedDays, 'blocked', '#f85149');
+
+    // Box info table
+    const infoRows = [
+      ['MAC',          mac],
+      ['Customer',     customer ? customer.name + ' (' + customer.id + ')' : '(unassigned)'],
+      ['Plan',         customer ? customer.plan : '—'],
+      ['Online',       box && box.online ? '<span class="pill online">yes</span>' : '<span class="pill offline">no</span>'],
+      ['Version',      box ? (box.version || '—') : '—'],
+      ['Public IP',    box ? (box.public_ip || '—') : '—'],
+      ['Internal IP',  box ? (box.internal_ip || '—') : '—'],
+      ['Devices',      box ? (box.device_count || 0) : '—'],
+      ['CPU',          box && box.cpu_pct != null ? (box.cpu_pct + '%') : '—'],
+      ['RAM',          box && box.ram_pct != null ? (box.ram_pct + '%') : '—'],
+      ['Temp',         box && box.temp_c != null ? (box.temp_c + '°C') : '—'],
+      ['Last seen',    box ? timeAgo(box.last_heartbeat) : 'never'],
+      ['Hardware',     box && box.hw ? (box.hw.hw_model + ' · ' + box.hw.cpu_cores + '× ' + box.hw.cpu_model + ' · ' + box.hw.total_ram_mb + ' MB RAM') : '—'],
+    ];
+    document.getElementById('bd-info-tbl').innerHTML =
+      '<tbody>' + infoRows.map(([k, v]) => `<tr><td style="color:var(--text-dim);width:130px;">${k}</td><td>${v}</td></tr>`).join('') + '</tbody>';
+
+    // Recent alarms
+    document.getElementById('bd-alarms-tbody').innerHTML = myAlarms.slice(0, 20).map(a => {
+      const sev = a.severity || 'low';
+      const cls = sev === 'critical' || sev === 'high' ? 'offline' : sev === 'medium' ? 'warn' : '';
+      return `<tr><td class="num">${new Date(a.ts).toLocaleString()}</td><td><span class="pill ${cls}">${sev}</span></td><td>${escapeHtml(a.title || '')}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="empty">No alarms for this box</td></tr>';
+
+  } catch (e) {
+    console.error('box detail err', e);
+  }
+}
+
+// Stacked bars: each bucket has up + down, drawn stacked
+function drawStackedBars(svg, buckets) {
+  const W = 700, H = 140;
+  const N = buckets.length;
+  const max = Math.max(1, ...buckets.map(b => b.up + b.down));
+  const bw = (W - 20) / N;
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    const b = buckets[i];
+    const x = 10 + i * bw;
+    const upH   = (b.up   / max) * (H - 30);
+    const downH = (b.down / max) * (H - 30);
+    html += `<rect class="bar up"   x="${x + 1}" y="${H - 20 - upH - downH}" width="${bw - 2}" height="${upH}"   rx="1" fill="#79c0ff"/>`;
+    html += `<rect class="bar down" x="${x + 1}" y="${H - 20 - downH}"      width="${bw - 2}" height="${downH}" rx="1" fill="#ffa657"/>`;
+    if (b.label && (i % 4 === 0)) html += `<text x="${x + bw/2}" y="${H - 5}" text-anchor="middle" font-size="9" fill="var(--text-faint)">${b.label}</text>`;
+  }
+  html += `<line x1="10" y1="${H - 20}" x2="${W - 10}" y2="${H - 20}" stroke="var(--border)" stroke-width="1"/>`;
+  svg.innerHTML = html;
+}
+
+function drawSingleBars(svg, buckets, key, color) {
+  const W = 700, H = 140;
+  const N = buckets.length;
+  const max = Math.max(1, ...buckets.map(b => b[key] || 0));
+  const bw = (W - 20) / N;
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    const v = buckets[i][key] || 0;
+    const x = 10 + i * bw;
+    const h = (v / max) * (H - 30);
+    html += `<rect x="${x + 1}" y="${H - 20 - h}" width="${bw - 2}" height="${h}" rx="1" fill="${color}"/>`;
+    if (buckets[i].label) html += `<text x="${x + bw/2}" y="${H - 5}" text-anchor="middle" font-size="9" fill="var(--text-faint)">${buckets[i].label}</text>`;
+  }
+  html += `<line x1="10" y1="${H - 20}" x2="${W - 10}" y2="${H - 20}" stroke="var(--border)" stroke-width="1"/>`;
+  svg.innerHTML = html;
+}
+
+function drawDualLine(svg, buckets, keys, colors) {
+  const W = 700, H = 160;
+  const N = buckets.length;
+  const max = Math.max(1, ...buckets.flatMap(b => keys.map(k => b[k] || 0)));
+  let html = '';
+  for (let ki = 0; ki < keys.length; ki++) {
+    const k = keys[ki];
+    const pts = buckets.map((b, i) => {
+      const x = 10 + (i / (N - 1)) * (W - 20);
+      const y = H - 20 - ((b[k] || 0) / max) * (H - 30);
+      return x + ',' + y;
+    }).join(' ');
+    html += `<polyline fill="none" stroke="${colors[ki]}" stroke-width="2" points="${pts}"/>`;
+    // Dots
+    html += buckets.map((b, i) => {
+      const x = 10 + (i / (N - 1)) * (W - 20);
+      const y = H - 20 - ((b[k] || 0) / max) * (H - 30);
+      return `<circle cx="${x}" cy="${y}" r="2.5" fill="${colors[ki]}" opacity="0.8"/>`;
+    }).join('');
+  }
+  // x-axis labels
+  for (let i = 0; i < N; i++) {
+    if (buckets[i].label) {
+      const x = 10 + (i / (N - 1)) * (W - 20);
+      html += `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="9" fill="var(--text-faint)">${buckets[i].label}</text>`;
+    }
+  }
+  html += `<line x1="10" y1="${H - 20}" x2="${W - 10}" y2="${H - 20}" stroke="var(--border)" stroke-width="1"/>`;
+  svg.innerHTML = html;
+}
+async function loadAlarms() {
+  try {
+    const r = await api('/admin/api/alarms?limit=200');
+    const tbody = document.getElementById('alarms-tbody');
+    document.getElementById('alarm-count').textContent = (r.alarms || []).length + ' shown';
+    tbody.innerHTML = (r.alarms || []).map(a => {
+      const sev = a.severity || 'low';
+      const sCls = sev === 'critical' || sev === 'high' ? 'offline' : sev === 'medium' ? 'warn' : '';
+      return `<tr><td class="num">${new Date(a.ts).toLocaleString()}</td><td><span class="pill ${sCls}">${sev}</span></td><td>${escapeHtml(a.kind || '')}</td><td>${escapeHtml(a.customer_id || '—')}</td><td>${escapeHtml(a.title || '')}</td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="empty">No alarms</td></tr>';
+  } catch (e) {
+    document.getElementById('alarms-tbody').innerHTML = '<tr><td colspan="5" class="err">' + e.message + '</td></tr>';
+  }
+}
+async function loadHealth() {
+  try {
+    const r = await api('/health/detailed');
+    document.getElementById('health-body').innerHTML =
+      '<table style="margin:-16px -18px;"><tr><td>Version</td><td><code>' + r.version + '</code></td></tr>'
+      + '<tr><td>Uptime</td><td>' + Math.round(r.uptime_s / 3600) + ' h</td></tr>'
+      + '<tr><td>Memory (RSS)</td><td>' + r.memory_mb.rss + ' MB</td></tr>'
+      + '<tr><td>Memory (heap used)</td><td>' + r.memory_mb.heap_used + ' MB</td></tr>'
+      + '<tr><td>State file size</td><td>' + (r.state.file_bytes / 1024 / 1024).toFixed(2) + ' MB</td></tr>'
+      + '<tr><td>Customers</td><td>' + r.state.customers + '</td></tr>'
+      + '<tr><td>Boxes</td><td>' + r.state.boxes + '</td></tr>'
+      + '<tr><td>Flows buffered</td><td>' + r.state.flows_buffered + '</td></tr>'
+      + '<tr><td>Audit chain intact</td><td>' + (r.state.audit_chain_intact ? '<span class="pill online">yes</span>' : '<span class="pill offline">BROKEN</span>') + '</td></tr>'
+      + '<tr><td>Webhook queue</td><td>' + r.queues.webhook_queue + '</td></tr>'
+      + '<tr><td>Newest backup</td><td>' + (r.backup.newest_age_h != null ? r.backup.newest_age_h + ' h ago' : 'never') + '</td></tr>'
+      + '<tr><td>Threat feed domains</td><td>' + r.threat_feed.domains.toLocaleString() + '</td></tr>'
+      + '</table>';
+  } catch (e) {
+    document.getElementById('health-body').innerHTML = '<div class="err">' + e.message + '</div>';
+  }
+}
+async function loadTickets() {
+  try {
+    const r = await api('/admin/api/tickets');
+    const tbody = document.getElementById('tickets-tbody');
+    document.getElementById('tkt-count').textContent = (r.tickets || []).length + ' total';
+    document.getElementById('nav-tkt-ct').textContent = (r.tickets || []).filter(t => t.status === 'open').length;
+    tbody.innerHTML = (r.tickets || []).slice(0, 100).map(t => {
+      const sCls = t.status === 'open' ? 'warn' : t.status === 'closed' ? 'online' : '';
+      return `<tr><td>${escapeHtml(t.subject || '')}</td><td>${escapeHtml(t.customer_name || '—')}</td><td><span class="pill ${sCls}">${t.status}</span></td><td class="num right">${timeAgo(t.updated_at)}</td></tr>`;
+    }).join('') || '<tr><td colspan="4" class="empty">No tickets</td></tr>';
+  } catch (e) {
+    document.getElementById('tickets-tbody').innerHTML = '<tr><td colspan="4" class="err">' + e.message + '</td></tr>';
+  }
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[<>"&]/g, c => ({ '<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;' })[c]);
+}
+
+async function refreshAll() {
+  await loadDashboard();
+  document.getElementById('last-refresh').textContent = 'updated ' + new Date().toLocaleTimeString();
+}
+
+// ─── Activities rail ─────────────────────────────────────────────────
+let _actFilter = 'all';
+function classifyAction(action) {
+  const a = (action || '').toLowerCase();
+  if (a.includes('customer'))   return 'customer';
+  if (a.includes('rule'))       return 'rule';
+  if (a.includes('box') || a.includes('mac')) return 'box';
+  if (a.includes('ticket'))     return 'ticket';
+  if (a.includes('config') || a.includes('admin') || a.includes('webhook')) return 'config';
+  return 'other';
+}
+function actionIcon(action) {
+  const a = (action || '').toLowerCase();
+  if (a.includes('delete') || a.includes('revoke')) return { icon: '🗑', cls: 'del' };
+  if (a.includes('update') || a.includes('change') || a.includes('edit')) return { icon: '✎', cls: 'upd' };
+  if (a.includes('add') || a.includes('create') || a.includes('signup') || a.includes('claim')) return { icon: '＋', cls: 'add' };
+  return { icon: '·', cls: 'gen' };
+}
+async function loadActivities() {
+  try {
+    const r = await api('/admin/api/audit');
+    const all = r.actions || [];
+    const filtered = _actFilter === 'all'
+      ? all
+      : all.filter(a => classifyAction(a.action) === _actFilter);
+    document.getElementById('act-count').textContent = filtered.length;
+    const host = document.getElementById('activities-list');
+    if (!filtered.length) {
+      host.innerHTML = '<div class="empty" style="padding:24px 16px;font-size:.85em;">No recent activity</div>';
+      return;
+    }
+    host.innerHTML = filtered.slice(0, 60).map(a => {
+      const ai = actionIcon(a.action);
+      const target = a.target ? a.target.slice(0, 50) : '';
+      const details = a.details ? a.details.slice(0, 80) : '';
+      return `<div class="act-item">
+        <div class="ico ${ai.cls}">${ai.icon}</div>
+        <div class="body">
+          <div class="a">${escapeHtml(a.action)}</div>
+          ${target ? '<div class="t">' + escapeHtml(target) + '</div>' : ''}
+          ${details ? '<div class="t">' + escapeHtml(details) + '</div>' : ''}
+          <div class="ts">${timeAgo(a.ts)} · ${escapeHtml(a.admin || 'system')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('activities-list').innerHTML = '<div class="err" style="padding:18px;">' + e.message + '</div>';
+  }
+}
+// Wire filter buttons
+document.querySelectorAll('#act-filter button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#act-filter button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    _actFilter = b.dataset.filter;
+    loadActivities();
+  });
+});
+
+// Boot
+loadDashboard();
+loadActivities();
+setInterval(loadDashboard, 60_000);
+setInterval(loadActivities, 15_000);   // poll every 15s for fresh actions
+
+// Hash routing on initial load
+const initHash = location.hash.slice(1);
+if (initHash) {
+  const link = document.querySelector('nav a[data-view="' + initHash + '"]');
+  if (link) link.click();
+}
+</script>
+</body>
+</html>

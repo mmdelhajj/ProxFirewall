@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/pwa/manifest.json">
+<link rel="apple-touch-icon" href="/pwa/icon.svg">
+<title>mes Cloud · My Network</title>
+<style>
+  :root {
+    --bg: #0a1220;
+    --bg-elev: #131c2c;
+    --bg-elev-2: #1a2438;
+    --bg-input: #0a1220;
+    --border: rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.12);
+    --text: #f0f4f8;
+    --text-dim: #94a3b8;
+    --text-faint: #64748b;
+    --brand: #ff8c42;
+    --accent: #00d4aa;
+    --accent-2: #5ba4f0;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.2), 0 8px 24px rgba(0,0,0,.25);
+    --shadow-card-hover: 0 4px 8px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.35);
+    --gradient-hero: linear-gradient(135deg, #0f3a5e 0%, #0a1f3d 60%, #0a1220 100%);
+    --gradient-good: linear-gradient(135deg, #00d4aa 0%, #00a87f 100%);
+    --gradient-warn: linear-gradient(135deg, #ff8c42 0%, #e76e2a 100%);
+    --radius-card: 16px;
+    --radius-card-lg: 20px;
+    --radius-pill: 999px;
+  }
+  body[data-theme="light"] {
+    --bg: #f4f6fb;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f9fafd;
+    --bg-input: #ffffff;
+    --border: rgba(0,0,0,0.06);
+    --border-strong: rgba(0,0,0,0.12);
+    --text: #0f172a;
+    --text-dim: #475569;
+    --text-faint: #94a3b8;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --shadow-card: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+    --shadow-card-hover: 0 4px 8px rgba(15,23,42,.06), 0 16px 40px rgba(15,23,42,.1);
+    --gradient-hero: linear-gradient(135deg, #e0f2fe 0%, #ddd6fe 100%);
+  }
+  *,*::before,*::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body { margin:0; padding:0; height:100%; overflow:hidden; }
+
+  /* ─── Mobile-first overrides — kicks in on phones (<500px) ──────────── */
+  @media (max-width: 500px) {
+    body { font-size: 14px; }
+    main { padding: 6px 10px calc(86px + env(safe-area-inset-bottom, 0)); }
+    header.bar { padding: env(safe-area-inset-top, 0) 12px 0; height: calc(52px + env(safe-area-inset-top, 0)); }
+    header.bar h1 { font-size: .95em; }
+    .greeting { font-size: 1.15em; padding: 4px 4px 8px; }
+    .greeting .sub { font-size: .65em; }
+    .card { padding: 14px 14px; border-radius: 12px; margin-bottom: 10px; }
+    .card h2 { font-size: .9em; margin-bottom: 10px; }
+    .card.hero { padding: 22px 16px; }
+    .hero-status .ring { width: 76px; height: 76px; font-size: 2.2em; }
+    .hero-status .text .title { font-size: 1.25em; }
+    .hero-status .text .sub { font-size: .85em; }
+    .pause-btn { padding: 16px; font-size: 1em; }
+    .stat-row { grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 12px; }
+    .stat { padding: 12px; }
+    .stat .num { font-size: 1.5em; }
+    .stat .stat-icon { width: 28px; height: 28px; font-size: .9em; margin-bottom: 6px; }
+    .stat .lbl { font-size: .7em; }
+    /* Bottom tab bar — bigger tap targets on phones */
+    nav.tabs button { padding: 8px 2px 6px; }
+    nav.tabs button .icon { font-size: 1.35em; }
+    nav.tabs button { font-size: .65em; }
+    /* Lists — tighter on phones */
+    .list-item { padding: 10px 0; gap: 10px; }
+    .list-item .icon-circle { width: 36px; height: 36px; font-size: 1.1em; }
+    .list-item .info .name { font-size: .92em; }
+    .list-item .info .meta { font-size: .75em; }
+    /* Buttons — minimum 44px tap target */
+    button.primary, button.secondary, button.ghost { min-height: 44px; padding: 11px 16px; }
+    /* Inputs */
+    input, select, textarea { font-size: 16px; padding: 12px; }   /* 16px prevents iOS zoom */
+    /* Pills */
+    .pill { font-size: .7em; padding: 2px 8px; }
+    /* Truncate long MACs/domains */
+    code, .mac, .domain { word-break: break-all; }
+    /* Modals fit screen with safe-area padding */
+    .modal-overlay { padding: 12px !important; }
+    .modal { max-width: 100% !important; max-height: 90vh; }
+  }
+  /* Tablets */
+  @media (min-width: 501px) and (max-width: 900px) {
+    .stat-row { grid-template-columns: repeat(3, 1fr); }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Display", system-ui, Roboto, "Helvetica Neue", sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; line-height: 1.5; }
+  body[dir="rtl"] { font-family: "Tajawal", -apple-system, sans-serif; }
+  #app { display:flex; flex-direction:column; height:100vh; height:100dvh; }
+
+  /* Header */
+  header.bar { display:flex; align-items:center; justify-content:space-between; padding: env(safe-area-inset-top, 0) 20px 0; height: calc(60px + env(safe-area-inset-top, 0)); background: var(--bg); position: sticky; top: 0; z-index: 5; }
+  header.bar h1 { margin:0; font-size:1.05em; font-weight:700; color:var(--text); letter-spacing:-0.01em; }
+  header.bar .lang { font-size:.8em; color:var(--text-dim); background:var(--bg-elev); padding:8px 12px; border-radius:var(--radius-pill); border:1px solid var(--border); cursor:pointer; font-weight:500; }
+
+  /* Main scroll area */
+  main { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding: 8px 16px calc(96px + env(safe-area-inset-bottom, 0)); }
+
+  /* Bottom tab bar */
+  nav.tabs { display:flex; position: fixed; bottom:0; left:0; right:0; background:var(--bg-elev); border-top:1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  nav.tabs button { flex:1; background:none; border:none; padding:10px 4px 8px; color:var(--text-faint); font-size:.7em; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px; transition: color .2s; font-weight: 500; }
+  nav.tabs button.active { color:var(--accent); }
+  nav.tabs button .icon { font-size:1.5em; transition: transform .2s; }
+  nav.tabs button.active .icon { transform: scale(1.1); }
+
+  /* Cards — soft shadow, no harsh border */
+  .card { background:var(--bg-elev); border:1px solid var(--border); border-radius:var(--radius-card); padding:18px; margin-bottom:12px; box-shadow: var(--shadow-card); transition: transform .15s, box-shadow .15s; }
+  .card:hover { box-shadow: var(--shadow-card-hover); }
+  .card h2 { margin:0 0 14px 0; font-size:.95em; color:var(--text); font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
+  .card h2 .h-icon { width:28px; height:28px; border-radius:8px; background:var(--bg-elev-2); display:inline-flex; align-items:center; justify-content:center; font-size:.95em; }
+
+  /* Hero — BIG centered status with animated ring */
+  .card.hero { background: var(--gradient-hero); border:none; padding:32px 22px; margin-bottom:16px; position: relative; overflow:hidden; text-align:center; }
+  .card.hero::before { content:''; position:absolute; top:-50%; right:-30%; width:300px; height:300px; background: radial-gradient(circle, rgba(0,212,170,0.22) 0%, transparent 65%); pointer-events:none; animation: heroGlow 6s ease-in-out infinite; }
+  .card.hero::after { content:''; position:absolute; bottom:-50%; left:-30%; width:280px; height:280px; background: radial-gradient(circle, rgba(91,164,240,0.15) 0%, transparent 65%); pointer-events:none; animation: heroGlow 8s ease-in-out infinite reverse; }
+  @keyframes heroGlow { 0%,100% { transform: scale(1); opacity:.7; } 50% { transform: scale(1.15); opacity:1; } }
+  .hero-status { display:flex; flex-direction:column; align-items:center; gap:14px; margin-bottom:22px; position:relative; z-index:1; }
+  .hero-status .ring { width:104px; height:104px; border-radius:50%; background: var(--gradient-good); display:flex; align-items:center; justify-content:center; font-size:3em; box-shadow: 0 0 0 8px rgba(0,212,170,0.12), 0 0 0 16px rgba(0,212,170,0.06), 0 12px 40px rgba(0,212,170,0.4); flex-shrink:0; animation: ringPulse 3s ease-in-out infinite; }
+  @keyframes ringPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+  .hero-status.warn .ring { background: var(--gradient-warn); box-shadow: 0 0 0 8px rgba(255,140,66,0.12), 0 0 0 16px rgba(255,140,66,0.06), 0 12px 40px rgba(255,140,66,0.4); }
+  .hero-status .text .title { font-size:1.6em; font-weight:800; color:#fff; letter-spacing:-0.02em; line-height:1.1; }
+  .hero-status .text .sub { font-size:.95em; color: rgba(255,255,255,0.75); margin-top:6px; font-weight:500; }
+  /* Greeting */
+  .greeting { font-size:1.4em; font-weight:800; letter-spacing:-0.02em; padding: 4px 4px 10px; color: var(--text); }
+  .greeting .sub { font-size:.55em; font-weight:500; color: var(--text-dim); margin-top:3px; letter-spacing:0; }
+
+  /* Big pause button — refined */
+  .pause-btn { display:block; width:100%; padding: 22px; background: var(--gradient-warn); color:#fff; border:none; border-radius:var(--radius-card-lg); font-size:1.15em; font-weight:700; cursor:pointer; box-shadow: 0 4px 16px rgba(255,140,66,0.4); transition: all .15s; letter-spacing:-0.01em; }
+  .pause-btn:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(255,140,66,0.3); }
+  .pause-btn.paused { background: var(--gradient-good); box-shadow: 0 4px 16px rgba(0,212,170,0.4); }
+  .pause-status { text-align:center; margin-top:14px; color:rgba(255,255,255,0.75); font-size:.85em; font-weight:500; }
+
+  /* Stats row — big colored cards */
+  .stat-row { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin: 14px 0 18px; }
+  .stat { background:var(--bg-elev); border:1px solid var(--border); border-radius:var(--radius-card); padding:18px; box-shadow: var(--shadow-card); position:relative; overflow:hidden; }
+  .stat::before { content:''; position:absolute; top:-30%; right:-30%; width:100px; height:100px; border-radius:50%; opacity:.12; pointer-events:none; }
+  .stat:nth-child(1)::before { background: var(--accent); }
+  .stat:nth-child(2)::before { background: var(--warn); }
+  .stat .stat-icon { width:36px; height:36px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1em; margin-bottom:10px; }
+  .stat:nth-child(1) .stat-icon { background: rgba(0,212,170,0.15); color: var(--accent); }
+  .stat:nth-child(2) .stat-icon { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .stat .num { font-size:2em; font-weight:800; color:var(--text); line-height:1; letter-spacing:-0.03em; }
+  .stat .num.accent { color: var(--accent); }
+  .stat .lbl { font-size:.78em; color:var(--text-dim); margin-top:6px; font-weight:600; }
+  .stat .trend { font-size:.75em; margin-top:4px; color: var(--text-faint); }
+
+  /* Lists */
+  .list-item { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .list-item:last-child { border-bottom:none; padding-bottom:4px; }
+  .list-item .icon-circle { width:40px; height:40px; border-radius:12px; background:var(--bg-elev-2); display:flex; align-items:center; justify-content:center; font-size:1.25em; flex-shrink:0; }
+  .list-item .info { flex:1; min-width:0; }
+  .list-item .info .name { font-weight:600; font-size:.95em; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list-item .info .meta { font-size:.78em; color:var(--text-faint); margin-top:2px; }
+  .list-item .right { font-size:.8em; color:var(--text-dim); flex-shrink:0; }
+
+  /* Pills */
+  .pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:var(--radius-pill); font-size:.72em; font-weight:600; background:var(--bg-elev-2); color:var(--text-dim); }
+  .pill.ok { background:rgba(0,212,170,0.12); color:var(--accent); }
+  .pill.warn { background:rgba(251,191,36,0.14); color:var(--warn); }
+  .pill.block { background:rgba(248,113,113,0.14); color:var(--danger); }
+  .pill.ok::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); display:inline-block; }
+
+  /* Buttons */
+  button { font-family: inherit; }
+  button.primary { background: var(--gradient-good); color:#001f17; border:none; padding:14px 20px; border-radius:12px; font-weight:700; font-size:.95em; cursor:pointer; letter-spacing:-0.01em; transition: transform .12s, box-shadow .12s; box-shadow: 0 2px 8px rgba(0,212,170,0.25); }
+  button.primary:active { transform: scale(0.98); }
+  button.primary:hover { box-shadow: 0 4px 16px rgba(0,212,170,0.4); }
+  button.secondary { background:var(--bg-elev-2); color:var(--text); border:1px solid var(--border-strong); padding:14px 20px; border-radius:12px; font-size:.95em; cursor:pointer; font-weight:600; transition: background .15s; }
+  button.secondary:hover { background: var(--bg-elev); }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--border-strong); padding:12px 16px; border-radius:12px; cursor:pointer; font-weight:600; transition: background .15s; }
+  button.ghost:hover { background: var(--bg-elev-2); }
+
+  /* Floating action button */
+  .fab { position:fixed; bottom: calc(80px + env(safe-area-inset-bottom, 0)); right:18px; width:56px; height:56px; border-radius:50%; background: var(--gradient-good); border:none; color:#001f17; font-size:1.5em; font-weight:800; box-shadow: 0 8px 24px rgba(0,212,170,0.4); cursor:pointer; z-index:10; display:flex; align-items:center; justify-content:center; }
+  .fab:active { transform: scale(0.94); }
+
+  /* Inputs */
+  input, select { width:100%; padding:14px; background:#0f1419; border:1px solid #2a3340; color:#e3e9f0; border-radius:10px; font-size:1em; -webkit-appearance:none; }
+  label { display:block; font-size:.8em; color:#8aa0c0; margin-bottom:6px; }
+
+  /* Login screen */
+  .login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding: 0 24px; }
+  .logo { font-size:3em; margin-bottom:8px; }
+  .login-title { font-size:1.4em; font-weight:700; margin-bottom:6px; }
+  .login-sub { color:#8aa0c0; margin-bottom:32px; text-align:center; }
+  .login-form { width:100%; max-width:340px; }
+  .login-form input { margin-bottom:14px; }
+  .login-form button { width:100%; padding:14px; font-size:1em; }
+
+  /* Demo banner */
+  .demo-banner { background:#4a3520; color:#ff8c42; padding:8px 14px; font-size:.78em; text-align:center; border-bottom:1px solid var(--border); }
+
+  /* Hide all screens by default */
+  .screen { display:none; }
+  .screen.active { display:block; }
+
+  /* Settings list */
+  .settings-list .list-item { padding:18px 0; cursor:pointer; }
+  .settings-list .list-item .right { font-size:1.3em; color:#6c7686; }
+
+  /* Spinner */
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #3ad29f; border-top-color:transparent; border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* RTL adjustments */
+  body[dir="rtl"] .list-item { flex-direction: row-reverse; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- LOGIN SCREEN -->
+  <div id="screen-login" class="screen active">
+    <div class="login-screen">
+      <div class="logo">📦</div>
+      <div class="login-title">mes Network</div>
+      <div class="login-sub">
+        <span class="i18n" data-key="login.subtitle">Sign in to manage your home network</span>
+      </div>
+      <form class="login-form" id="login-form">
+        <label class="i18n" data-key="login.phone">Phone number</label>
+        <input type="tel" id="phone" placeholder="+961 7X XXX XXX" required value="+961 71 555 0001">
+        <button type="submit" class="primary">
+          <span class="i18n" data-key="login.send">Send code</span>
+        </button>
+        <button type="button" class="secondary" onclick="show('signup')" style="margin-top:10px;">
+          <span class="i18n" data-key="login.signup">New customer? Sign up</span>
+        </button>
+        <button class="ghost" onclick="showMagicLogin()" style="width:100%;margin-top:6px;font-size:.85em;">
+          <span class="i18n" data-key="login.magic">Sign in with email instead</span>
+        </button>
+      </form>
+      <p style="color:#4a5366;font-size:.75em;margin-top:24px;text-align:center;max-width:280px;">
+        <span class="i18n" data-key="login.hint">Demo: enter the phone of any seeded customer (Ahmad / Layla / Karim) and any 4-digit code.</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- SIGNUP SCREEN -->
+  <div id="screen-signup" class="screen">
+    <div class="login-screen">
+      <div class="logo">🆕</div>
+      <div class="login-title"><span class="i18n" data-key="signup.title">Create account</span></div>
+      <div class="login-sub">
+        <span class="i18n" data-key="signup.sub">Sign up for mes Network with your phone number</span>
+      </div>
+      <form class="login-form" id="signup-form">
+        <label class="i18n" data-key="signup.name">Your name</label>
+        <input type="text" id="su-name" placeholder="e.g. Ahmad" required>
+
+        <label class="i18n" data-key="signup.phone">Phone number</label>
+        <input type="tel" id="su-phone" placeholder="+961 7X XXX XXX" required>
+
+        <label class="i18n" data-key="signup.email">Email (optional)</label>
+        <input type="email" id="su-email" placeholder="you@example.com">
+
+        <label class="i18n" data-key="signup.plan">Plan</label>
+        <select id="su-plan">
+          <option value="basic">Basic — DNS filtering only</option>
+          <option value="family">Family — schedules + parental</option>
+          <option value="pro">Pro — VPN + IDS</option>
+          <option value="business">Business</option>
+        </select>
+
+        <button type="submit" class="primary" style="margin-top:14px;">
+          <span class="i18n" data-key="signup.submit">Sign up</span>
+        </button>
+        <button type="button" class="secondary" onclick="show('login')" style="margin-top:8px;">
+          <span class="i18n" data-key="back">Back to sign in</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- OTP SCREEN -->
+  <div id="screen-otp" class="screen">
+    <div class="login-screen">
+      <div class="logo">💬</div>
+      <div class="login-title"><span class="i18n" data-key="otp.title">Enter code</span></div>
+      <div class="login-sub">
+        <span class="i18n" data-key="otp.sub">We sent a 4-digit code to</span> <strong id="otp-phone">-</strong>
+      </div>
+      <form class="login-form" id="otp-form">
+        <input type="text" id="otp" placeholder="0000" maxlength="4" inputmode="numeric" required value="0000">
+        <button type="submit" class="primary">
+          <span class="i18n" data-key="otp.verify">Verify</span>
+        </button>
+        <button type="button" class="secondary" onclick="show('login')" style="margin-top:10px;">
+          <span class="i18n" data-key="back">Back</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- HOME / DEVICES / FAMILY / SETTINGS — all under the same shell -->
+  <div id="screen-app" class="screen">
+    <div class="demo-banner">
+      🛠 <span class="i18n" data-key="banner">Demo PWA — Logged in as <span id="who">-</span></span>
+    </div>
+    <header class="bar">
+      <a href="/pwa/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;margin-right:8px;background:#1a2438;color:#ff8c42;text-decoration:none;border:1px solid #2a3340;border-radius:8px;font-size:.9em;cursor:pointer;font-weight:600;">← Dashboard</a>
+      <h1 id="title" style="flex:1;"><span class="i18n" data-key="tab.home">Home</span></h1>
+      <div style="display:flex;gap:8px;">
+        <span class="lang" onclick="toggleTheme()">🌓 <span id="theme-label">Light</span></span>
+        <span class="lang" onclick="toggleLang()">🌐 <span id="lang-label">عربي</span></span>
+      </div>
+    </header>
+    <main>
+      <!-- HOME -->
+      <div id="tab-home" class="tab-content">
+        <!-- Personalized greeting -->
+        <div class="greeting"><span id="greeting-name">Hi there</span><div class="sub" id="greeting-sub">Your home network</div></div>
+        <!-- Trial / pause banner -->
+        <div id="trial-banner" style="display:none;"></div>
+
+        <!-- HERO: network status with big visual indicator -->
+        <div class="card hero">
+          <div class="hero-status" id="hero-status">
+            <div class="ring" id="hero-ring">🛡️</div>
+            <div class="text">
+              <div class="title" id="hero-title"><span class="i18n" data-key="home.allgood">All clear</span></div>
+              <div class="sub" id="hero-sub"><span class="i18n" data-key="home.protecting">Network is protected</span></div>
+            </div>
+          </div>
+          <button id="pause-btn" class="pause-btn" onclick="togglePause()">
+            ⏸ <span class="i18n" data-key="home.pause">Pause Internet</span>
+          </button>
+          <div class="pause-status" id="pause-status"></div>
+        </div>
+
+        <!-- Quick stats -->
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-icon">📱</div>
+            <div class="num accent" id="s-online">—</div>
+            <div class="lbl"><span class="i18n" data-key="home.devices">Devices online</span></div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon">🛑</div>
+            <div class="num" id="s-blocks">0</div>
+            <div class="lbl"><span class="i18n" data-key="home.blocks">Blocked today</span></div>
+          </div>
+        </div>
+
+        <!-- My boxes -->
+        <div class="card">
+          <h2><span class="h-icon">📦</span><span class="i18n" data-key="home.boxes">My boxes</span></h2>
+          <div id="my-boxes-list"><p style="color:var(--text-faint);text-align:center;padding:12px;font-size:.85em;">Loading…</p></div>
+          <button class="primary" onclick="openAddBoxModal()" style="width:100%;margin-top:14px;">
+            ＋ <span class="i18n" data-key="home.addbox">Add a new box</span>
+          </button>
+        </div>
+
+        <!-- Notification banner area -->
+        <div id="notif-banner" style="display:none;"></div>
+        <!-- Auto-discover banner: unclaimed box on same network -->
+        <div id="auto-discover-banner" style="display:none;"></div>
+        <!-- Admin announcements banner -->
+        <div id="announcement-banners"></div>
+        <!-- Onboarding checklist (hides when complete) -->
+        <div id="onboarding-card" class="card" style="display:none;">
+          <h2><span class="h-icon">🚀</span><span class="i18n" data-key="home.gettingstarted">Get started</span></h2>
+          <div id="onboarding-progress" style="height:8px;background:var(--bg-elev-2);border-radius:99px;overflow:hidden;margin:0 0 14px 0;">
+            <div id="onboarding-bar" style="height:100%;background:var(--gradient-good);width:0%;transition:width .6s cubic-bezier(.4,0,.2,1);"></div>
+          </div>
+          <div id="onboarding-items"></div>
+        </div>
+
+        <!-- Add a box modal -->
+        <div id="modal-addbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:24px;">
+          <div style="background:var(--bg-elev);border-radius:14px;padding:22px;max-width:380px;width:100%;text-align:center;">
+            <h2 style="margin:0 0 6px 0;font-size:1.1em;color:#fff;">📦 <span class="i18n" data-key="addbox.title">Add a new box</span></h2>
+            <p style="color:#8aa0c0;font-size:.85em;margin:0 0 14px 0;"><span class="i18n" data-key="addbox.help">Plug in your mes Box. Find the 6-character pairing code on the sticker, screen, or via SSH. Enter it here:</span></p>
+            <input id="addbox-code" placeholder="X X X X X X" maxlength="6" style="text-align:center;font-size:1.5em;letter-spacing:.4em;text-transform:uppercase;font-family:monospace;width:100%;padding:14px;background:#0f1419;border:2px solid #2a3340;color:#fff;border-radius:8px;margin-bottom:14px;" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+            <button class="primary" onclick="claimBox()" style="width:100%;margin-bottom:8px;"><span class="i18n" data-key="addbox.claim">Claim box</span></button>
+            <button class="secondary" onclick="hideModal('addbox')" style="width:100%;"><span class="i18n" data-key="cancel">Cancel</span></button>
+            <p id="addbox-status" style="color:#6c7686;font-size:.8em;margin-top:12px;min-height:1em;"></p>
+            <p style="color:#6c7686;font-size:.75em;margin-top:8px;border-top:1px solid #2a3340;padding-top:10px;">
+              <span class="i18n" data-key="addbox.dontown">Don't have a box yet?</span>
+              <a href="/downloads/images/list" target="_blank" style="color:#3ad29f;"><span class="i18n" data-key="addbox.flashown">Flash your own Pi 4</span></a>
+            </p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="home.flows">What's talking right now</span></h2>
+          <div id="live-flows-list" style="max-height:280px;overflow-y:auto;"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="home.recent">Recent activity</span></h2>
+          <div id="recent-activity">
+            <div class="list-item"><div class="icon-circle">🛡</div><div class="info"><div class="name"><span class="i18n" data-key="home.act1">Box online and protecting your network</span></div><div class="meta"><span class="i18n" data-key="home.act1m">2 minutes ago</span></div></div></div>
+            <div class="list-item"><div class="icon-circle">📱</div><div class="info"><div class="name"><span class="i18n" data-key="home.act2">New device joined: iPhone-14</span></div><div class="meta"><span class="i18n" data-key="home.act2m">15 min ago</span></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEVICES -->
+      <div id="tab-devices" class="tab-content" style="display:none;">
+        <div class="card">
+          <h2><span class="i18n" data-key="devices.topology">Network map</span></h2>
+          <div id="topology-svg" style="text-align:center;background:#0f1419;border-radius:8px;padding:8px;min-height:240px;"></div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="devices.bandwidth">30-day bandwidth</span></h2>
+          <div id="bandwidth-chart" style="background:#0f1419;border-radius:8px;padding:10px;"></div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="devices.heatmap">Busiest hours (30-day)</span></h2>
+          <div id="heatmap" style="background:#0f1419;border-radius:8px;padding:14px;"></div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="devices.list">Devices on your network</span></h2>
+          <div id="devices-list">
+            <!-- Sample devices (would be populated from API in real version) -->
+          </div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="devices.topsites">Top sites by device</span></h2>
+          <div id="top-sites-list"><p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">Loading…</p></div>
+        </div>
+      </div>
+
+      <!-- FAMILY -->
+      <div id="tab-family" class="tab-content" style="display:none;">
+        <div class="card">
+          <h2><span class="i18n" data-key="family.profiles">Family profiles</span></h2>
+          <div id="family-list"></div>
+          <button class="ghost" onclick="showAddFamily()" style="margin-top:14px;width:100%;">
+            <span class="i18n" data-key="family.add">+ Add family member</span>
+          </button>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="family.schedules">Schedule blocks</span></h2>
+          <div id="schedule-list"></div>
+          <button class="ghost" onclick="showAddSchedule()" style="margin-top:14px;width:100%;">
+            <span class="i18n" data-key="family.add-sched">+ Add schedule</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal: device detail -->
+      <div id="modal-device" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:24px;">
+        <div style="background:var(--bg-elev);border-radius:14px;padding:20px;max-width:380px;width:100%;max-height:90vh;overflow-y:auto;" id="modal-device-body">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- Modal: add family member -->
+      <div id="modal-family" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:24px;">
+        <div style="background:var(--bg-elev);border-radius:14px;padding:20px;max-width:380px;width:100%;">
+          <h2 style="margin:0 0 16px 0;font-size:1em;color:#fff;">
+            <span class="i18n" data-key="family.add">+ Add family member</span>
+          </h2>
+          <label class="i18n" data-key="family.name">Name</label>
+          <input id="fam-name" placeholder="e.g. Yara" style="margin-bottom:14px;">
+          <label class="i18n" data-key="family.role">Role</label>
+          <select id="fam-role" style="margin-bottom:14px;">
+            <option value="Admin">Admin</option>
+            <option value="Adult">Adult</option>
+            <option value="Teen">Teen</option>
+            <option value="Kid" selected>Kid</option>
+          </select>
+          <button class="primary" onclick="addFamily()" style="width:100%;">
+            <span class="i18n" data-key="family.save">Add</span>
+          </button>
+          <button class="secondary" onclick="hideModal('family')" style="width:100%;margin-top:8px;">
+            <span class="i18n" data-key="cancel">Cancel</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal: add schedule -->
+      <div id="modal-schedule" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:24px;">
+        <div style="background:var(--bg-elev);border-radius:14px;padding:20px;max-width:380px;width:100%;max-height:90vh;overflow-y:auto;">
+          <h2 style="margin:0 0 16px 0;font-size:1em;color:#fff;">
+            <span class="i18n" data-key="family.add-sched">+ Add schedule</span>
+          </h2>
+          <label class="i18n" data-key="sched.name">Name</label>
+          <input id="sch-name" placeholder="e.g. Bedtime" value="Bedtime" style="margin-bottom:14px;">
+          <label class="i18n" data-key="sched.start">Start time</label>
+          <input id="sch-start" type="time" value="22:00" style="margin-bottom:14px;">
+          <label class="i18n" data-key="sched.end">End time</label>
+          <input id="sch-end" type="time" value="06:00" style="margin-bottom:14px;">
+          <label class="i18n" data-key="sched.days">Days</label>
+          <div id="sch-days" style="display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap;">
+            <!-- day toggles populated by JS -->
+          </div>
+          <label class="i18n" data-key="sched.devices">Devices to block</label>
+          <div id="sch-devices" style="margin-bottom:14px;max-height:160px;overflow-y:auto;"></div>
+          <button class="primary" onclick="addSchedule()" style="width:100%;">
+            <span class="i18n" data-key="sched.save">Save schedule</span>
+          </button>
+          <button class="secondary" onclick="hideModal('schedule')" style="width:100%;margin-top:8px;">
+            <span class="i18n" data-key="cancel">Cancel</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RULES (categories + custom domain blocks) -->
+      <div id="tab-rules" class="tab-content" style="display:none;">
+        <!-- Preset bundles: one-click rule sets -->
+        <div class="card">
+          <h2>🎯 <span class="i18n" data-key="rules.presets">Quick presets</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;">One-tap rule bundles for common needs.</p>
+          <div id="preset-list" style="display:grid;gap:6px;"></div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="rules.cats">Block by category</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 12px 0;"><span class="i18n" data-key="rules.catsm">One tap blocks the whole category for everyone on your network.</span></p>
+          <div id="cat-list" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="rules.custom">Custom blocks</span></h2>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <input id="rule-domain" placeholder="example.com" style="flex:1;">
+            <button class="primary" onclick="addDomainRule()">＋</button>
+          </div>
+          <div id="custom-rules-list"></div>
+        </div>
+        <div class="card">
+          <h2><span class="i18n" data-key="rules.alarms">Recent alarms</span></h2>
+          <div id="alarms-list"><p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">Loading…</p></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="tab-settings" class="tab-content" style="display:none;">
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.title">Account & settings</span></h2>
+          <div class="settings-list">
+            <div class="list-item" onclick="openEditProfile()" style="cursor:pointer;"><div class="icon-circle">👤</div><div class="info"><div class="name" id="set-name">-</div><div class="meta" id="set-phone">-</div></div><div class="right">✎</div></div>
+            <div class="list-item"><div class="icon-circle">📦</div><div class="info"><div class="name"><span class="i18n" data-key="settings.box">My box</span></div><div class="meta" id="set-box">-</div></div><div class="right">›</div></div>
+            <div class="list-item"><div class="icon-circle">⭐</div><div class="info"><div class="name" id="set-plan">-</div><div class="meta" id="set-plan-meta">-</div></div></div>
+          </div>
+        </div>
+
+        <!-- Edit profile modal -->
+        <div id="modal-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:24px;">
+          <div style="background:var(--bg-elev);border-radius:14px;padding:20px;max-width:380px;width:100%;">
+            <h2 style="margin:0 0 14px 0;font-size:1em;color:#fff;"><span class="i18n" data-key="profile.edit">Edit profile</span></h2>
+            <label class="i18n" data-key="profile.name">Name</label>
+            <input id="ep-name" style="margin-bottom:10px;">
+            <label class="i18n" data-key="profile.email">Email</label>
+            <input id="ep-email" type="email" style="margin-bottom:10px;">
+            <label class="i18n" data-key="profile.address">Address</label>
+            <input id="ep-address" style="margin-bottom:14px;">
+            <button class="primary" onclick="saveProfile()" style="width:100%;"><span class="i18n" data-key="save">Save</span></button>
+            <button class="secondary" onclick="hideModal('edit')" style="width:100%;margin-top:8px;"><span class="i18n" data-key="cancel">Cancel</span></button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.actions">Box actions</span></h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="ghost" onclick="boxAction('status')"><span class="i18n" data-key="action.status">📊 Status</span></button>
+            <button class="ghost" onclick="boxAction('speedtest')"><span class="i18n" data-key="action.speedtest">⚡ Speed Test</span></button>
+            <button class="ghost" onclick="boxAction('restart-services')"><span class="i18n" data-key="action.restart-svc">🔄 Restart Services</span></button>
+            <button class="ghost" style="border-color:#ff8c42;color:#ff8c42;" onclick="boxAction('reboot')"><span class="i18n" data-key="action.reboot">↻ Reboot Box</span></button>
+          </div>
+          <div id="action-output" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.quotas">Bandwidth quotas (per device)</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.quotasm">Cap monthly data on a device (e.g. kid's iPad). Internet stops for that device when the cap hits.</span></p>
+          <div id="quotas-list"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input id="q-mac" placeholder="device MAC" style="flex:2;font-family:monospace;font-size:.85em;">
+            <input id="q-gb"  placeholder="GB/month" type="number" min="1" style="flex:1;">
+            <button class="primary" onclick="setQuota()">Set</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.geo">Block by country</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.geom">Block all traffic to a country.</span></p>
+          <div id="geo-list"><p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <select id="geo-cc" style="flex:1;">
+              <option value="CN">🇨🇳 China (CN)</option>
+              <option value="RU">🇷🇺 Russia (RU)</option>
+              <option value="IR">🇮🇷 Iran (IR)</option>
+              <option value="KP">🇰🇵 North Korea (KP)</option>
+              <option value="US">🇺🇸 United States (US)</option>
+              <option value="DE">🇩🇪 Germany (DE)</option>
+              <option value="FR">🇫🇷 France (FR)</option>
+              <option value="GB">🇬🇧 UK (GB)</option>
+            </select>
+            <button class="primary" onclick="addGeoBlock()">Block</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.vpn">WireGuard VPN</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.vpnm">Create a peer per device — each gets its own .conf you import into the WireGuard app.</span></p>
+          <div id="wg-peers-list"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input id="wg-label" placeholder="My phone" style="flex:1;">
+            <button class="primary" onclick="addWgPeer()">＋ Add</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.ddns">Dynamic DNS</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.ddnsm">Get a permanent hostname that points at your home — even if your IP changes.</span></p>
+          <div id="ddns-info"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input id="ddns-slug" placeholder="my-name" style="flex:1;">
+            <button class="primary" onclick="claimDdns()">Claim</button>
+          </div>
+        </div>
+
+        <div id="card-sites" class="card" style="display:none;">
+          <h2><span class="i18n" data-key="settings.sites">Sites (multi-location)</span></h2>
+          <div id="sites-list"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input id="site-name" placeholder="Office, Lake house, …" style="flex:1;">
+            <button class="primary" onclick="addSite()">＋ Add</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="i18n" data-key="settings.vacation">🏖️ Vacation mode</span>
+            <label class="vac-switch" style="position:relative;display:inline-block;width:48px;height:26px;">
+              <input type="checkbox" id="vac-toggle" onchange="toggleVacation()" style="opacity:0;width:0;height:0;">
+              <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#2a3340;border-radius:26px;transition:.3s;" id="vac-slider"></span>
+            </label>
+          </h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0;"><span class="i18n" data-key="settings.vacationm">When you're away: blocks social/video/adult automatically and emails you a weekly digest.</span></p>
+          <p id="vac-status" style="color:#3ad29f;font-size:.8em;margin-top:8px;"></p>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.apikeys">Personal API keys</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.apikeysm">Generate keys for your own scripts. Use header X-API-Key on any /api/customer/* endpoint.</span></p>
+          <div id="api-keys-list"><p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input id="ak-label" placeholder="e.g. home-script" style="flex:2;font-size:.9em;">
+            <select id="ak-scope" style="flex:1;"><option value="read">read-only</option><option value="full">full</option></select>
+            <button class="primary" onclick="createApiKey()">＋</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.hwbox">Order a pre-flashed box</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.hwboxm">We'll ship a Raspberry Pi 4 already flashed with mes-box, ready to plug in.</span></p>
+          <div id="hw-orders-list"><p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">Loading…</p></div>
+          <div id="hw-order-form" style="margin-top:10px;">
+            <textarea id="ho-address" placeholder="Shipping address" style="width:100%;min-height:60px;margin-bottom:6px;font-size:.9em;"></textarea>
+            <input id="ho-phone" placeholder="Contact phone" style="width:100%;margin-bottom:6px;font-size:.9em;">
+            <input id="ho-notes" placeholder="Notes (optional)" style="width:100%;margin-bottom:6px;font-size:.9em;">
+            <button class="primary" onclick="placeHwOrder()" style="width:100%;">📦 Order a box</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.planreq">Change my plan</span></h2>
+          <div id="plan-request-list"></div>
+          <p style="color:#aab2c0;font-size:.85em;margin:10px 0 6px 0;"><span class="i18n" data-key="settings.planreqcurrent">Current plan:</span> <strong id="cur-plan">—</strong></p>
+          <div style="display:flex;gap:6px;">
+            <select id="pr-plan" style="flex:1;"><option value="basic">Basic</option><option value="family">Family</option><option value="pro">Pro</option><option value="business">Business</option></select>
+            <button class="primary" onclick="requestPlanChange()">Request</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.subhistory">Subscription history</span></h2>
+          <div id="subhistory-list"><p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">Loading…</p></div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.referral">🎁 Refer a friend</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.referralm">When they sign up with your code, you get a free month.</span></p>
+          <div id="referral-info"><p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">Loading…</p></div>
+          <button class="primary" onclick="shareReferral()" style="width:100%;margin-top:10px;"><span class="i18n" data-key="settings.referralshare">Share my link</span></button>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.pause">⏸ Pause my subscription</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.pausem">Going on a long trip? Pause for up to 90 days — no billing, no enforcement, all settings preserved.</span></p>
+          <div id="pause-info"></div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <input id="pause-days" type="number" placeholder="days (max 90)" value="30" min="1" max="90" style="flex:1;font-size:.9em;">
+            <button class="ghost" onclick="pauseSubscription()" style="color:#ffb84a;">Pause</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.notifprefs">Notification preferences</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 12px 0;"><span class="i18n" data-key="settings.notifprefsm">Choose which kinds of alerts you want to receive.</span></p>
+          <div id="notif-prefs-list"></div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.dnsrec">Custom DNS records</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.dnsrecm">Like a personal phonebook for your network — point hostname to an IP.</span></p>
+          <div id="dns-records-list"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input id="dnsr-host" placeholder="nas.home" style="flex:2;font-size:.9em;">
+            <input id="dnsr-ip"   placeholder="192.168.1.50" style="flex:1;font-size:.9em;">
+            <button class="primary" onclick="addDnsRecord()">＋</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.speed">Internet speed history</span></h2>
+          <p style="color:#6c7686;font-size:.85em;margin:0 0 10px 0;"><span class="i18n" data-key="settings.speedm">Your box runs a speed test every 24 hours. The graph shows the last 7 days.</span></p>
+          <div id="speed-history" style="min-height:120px;"><p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">Loading…</p></div>
+          <button class="ghost" onclick="runSpeedtestNow()" style="width:100%;margin-top:10px;">⚡ <span class="i18n" data-key="settings.speed.runnow">Run a speed test now</span></button>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.downloads">Downloads</span></h2>
+          <div class="settings-list">
+            <div class="list-item" onclick="openReport()"><div class="icon-circle">📄</div><div class="info"><div class="name"><span class="i18n" data-key="dl.report">Monthly report</span></div><div class="meta"><span class="i18n" data-key="dl.reportm">Printable HTML — save as PDF</span></div></div><div class="right">⬇</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.invoices">Invoices</span></h2>
+          <div id="invoices-list">
+            <p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">Loading…</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.activity">My recent activity</span></h2>
+          <div id="activity-list">
+            <p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">Loading…</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.support">Help &amp; support</span></h2>
+          <div id="chat-thread" style="max-height:280px;overflow-y:auto;background:#0f1419;border-radius:8px;padding:10px;margin-bottom:10px;font-size:.9em;">
+            <p style="color:#6c7686;text-align:center;padding:12px;font-size:.85em;">No messages yet — say hi!</p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <input id="chat-input" placeholder="Type a message…" style="flex:1;" onkeypress="if(event.key==='Enter')sendChat()">
+            <button class="primary" onclick="sendChat()" style="padding:14px 16px;"><span class="i18n" data-key="chat.send">Send</span></button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="i18n" data-key="settings.more">More</span></h2>
+          <div class="settings-list">
+            <div id="push-row" class="list-item" onclick="togglePush()" style="cursor:pointer;"><div class="icon-circle">🔔</div><div class="info"><div class="name"><span class="i18n" data-key="settings.push">Push notifications</span></div><div class="meta" id="push-status"><span class="i18n" data-key="push.checking">Checking…</span></div></div><div class="right">›</div></div>
+            <div id="install-row" class="list-item" onclick="installPWA()" style="display:none;cursor:pointer;"><div class="icon-circle">📲</div><div class="info"><div class="name"><span class="i18n" data-key="settings.install">Install app</span></div><div class="meta"><span class="i18n" data-key="settings.installm">Add to your home screen</span></div></div><div class="right">›</div></div>
+            <div class="list-item" onclick="runSelfTest()"><div class="icon-circle">🩺</div><div class="info"><div class="name"><span class="i18n" data-key="settings.selftest">Test my setup</span></div><div class="meta"><span class="i18n" data-key="settings.selftestm">Diagnose any problems with your box, rules, or notifications</span></div></div><div class="right">›</div></div>
+            <div class="list-item" onclick="reportBug()"><div class="icon-circle">🐛</div><div class="info"><div class="name"><span class="i18n" data-key="settings.bugreport">Report a problem</span></div><div class="meta"><span class="i18n" data-key="settings.bugreportm">Help us fix it — we'll get back to you</span></div></div><div class="right">›</div></div>
+            <div class="list-item" onclick="exportMyData()"><div class="icon-circle">📥</div><div class="info"><div class="name"><span class="i18n" data-key="settings.export">Download my data</span></div><div class="meta"><span class="i18n" data-key="settings.exportm">Everything we have on you (GDPR)</span></div></div><div class="right">⬇</div></div>
+            <div class="list-item" onclick="deleteMyAccount()"><div class="icon-circle" style="background:#4a2020;color:#ff5c5c;">🗑</div><div class="info"><div class="name" style="color:#ff5c5c;"><span class="i18n" data-key="settings.delete">Delete my account</span></div><div class="meta"><span class="i18n" data-key="settings.deletem">Permanent — cannot be undone</span></div></div></div>
+            <div class="list-item" onclick="logout()"><div class="icon-circle" style="background:#4a2020;color:#ff5c5c;">⏏</div><div class="info"><div class="name" style="color:#ff5c5c;"><span class="i18n" data-key="settings.logout">Sign out</span></div></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <nav class="tabs">
+      <button class="active" data-tab="home" onclick="switchTab('home')"><span class="icon">🏠</span><span class="i18n" data-key="tab.home">Home</span></button>
+      <button data-tab="devices" onclick="switchTab('devices')"><span class="icon">📱</span><span class="i18n" data-key="tab.devices">Devices</span></button>
+      <button data-tab="rules" onclick="switchTab('rules')"><span class="icon">🛡️</span><span class="i18n" data-key="tab.rules">Rules</span></button>
+      <button data-tab="family" onclick="switchTab('family')"><span class="icon">👨‍👩‍👧</span><span class="i18n" data-key="tab.family">Family</span></button>
+      <button data-tab="settings" onclick="switchTab('settings')"><span class="icon">⚙️</span><span class="i18n" data-key="tab.settings">Settings</span></button>
+    </nav>
+  </div>
+</div>
+
+<script>
+// ============= I18N =============
+const I18N = {
+  en: {
+    'login.subtitle': 'Sign in to manage your home network',
+    'login.phone': 'Phone number', 'login.send': 'Send code',
+    'login.signup': 'New customer? Sign up',
+    'login.hint': 'Demo: enter the phone of any seeded customer (Ahmad / Layla / Karim) and any 4-digit code.',
+    'signup.title': 'Create account',
+    'signup.sub': 'Sign up for mes Network with your phone number',
+    'signup.name': 'Your name', 'signup.phone': 'Phone number',
+    'signup.email': 'Email (optional)', 'signup.plan': 'Plan',
+    'signup.submit': 'Sign up',
+    'otp.title': 'Enter code', 'otp.sub': 'We sent a 4-digit code to', 'otp.verify': 'Verify', 'back': 'Back',
+    'banner': 'Demo PWA — Logged in as <span id="who">-</span>',
+    'tab.home': 'Home', 'tab.devices': 'Devices', 'tab.family': 'Family', 'tab.settings': 'Settings',
+    'home.network': 'Your network', 'home.pause': 'Pause Internet', 'home.allgood': 'All devices online',
+    'home.devices': 'Devices', 'home.blocks': 'Blocked today', 'home.recent': 'Recent activity',
+    'home.act1': 'Box online and protecting your network', 'home.act1m': '2 minutes ago',
+    'home.act2': 'New device joined: iPhone-14', 'home.act2m': '15 min ago',
+    'devices.list': 'Devices on your network',
+    'family.profiles': 'Family profiles', 'family.add': '+ Add family member',
+    'family.schedules': 'Schedule blocks', 'family.add-sched': '+ Add schedule',
+    'family.name': 'Name', 'family.role': 'Role', 'family.save': 'Add', 'cancel': 'Cancel',
+    'family.empty': 'No family members yet — tap below to add one',
+    'sched.name': 'Name', 'sched.start': 'Start time', 'sched.end': 'End time',
+    'sched.days': 'Days of week', 'sched.devices': 'Devices to block',
+    'sched.save': 'Save schedule', 'sched.empty': 'No schedules — tap below to add one',
+    'sched.daily': 'Every day', 'sched.weekdays': 'Weekdays', 'sched.weekends': 'Weekends',
+    'sched.delete': 'Delete', 'sched.enabled': 'Enabled', 'sched.disabled': 'Disabled',
+    'device.owner': 'Family member', 'device.unassigned': 'no owner',
+    'device.usage': '24h Usage', 'save': 'Save',
+    'device.rename': 'Custom name (leave blank to use auto-detected)',
+    'settings.actions': 'Box actions', 'settings.downloads': 'Downloads', 'settings.more': 'More',
+    'settings.activity': 'My recent activity',
+    'chat.send': 'Send', 'settings.install': 'Install app', 'settings.installm': 'Add to your home screen',
+    'settings.export': 'Download my data', 'settings.exportm': 'Everything we have on you (GDPR)',
+    'settings.delete': 'Delete my account', 'settings.deletem': 'Permanent — cannot be undone',
+    'profile.edit': 'Edit profile', 'profile.name': 'Name', 'profile.email': 'Email', 'profile.address': 'Address',
+    'settings.invoices': 'Invoices',
+    'settings.push': 'Push notifications', 'push.checking': 'Checking…',
+    'action.status': '📊 Status', 'action.speedtest': '⚡ Speed Test',
+    'action.restart-svc': '🔄 Restart Services', 'action.reboot': '↻ Reboot Box',
+    'dl.vpn': 'VPN config (.ovpn)', 'dl.vpnm': 'For OpenVPN client / phone',
+    'dl.report': 'Monthly report', 'dl.reportm': 'Printable HTML — save as PDF',
+    'settings.title': 'Account & settings', 'settings.box': 'My box', 'settings.notif': 'Notifications',
+    'settings.support': 'Help & support', 'settings.supportm': 'Chat with mes Cloud',
+    'settings.logout': 'Sign out',
+    'pause.now': 'Internet paused for 1 hour',
+    'pause.btn.unpause': '▶ Resume Internet',
+    'tab.rules': 'Rules',
+    'home.boxes': 'My box(es)',
+    'home.addbox': 'Add',
+    'home.flows': "What's talking right now",
+    'rules.cats': 'Block by category',
+    'rules.catsm': 'One tap blocks the whole category for everyone on your network.',
+    'rules.custom': 'Custom blocks',
+    'rules.alarms': 'Recent alarms',
+    'addbox.title': 'Add a new box',
+    'addbox.help': 'Plug in your mes Box. Find the 6-character pairing code on the sticker, screen, or via SSH. Enter it here:',
+    'addbox.claim': 'Claim box',
+    'addbox.dontown': "Don't have a box yet?",
+    'addbox.flashown': 'Flash your own Pi 4',
+    'settings.vpn': 'WireGuard VPN',
+    'settings.vpnm': 'Create a peer per device — each gets its own .conf you import into the WireGuard app.',
+    'settings.ddns': 'Dynamic DNS',
+    'settings.ddnsm': 'Get a permanent hostname that points at your home — even if your IP changes.',
+    'settings.sites': 'Sites (multi-location)',
+    'settings.quotas': 'Bandwidth quotas (per device)',
+    'settings.quotasm': "Cap monthly data on a device (e.g. kid's iPad). Internet stops for that device when the cap hits.",
+    'settings.geo': 'Block by country',
+    'settings.geom': 'Block all traffic to a country.',
+    'settings.speed': 'Internet speed history',
+    'settings.speedm': 'Your box runs a speed test every 24 hours. The graph shows the last 7 days.',
+    'settings.speed.runnow': 'Run a speed test now',
+    'devices.topology': 'Network map',
+    'settings.vacation': '🏖️ Vacation mode',
+    'settings.vacationm': "When you're away: blocks social/video/adult automatically and emails you a weekly digest.",
+    'settings.dnsrec': 'Custom DNS records',
+    'settings.dnsrecm': 'Like a personal phonebook for your network — point hostname to an IP.',
+    'settings.notifprefs': 'Notification preferences',
+    'settings.notifprefsm': 'Choose which kinds of alerts you want to receive.',
+    'devices.bandwidth': '30-day bandwidth',
+    'devices.topsites': 'Top sites by device',
+  },
+  ar: {
+    'login.subtitle': 'سجّل الدخول لإدارة شبكة منزلك',
+    'login.phone': 'رقم الهاتف', 'login.send': 'إرسال الرمز',
+    'login.signup': 'زبون جديد؟ سجّل الآن',
+    'login.hint': 'تجريبي: أدخل رقم أي زبون (أحمد / ليلى / كريم) وأي رمز من 4 أرقام.',
+    'signup.title': 'إنشاء حساب',
+    'signup.sub': 'اشترك في شبكة mes برقم هاتفك',
+    'signup.name': 'الاسم', 'signup.phone': 'رقم الهاتف',
+    'signup.email': 'البريد الإلكتروني (اختياري)', 'signup.plan': 'الباقة',
+    'signup.submit': 'تسجيل',
+    'otp.title': 'أدخل الرمز', 'otp.sub': 'أرسلنا رمز من 4 أرقام إلى', 'otp.verify': 'تحقق', 'back': 'رجوع',
+    'banner': 'تطبيق تجريبي — مسجّل دخول كـ <span id="who">-</span>',
+    'tab.home': 'الرئيسية', 'tab.devices': 'الأجهزة', 'tab.family': 'العائلة', 'tab.settings': 'الإعدادات',
+    'home.network': 'شبكتك', 'home.pause': 'إيقاف الإنترنت', 'home.allgood': 'كل الأجهزة متصلة',
+    'home.devices': 'الأجهزة', 'home.blocks': 'محجوب اليوم', 'home.recent': 'النشاط الأخير',
+    'home.act1': 'الجهاز متصل ويحمي شبكتك', 'home.act1m': 'منذ دقيقتين',
+    'home.act2': 'جهاز جديد انضم: iPhone-14', 'home.act2m': 'منذ 15 دقيقة',
+    'devices.list': 'الأجهزة على شبكتك',
+    'family.profiles': 'ملفات العائلة', 'family.add': '+ أضف فردًا',
+    'family.schedules': 'جدولة الحجب', 'family.add-sched': '+ إضافة جدول',
+    'family.name': 'الاسم', 'family.role': 'الدور', 'family.save': 'إضافة', 'cancel': 'إلغاء',
+    'family.empty': 'لا يوجد أفراد بعد — اضغط بالأسفل لإضافة',
+    'sched.name': 'الاسم', 'sched.start': 'وقت البدء', 'sched.end': 'وقت الانتهاء',
+    'sched.days': 'أيام الأسبوع', 'sched.devices': 'أجهزة للحجب',
+    'sched.save': 'حفظ الجدول', 'sched.empty': 'لا توجد جداول — اضغط بالأسفل لإضافة',
+    'sched.daily': 'يوميًا', 'sched.weekdays': 'أيام الأسبوع', 'sched.weekends': 'العطلة',
+    'sched.delete': 'حذف', 'sched.enabled': 'مفعّل', 'sched.disabled': 'معطّل',
+    'device.owner': 'فرد العائلة', 'device.unassigned': 'بدون مالك',
+    'device.usage': 'استهلاك ٢٤ ساعة', 'save': 'حفظ',
+    'device.rename': 'اسم مخصص (اتركه فارغًا لاستخدام الاسم التلقائي)',
+    'settings.actions': 'إجراءات الجهاز', 'settings.downloads': 'تحميلات', 'settings.more': 'المزيد',
+    'settings.activity': 'نشاطي الأخير',
+    'chat.send': 'إرسال', 'settings.install': 'تثبيت التطبيق', 'settings.installm': 'أضِف إلى الشاشة الرئيسية',
+    'settings.export': 'تحميل بياناتي', 'settings.exportm': 'كل ما لدينا عنك (GDPR)',
+    'settings.delete': 'حذف حسابي', 'settings.deletem': 'دائم — لا يمكن التراجع',
+    'profile.edit': 'تعديل الملف', 'profile.name': 'الاسم', 'profile.email': 'البريد', 'profile.address': 'العنوان',
+    'settings.invoices': 'الفواتير',
+    'settings.push': 'إشعارات Push', 'push.checking': 'جارٍ التحقق…',
+    'action.status': '📊 الحالة', 'action.speedtest': '⚡ اختبار السرعة',
+    'action.restart-svc': '🔄 إعادة تشغيل الخدمات', 'action.reboot': '↻ إعادة تشغيل الجهاز',
+    'dl.vpn': 'إعداد VPN (.ovpn)', 'dl.vpnm': 'لتطبيق OpenVPN على الهاتف',
+    'dl.report': 'تقرير شهري', 'dl.reportm': 'صفحة قابلة للطباعة — احفظ PDF',
+    'settings.title': 'الحساب والإعدادات', 'settings.box': 'الجهاز', 'settings.notif': 'الإشعارات',
+    'settings.support': 'المساعدة والدعم', 'settings.supportm': 'تواصل مع mes Cloud',
+    'settings.logout': 'تسجيل الخروج',
+    'pause.now': 'تم إيقاف الإنترنت لساعة',
+    'pause.btn.unpause': '▶ استئناف الإنترنت',
+    'tab.rules': 'القواعد',
+    'home.boxes': 'الصناديق',
+    'home.addbox': 'إضافة',
+    'home.flows': 'ماذا يتصل الآن',
+    'rules.cats': 'حجب حسب الفئة',
+    'rules.catsm': 'بضغطة واحدة تحجب الفئة بالكامل لكل من على شبكتك.',
+    'rules.custom': 'حجب مخصّص',
+    'rules.alarms': 'إنذارات حديثة',
+    'addbox.title': 'إضافة جهاز جديد',
+    'addbox.help': 'وصّل جهاز mes Box. ابحث عن رمز الإقران المؤلّف من 6 أحرف على الملصق، الشاشة، أو عبر SSH. أدخله هنا:',
+    'addbox.claim': 'ربط الجهاز',
+    'addbox.dontown': 'ليس لديك جهاز بعد؟',
+    'addbox.flashown': 'حمّل النظام على Pi 4',
+    'settings.vpn': 'WireGuard VPN',
+    'settings.vpnm': 'أنشئ Peer لكل جهاز — يحصل كل واحد على ملف .conf لاستخدامه في تطبيق WireGuard.',
+    'settings.ddns': 'DNS ديناميكي',
+    'settings.ddnsm': 'احصل على اسم نطاق ثابت يشير إلى منزلك — حتى لو تغيّر عنوان IP.',
+    'settings.sites': 'مواقع (مواقع متعددة)',
+    'settings.quotas': 'حصص الإنترنت (لكل جهاز)',
+    'settings.quotasm': 'حدّد سقف بيانات شهري لجهاز معيّن (مثل iPad للأطفال). يتوقّف الإنترنت لذلك الجهاز عند بلوغ الحدّ.',
+    'settings.geo': 'حجب حسب الدولة',
+    'settings.geom': 'احجب كل حركة المرور إلى دولة معيّنة.',
+    'settings.speed': 'سجلّ سرعة الإنترنت',
+    'settings.speedm': 'يقوم جهازك بإجراء اختبار سرعة كل 24 ساعة. الرسم يُظهر آخر 7 أيام.',
+    'settings.speed.runnow': 'إجراء اختبار سرعة الآن',
+    'devices.topology': 'خريطة الشبكة',
+    'settings.vacation': '🏖️ وضع العطلة',
+    'settings.vacationm': 'عند سفرك: يحجب وسائل التواصل والفيديو والمحتوى للبالغين تلقائيًا، ويرسل لك ملخصًا أسبوعيًا.',
+    'settings.dnsrec': 'سجلات DNS مخصصة',
+    'settings.dnsrecm': 'كأنك تكتب دليلًا للشبكة — اجعل اسم النطاق يشير إلى IP محدد.',
+    'settings.notifprefs': 'تفضيلات الإشعارات',
+    'settings.notifprefsm': 'اختر أنواع التنبيهات التي تريد تلقّيها.',
+    'devices.bandwidth': 'استهلاك آخر 30 يومًا',
+    'devices.topsites': 'أكثر المواقع زيارة لكل جهاز',
+  }
+};
+let lang = localStorage.getItem('lang') || 'en';
+function applyLang() {
+  document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
+  document.querySelectorAll('.i18n').forEach(el => {
+    const key = el.dataset.key;
+    if (I18N[lang] && I18N[lang][key]) el.innerHTML = I18N[lang][key];
+  });
+  document.getElementById('lang-label').textContent = lang === 'ar' ? 'EN' : 'عربي';
+}
+function toggleLang() { lang = lang === 'en' ? 'ar' : 'en'; localStorage.setItem('lang', lang); applyLang(); }
+
+// ============= Theme =============
+let theme = localStorage.getItem('theme') || 'dark';
+function applyTheme() {
+  document.body.dataset.theme = theme;
+  const lbl = document.getElementById('theme-label');
+  if (lbl) lbl.textContent = theme === 'dark' ? 'Light' : 'Dark';
+}
+function toggleTheme() { theme = theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', theme); applyTheme(); }
+
+// ============= Branding (loaded from /api/branding) =============
+async function loadBranding() {
+  try {
+    const r = await fetch('/api/branding');
+    const b = await r.json();
+    if (b.brand_color) document.documentElement.style.setProperty('--brand', b.brand_color);
+    if (b.brand_accent) document.documentElement.style.setProperty('--accent', b.brand_accent);
+    document.title = (b.brand_name || 'mes Network') + ' · My Network';
+    // Update header title text where present
+    document.querySelectorAll('.brand-name').forEach(el => el.textContent = b.brand_name || 'mes Network');
+    if (b.brand_logo_url) {
+      document.querySelectorAll('.brand-logo').forEach(el => {
+        el.innerHTML = '<img src="' + b.brand_logo_url + '" alt="logo" style="height:48px;">';
+      });
+    }
+  } catch {}
+}
+loadBranding();
+
+// ============= Screen routing =============
+function show(s) {
+  ['login','signup','otp','app'].forEach(x => document.getElementById('screen-'+x).classList.toggle('active', x===s));
+}
+
+// ============= REAL backend calls =============
+let user = null;
+let token = localStorage.getItem('mes_token') || null;
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const r = await fetch('/api' + path, { ...opts, headers });
+  let body;
+  try { body = await r.json(); } catch { body = { error: r.statusText }; }
+  if (!r.ok) {
+    // Plan-limit error from server is friendly (HTTP 402)
+    const msg = body.error === 'plan_limit' ? body.message : (body.error || 'request failed');
+    throw Object.assign(new Error(msg), { status: r.status, body });
+  }
+  return body;
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const phone = document.getElementById('phone').value.trim();
+  const btn = e.target.querySelector('button[type="submit"]');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    await api('/customer/login', { method: 'POST', body: JSON.stringify({ phone }) });
+    document.getElementById('otp-phone').textContent = phone;
+    show('otp');
+  } catch (err) {
+    alert(err.message);
+  }
+  btn.innerHTML = orig;
+});
+
+document.getElementById('signup-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = document.getElementById('su-name').value.trim();
+  const phone = document.getElementById('su-phone').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const plan = document.getElementById('su-plan').value;
+  if (!name || !phone) { alert('Name and phone required'); return; }
+  try {
+    // Capture UTM params from URL if present
+    const url = new URL(location.href);
+    const referral_code = url.searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
+    const utm = {
+      utm_source:   url.searchParams.get('utm_source')   || sessionStorage.getItem('utm_source')   || '',
+      utm_medium:   url.searchParams.get('utm_medium')   || sessionStorage.getItem('utm_medium')   || '',
+      utm_campaign: url.searchParams.get('utm_campaign') || sessionStorage.getItem('utm_campaign') || '',
+      utm_content:  url.searchParams.get('utm_content')  || sessionStorage.getItem('utm_content')  || '',
+      utm_term:     url.searchParams.get('utm_term')     || sessionStorage.getItem('utm_term')     || '',
+      referrer:     document.referrer || '',
+    };
+    const r = await api('/customer/signup', { method: 'POST', body: JSON.stringify({ name, phone, email, plan, referral_code, ...utm }) });
+    if (r.status === 'active') {
+      alert(`✅ ${r.message}\nYou can sign in now.`);
+      document.getElementById('phone').value = phone;
+      show('login');
+    } else {
+      alert(`✅ ${r.message}\nWe'll text you when approved.`);
+      show('login');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById('otp-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = document.getElementById('otp').value;
+  if (!/^\d{4}$/.test(code)) { alert('4-digit code'); return; }
+  const phone = document.getElementById('otp-phone').textContent;
+  try {
+    const res = await api('/customer/verify', { method: 'POST', body: JSON.stringify({ phone, code }) });
+    token = res.token;
+    localStorage.setItem('mes_token', token);
+    await bootApp();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+async function bootApp() {
+  try {
+    // Fetch customer profile + assigned boxes
+    const me = await api('/customer/me');
+    user = me.customer;
+    user.boxes = me.boxes;
+
+    user.plan_limits = me.plan_limits;
+    user.plan_usage = me.plan_usage;
+
+    document.getElementById('who').textContent = user.name + ' (' + user.plan + ')';
+    document.getElementById('set-name').textContent = user.name;
+    // Greeting with time-of-day
+    const hr = new Date().getHours();
+    const greet = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+    const firstName = (user.name || '').split(' ')[0] || 'there';
+    const ge = document.getElementById('greeting-name');
+    if (ge) ge.textContent = greet + ', ' + firstName;
+    document.getElementById('set-phone').textContent = user.phone + (user.email ? ' · ' + user.email : '');
+    document.getElementById('set-box').textContent = user.boxes.length
+      ? user.boxes[0].mac + (user.boxes[0].license_issued ? ' (licensed)' : ' (no license)')
+      : 'No box assigned';
+    document.getElementById('set-plan').textContent = user.plan.toUpperCase() + ' plan';
+    document.getElementById('set-plan-meta').textContent =
+      `Family: ${user.plan_usage.family_members}/${user.plan_limits.max_family_members} · Schedules: ${user.plan_usage.schedules}/${user.plan_limits.max_schedules}` +
+      (user.plan_limits.vpn ? ' · VPN ✓' : '') + (user.plan_limits.ids ? ' · IDS ✓' : '');
+
+    // Fetch devices
+    const dev = await api('/customer/devices');
+    const devices = dev.devices || [];
+    document.getElementById('s-online').textContent =
+      devices.filter(d => d.online).length + ' / ' + devices.length;
+    // Update hero status
+    updateHeroStatus(devices);
+
+    cachedDevices = devices;  // for schedule modal
+    const family = (await api('/customer/family')).family || [];
+
+    const hint = dev.upgrade_hint
+      ? `<div class="card" style="background:#4a3520;border-left:3px solid #ff8c42;font-size:.85em;padding:10px 14px;">⚡ ${dev.upgrade_hint}</div>`
+      : '';
+
+    document.getElementById('devices-list').innerHTML = hint + (devices.length
+      ? devices.map(d => {
+          const ownerLabel = d.owner_name
+            ? `<span class="pill ${d.owner_role==='Kid'?'warn':'ok'}" style="margin-${'inline-start'}:6px;">${d.owner_name}</span>`
+            : '';
+          const total = d.total_24h_mb >= 1024 ? (d.total_24h_mb/1024).toFixed(1) + ' GB' : d.total_24h_mb + ' MB';
+          return `
+            <div class="list-item" onclick="openDevice('${d.mac}', ${JSON.stringify(d).replace(/"/g, '&quot;')})">
+              <div class="icon-circle">${d.icon}</div>
+              <div class="info">
+                <div class="name">${d.name} ${ownerLabel}</div>
+                <div class="meta">${d.ip || ''} · ${d.online ? 'online' : 'offline'} · 24h: ${total}</div>
+                ${sparklineHtml(d.usage_24h_mb)}
+              </div>
+              <div class="right">
+                <span class="pill ${d.online ? 'ok' : ''}">${d.online ? '●' : '○'}</span>
+              </div>
+            </div>`;
+        }).join('')
+      : '<p style="color:#6c7686;text-align:center;padding:20px">No devices visible yet — your box may not be reporting.</p>');
+
+    // Stash family for the device-detail modal
+    window.__family = family;
+
+    // Real family from backend
+    await refreshFamily();
+    await refreshSchedules();
+    await refreshNotifications();
+    await refreshActivity();
+    await refreshChat();
+    await refreshInvoices();
+    await refreshPushUI();
+
+    show('app');
+    startCustomerSSE();
+    loadMyBoxes();
+    loadLiveFlows();
+    loadUptimeOnHome();
+    refreshAlarmsBadge();
+    setInterval(refreshAlarmsBadge, 30_000);
+    refreshTrialBanner();
+    setInterval(refreshTrialBanner, 60_000);
+    refreshAnnouncements();
+    setInterval(refreshAnnouncements, 5 * 60_000);
+    refreshAutoDiscover();
+    setInterval(refreshAutoDiscover, 30_000);
+    refreshOnboarding();
+    setInterval(refreshOnboarding, 60_000);
+
+    // First-time wizard — only show once
+    if (!localStorage.getItem('mes_wizard_done')) maybeShowWizard();
+    // NPS prompt — fires every 90 days for customers older than 7 days
+    setTimeout(maybeShowNps, 30000);
+  } catch (err) {
+    if (err.status === 401) {
+      // Token bad/expired — back to login
+      localStorage.removeItem('mes_token');
+      token = null;
+      show('login');
+    } else {
+      alert('Failed to load: ' + err.message);
+    }
+  }
+}
+
+// ============= Pause toggle (calls backend) =============
+let paused = false;
+async function togglePause() {
+  const btn = document.getElementById('pause-btn');
+  const status = document.getElementById('pause-status');
+  try {
+    if (!paused) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      const res = await api('/customer/pause', {
+        method: 'POST',
+        body: JSON.stringify({ duration_min: 60 }),
+      });
+      paused = true;
+      btn.disabled = false;
+      btn.classList.add('paused');
+      btn.innerHTML = (I18N[lang]['pause.btn.unpause'] || '▶ Resume Internet');
+      status.innerHTML = (I18N[lang]['pause.now'] || 'Internet paused for 1 hour');
+    } else {
+      paused = false;
+      btn.classList.remove('paused');
+      btn.innerHTML = '⏸ ' + (I18N[lang]['home.pause'] || 'Pause Internet');
+      status.innerHTML = (I18N[lang]['home.allgood'] || 'All devices online');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    alert(err.message);
+  }
+}
+
+function switchTab(t) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + t).style.display = 'block';
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.getElementById('title').innerHTML = '<span class="i18n" data-key="tab.' + t + '">' + (I18N[lang]['tab.'+t] || t) + '</span>';
+  if (t === 'home')     { loadMyBoxes(); loadLiveFlows(); loadUptimeOnHome(); }
+  if (t === 'devices')  { loadTopology(); loadBandwidthChart(); loadTopSites(); loadHeatmap(); }
+  if (t === 'rules')    { loadCategories(); loadCustomRules(); loadAlarms(); loadRulePresets(); }
+  if (t === 'settings') { loadWgPeers(); loadDdns(); loadSites(); loadQuotas(); loadGeoBlocks(); loadSpeedHistory(); loadVacation(); loadDnsRecords(); loadNotifPrefs(); loadApiKeysCustomer(); loadHwOrders(); loadPlanRequests(); loadSubHistory(); loadReferral(); loadPauseStatus(); }
+}
+
+async function loadReferral() {
+  try {
+    const r = await api('/customer/referral');
+    document.getElementById('referral-info').innerHTML =
+      '<div style="padding:10px;background:#0f1419;border-radius:6px;text-align:center;">'
+      + '<div style="color:#aab2c0;font-size:.78em;">Your code</div>'
+      + '<div style="color:#3ad29f;font-family:monospace;font-size:1.2em;font-weight:700;letter-spacing:2px;margin:4px 0;">' + r.referral_code + '</div>'
+      + '<div style="color:#6c7686;font-size:.78em;">' + r.referrals_count + ' referral(s) · ' + r.free_months_earned + ' free month(s) earned</div>'
+      + '</div>';
+    window._referralLink = r.referral_link;
+  } catch {}
+}
+function shareReferral() {
+  const link = window._referralLink;
+  if (!link) return;
+  if (navigator.share) {
+    navigator.share({ title: 'mes Network', text: 'I use mes Network for home network protection — try it with my code.', url: link });
+  } else {
+    navigator.clipboard.writeText(link).then(() => alert('Link copied:\n' + link));
+  }
+}
+
+async function loadPauseStatus() {
+  try {
+    const r = await api('/customer/subscription/status');
+    const el = document.getElementById('pause-info');
+    if (r.paused) {
+      const days = Math.ceil((r.resumes_at - Date.now()) / (24*3600_000));
+      el.innerHTML = '<div style="padding:10px;background:#0f1419;border-radius:6px;border-left:3px solid #ffb84a;">'
+        + '⏸ Paused — auto-resumes in ' + days + ' days '
+        + '<button class="ghost" onclick="resumeSubscription()" style="margin-inline-start:8px;color:#3ad29f;padding:4px 10px;font-size:.8em;">Resume now</button></div>';
+    } else {
+      el.innerHTML = '';
+    }
+  } catch {}
+}
+async function pauseSubscription() {
+  const days = parseInt(document.getElementById('pause-days').value || '30');
+  if (!confirm('Pause subscription for ' + days + ' days? No billing or policy enforcement during this period.')) return;
+  try {
+    await api('/customer/subscription/pause', { method:'POST', body: JSON.stringify({ days }) });
+    loadPauseStatus();
+    refreshTrialBanner();
+  } catch (e) { alert(e.message); }
+}
+async function resumeSubscription() {
+  try {
+    await api('/customer/subscription/resume', { method:'POST', body: '{}' });
+    loadPauseStatus();
+    refreshTrialBanner();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadApiKeysCustomer() {
+  try {
+    const r = await api('/customer/api-keys');
+    const el = document.getElementById('api-keys-list');
+    if (!el) return;
+    if (!r.keys || !r.keys.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No API keys yet</p>';
+      return;
+    }
+    el.innerHTML = r.keys.map(k => '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f1419;border-radius:6px;margin-bottom:4px;">'
+      + '<div style="flex:1;"><div style="color:#fff;font-size:.85em;">' + k.label + '</div>'
+      + '<div style="font-family:monospace;color:#6c7686;font-size:.7em;">' + k.key + ' · ' + k.scope + '</div></div>'
+      + '<button class="ghost rev-key" data-prefix="' + k.key.split('...')[0] + '" style="padding:4px 8px;color:#ff5c5c;">✕</button></div>').join('');
+    el.querySelectorAll('.rev-key').forEach(b => b.onclick = async () => {
+      if (!confirm('Revoke this API key? Anyone using it will stop working.')) return;
+      await api('/customer/api-keys/revoke', { method:'POST', body: JSON.stringify({ prefix: b.dataset.prefix }) });
+      loadApiKeysCustomer();
+    });
+  } catch {}
+}
+
+async function createApiKey() {
+  const label = (document.getElementById('ak-label').value || 'API key').trim();
+  const scope = document.getElementById('ak-scope').value;
+  try {
+    const r = await api('/customer/api-keys/create', { method:'POST', body: JSON.stringify({ label, scope }) });
+    prompt('🔑 Save this key NOW — it will not be shown again:\n\nUse with:  curl -H "X-API-Key: <key>" ' + location.origin + '/api/customer/me', r.key);
+    document.getElementById('ak-label').value = '';
+    loadApiKeysCustomer();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadHwOrders() {
+  try {
+    const r = await api('/customer/hw-orders');
+    const el = document.getElementById('hw-orders-list');
+    if (!el) return;
+    if (!r.orders || !r.orders.length) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = r.orders.map(o => {
+      const sevColor = { received:'#3ad29f', prepping:'#ffb84a', shipping:'#3ad29f', delivered:'#3ad29f', cancelled:'#ff5c5c' }[o.status] || '#6c7686';
+      return '<div style="padding:8px 10px;background:#0f1419;border-radius:6px;margin-bottom:6px;border-left:3px solid ' + sevColor + ';">'
+        + '<div style="color:#fff;">📦 ' + o.model + '</div>'
+        + '<div style="color:#aab2c0;font-size:.78em;">' + o.address + '</div>'
+        + '<div style="color:#6c7686;font-size:.75em;margin-top:4px;">Status: <strong style="color:' + sevColor + ';">' + o.status + '</strong> · ' + new Date(o.created_at).toLocaleDateString() + '</div></div>';
+    }).join('');
+  } catch {}
+}
+
+async function placeHwOrder() {
+  const address = document.getElementById('ho-address').value.trim();
+  const phone   = document.getElementById('ho-phone').value.trim();
+  const notes   = document.getElementById('ho-notes').value.trim();
+  if (!address) return alert('Address required');
+  try {
+    await api('/customer/hw-order', { method:'POST', body: JSON.stringify({ address, contact_phone: phone, notes }) });
+    document.getElementById('ho-address').value = '';
+    document.getElementById('ho-phone').value = '';
+    document.getElementById('ho-notes').value = '';
+    alert('✓ Order received — admin will contact you soon.');
+    loadHwOrders();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadPlanRequests() {
+  try {
+    const r = await api('/customer/plan-request');
+    const el = document.getElementById('plan-request-list');
+    document.getElementById('cur-plan').textContent = r.current_plan || '—';
+    const pending = (r.requests || []).find(x => x.status === 'pending');
+    if (pending) {
+      el.innerHTML = '<div style="padding:8px 10px;background:#0f1419;border-radius:6px;border-left:3px solid #ffb84a;color:#aab2c0;font-size:.85em;">⏳ Pending request: ' + pending.current_plan + ' → ' + pending.requested_plan + '</div>';
+    } else {
+      el.innerHTML = '';
+    }
+  } catch {}
+}
+async function requestPlanChange() {
+  const planId = document.getElementById('pr-plan').value;
+  if (!confirm('Request to change to ' + planId + ' plan?')) return;
+  try {
+    await api('/customer/plan-request', { method:'POST', body: JSON.stringify({ requested_plan: planId }) });
+    alert('✓ Request submitted. Admin will review.');
+    loadPlanRequests();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadSubHistory() {
+  try {
+    const r = await api('/customer/subscription-history');
+    const el = document.getElementById('subhistory-list');
+    if (!r.history || !r.history.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No plan changes recorded</p>';
+      return;
+    }
+    el.innerHTML = r.history.slice().reverse().map(h => '<div style="display:flex;justify-content:space-between;padding:6px 8px;background:#0f1419;border-radius:6px;margin-bottom:4px;font-size:.85em;">'
+      + '<span style="color:#fff;">' + h.from_plan + ' → ' + h.to_plan + '</span>'
+      + '<span style="color:#6c7686;">' + new Date(h.ts).toLocaleDateString() + '</span></div>').join('');
+  } catch {}
+}
+
+async function loadNotifPrefs() {
+  try {
+    const r = await api('/customer/notif-prefs');
+    const el = document.getElementById('notif-prefs-list');
+    if (!el) return;
+    const rows = [
+      ['security', '🛡️', 'Security alerts', 'Port scans, new devices, threats'],
+      ['family',   '👨‍👩‍👧', 'Family activity', 'Schedule blocks, kid devices'],
+      ['billing',  '💳', 'Billing & invoices', 'New invoice, payment due'],
+      ['system',   '⚙️', 'System updates', 'Box online/offline, firmware'],
+    ];
+    el.innerHTML = rows.map(([k, icon, label, sub]) => {
+      const on = !!r.prefs[k];
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#0f1419;border-radius:6px;margin-bottom:6px;">'
+        + '<div style="font-size:1.4em;">' + icon + '</div>'
+        + '<div style="flex:1;"><div style="color:#fff;">' + label + '</div><div style="color:#6c7686;font-size:.78em;">' + sub + '</div></div>'
+        + '<label style="position:relative;display:inline-block;width:42px;height:24px;cursor:pointer;">'
+          + '<input type="checkbox" data-pref="' + k + '" ' + (on ? 'checked' : '') + ' style="opacity:0;width:0;height:0;">'
+          + '<span style="position:absolute;inset:0;background:' + (on ? '#3ad29f' : '#2a3340') + ';border-radius:24px;transition:.3s;">'
+            + '<span style="position:absolute;height:18px;width:18px;left:' + (on ? '21px' : '3px') + ';bottom:3px;background:#fff;border-radius:50%;transition:.3s;"></span>'
+          + '</span></label></div>';
+    }).join('');
+    el.querySelectorAll('input[data-pref]').forEach(inp => inp.onchange = async () => {
+      try { await api('/customer/notif-prefs', { method:'POST', body: JSON.stringify({ [inp.dataset.pref]: inp.checked }) }); }
+      catch (e) { alert(e.message); }
+      loadNotifPrefs();
+    });
+  } catch {}
+}
+
+// ─── Vacation mode ─────────────────────────────────────────────────────
+async function loadVacation() {
+  try {
+    const r = await api('/customer/vacation');
+    const t = document.getElementById('vac-toggle');
+    const s = document.getElementById('vac-slider');
+    const st = document.getElementById('vac-status');
+    if (!t) return;
+    t.checked = !!r.active;
+    s.style.background = r.active ? '#3ad29f' : '#2a3340';
+    s.innerHTML = '<span style="position:absolute;height:20px;width:20px;left:' + (r.active ? '24px' : '4px') + ';bottom:3px;background:#fff;border-radius:50%;transition:.3s;"></span>';
+    st.textContent = r.active && r.until ? '🏖️  on until ' + new Date(r.until).toLocaleDateString() : '';
+  } catch {}
+}
+async function toggleVacation() {
+  try {
+    await api('/customer/vacation/toggle', { method:'POST', body: '{}' });
+    loadVacation();
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Custom DNS records ────────────────────────────────────────────────
+async function loadDnsRecords() {
+  try {
+    const r = await api('/customer/dns-records');
+    const el = document.getElementById('dns-records-list');
+    if (!r.records || !r.records.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No custom records yet</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const rec of r.records) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f1419;border-radius:6px;margin-bottom:4px;font-family:monospace;font-size:.85em;';
+      row.innerHTML = '<div style="flex:1;color:#fff;">' + rec.hostname + '</div><div style="color:#8aa0c0;">→ ' + rec.ip + '</div><button class="ghost del-r" data-id="' + rec.id + '" style="padding:2px 8px;color:#ff5c5c;">✕</button>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('.del-r').forEach(b => b.onclick = async () => {
+      await api('/customer/dns-records/delete', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+      loadDnsRecords();
+    });
+  } catch {}
+}
+async function addDnsRecord() {
+  const host = document.getElementById('dnsr-host').value.trim().toLowerCase();
+  const ip   = document.getElementById('dnsr-ip').value.trim();
+  if (!host || !ip) return;
+  try {
+    await api('/customer/dns-records/add', { method:'POST', body: JSON.stringify({ hostname: host, ip }) });
+    document.getElementById('dnsr-host').value = '';
+    document.getElementById('dnsr-ip').value = '';
+    loadDnsRecords();
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Network topology map ──────────────────────────────────────────────
+async function loadTopology() {
+  try {
+    const r = await api('/customer/devices');
+    const devices = r.devices || [];
+    const el = document.getElementById('topology-svg');
+    if (!el) return;
+    const w = 320, h = 280, cx = w/2, cy = h/2;
+    const n = devices.length || 1;
+    const ringR = Math.min(110, 50 + n * 4);
+    const groups = {};
+    for (const d of devices) {
+      const t = d.device_type || 'unknown';
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(d);
+    }
+    const types = Object.keys(groups);
+    let nodes = '';
+    let i = 0;
+    for (const t of types) {
+      for (const d of groups[t]) {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const x = cx + ringR * Math.cos(angle);
+        const y = cy + ringR * Math.sin(angle);
+        const icon = d.device_icon || d.icon || '📱';
+        const label = (d.hostname || d.mac || '').slice(0, 10);
+        nodes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(0) + '" y2="' + y.toFixed(0) + '" stroke="#2a3340" stroke-width="1"/>';
+        nodes += '<g transform="translate(' + x.toFixed(0) + ',' + y.toFixed(0) + ')">'
+              + '<circle r="14" fill="#1a2028" stroke="#2a3340" stroke-width="1.5"/>'
+              + '<text y="5" font-size="14" text-anchor="middle">' + icon + '</text>'
+              + '<text y="28" font-size="9" text-anchor="middle" fill="#aab2c0">' + label + '</text></g>';
+        i++;
+      }
+    }
+    el.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;max-width:340px;">'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + ringR + '" fill="none" stroke="#1f2530" stroke-dasharray="3,3"/>'
+      + nodes
+      + '<g transform="translate(' + cx + ',' + cy + ')">'
+        + '<circle r="22" fill="#1a2028" stroke="#3ad29f" stroke-width="2"/>'
+        + '<text y="6" font-size="22" text-anchor="middle">📦</text></g>'
+      + '<text x="' + cx + '" y="' + (cy+44) + '" font-size="10" text-anchor="middle" fill="#3ad29f">mes Box</text>'
+      + '</svg>'
+      + '<div style="color:#6c7686;font-size:.78em;margin-top:6px;">' + n + ' device(s) · ' + types.length + ' type(s)</div>';
+  } catch (e) {
+    document.getElementById('topology-svg').innerHTML = '<p style="color:#6c7686;padding:20px;font-size:.85em;">' + e.message + '</p>';
+  }
+}
+
+// ─── 30-day bandwidth chart ─────────────────────────────────────────────
+async function loadBandwidthChart() {
+  try {
+    const r = await api('/customer/usage-daily?days=30');
+    const el = document.getElementById('bandwidth-chart');
+    if (!el) return;
+    const days = Object.keys(r.series || {}).sort();
+    if (!days.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:14px;">No usage data yet — your box hasn\'t reported flows.</p>';
+      return;
+    }
+    const totals = days.map(d => r.series[d] || 0);
+    const max = Math.max(...totals, 1);
+    const w = 320, h = 140, pad = 14, bw = (w - 2*pad) / days.length;
+    let bars = '';
+    days.forEach((d, i) => {
+      const v = totals[i];
+      const bh = (v / max) * (h - 2*pad - 12);
+      const x = pad + i * bw;
+      const y = h - pad - bh;
+      const colour = i === days.length - 1 ? '#3ad29f' : '#5a6777';
+      bars += '<rect x="' + (x+1).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (bw-2).toFixed(1) + '" height="' + bh.toFixed(1) + '" fill="' + colour + '" rx="1"/>';
+    });
+    const totalGB = (totals.reduce((s, x) => s + x, 0) / 1024**3).toFixed(2);
+    const avgGB = (totals.reduce((s, x) => s + x, 0) / totals.length / 1024**3).toFixed(2);
+    el.innerHTML = '<div style="color:#aab2c0;font-size:.85em;margin-bottom:6px;">Total: <strong>' + totalGB + ' GB</strong> · Avg/day: <strong>' + avgGB + ' GB</strong> · ' + days.length + ' days</div>'
+      + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:140px;display:block;">' + bars + '</svg>';
+    // Per-device totals row
+    const totalsByDev = r.totals_by_device || {};
+    const devs = Object.entries(totalsByDev).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (devs.length) {
+      el.innerHTML += '<div style="margin-top:10px;">' + devs.map(([mac, b]) =>
+        '<div style="display:flex;justify-content:space-between;font-size:.8em;padding:3px 0;border-bottom:1px solid #1f2530;">'
+        + '<span style="font-family:monospace;color:#aab2c0;">' + mac + '</span>'
+        + '<span style="color:#3ad29f;">' + (b / 1024**3).toFixed(2) + ' GB</span></div>'
+      ).join('') + '</div>';
+    }
+  } catch (e) {
+    document.getElementById('bandwidth-chart').innerHTML = '<p style="color:#6c7686;font-size:.85em;padding:14px;">' + e.message + '</p>';
+  }
+}
+
+// ─── Activity heatmap ────────────────────────────────────────────────
+async function loadHeatmap() {
+  try {
+    const r = await api('/customer/heatmap');
+    const el = document.getElementById('heatmap');
+    if (!el) return;
+    if (!r.max) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;font-size:.85em;padding:14px;">No flow data yet — your box hasn\'t reported any traffic.</p>';
+      return;
+    }
+    let html = '<div style="display:grid;grid-template-columns:36px repeat(24, 1fr);gap:2px;font-size:.65em;">';
+    html += '<div></div>';
+    for (let h = 0; h < 24; h++) html += '<div style="text-align:center;color:#6c7686;">' + (h % 6 === 0 ? h : '') + '</div>';
+    for (let d = 0; d < 7; d++) {
+      html += '<div style="color:#aab2c0;align-self:center;">' + r.days[d] + '</div>';
+      for (let h = 0; h < 24; h++) {
+        const v = r.grid[d][h];
+        const intensity = v / r.max;
+        const c = intensity > 0
+          ? 'rgba(58, 210, 159, ' + (0.1 + intensity * 0.9).toFixed(2) + ')'
+          : '#1a2028';
+        html += '<div style="aspect-ratio:1;background:' + c + ';border-radius:2px;" title="' + r.days[d] + ' ' + h + ':00 — ' + (v / 1024 / 1024).toFixed(1) + ' MB"></div>';
+      }
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    document.getElementById('heatmap').innerHTML = '<p style="color:#6c7686;font-size:.85em;padding:14px;">' + e.message + '</p>';
+  }
+}
+
+// ─── Top sites per device ───────────────────────────────────────────────
+async function loadTopSites() {
+  try {
+    const r = await api('/customer/top-sites');
+    const el = document.getElementById('top-sites-list');
+    const dev = r.per_device || {};
+    if (!Object.keys(dev).length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:14px;">No traffic in the last 24h.</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const [mac, sites] of Object.entries(dev)) {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#0f1419;border-radius:8px;padding:10px;margin-bottom:8px;';
+      card.innerHTML = '<div style="font-family:monospace;color:#aab2c0;font-size:.8em;margin-bottom:6px;">' + mac + '</div>'
+        + sites.slice(0, 8).map(s =>
+          '<div style="display:flex;justify-content:space-between;font-size:.85em;padding:2px 0;">'
+          + '<span style="color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;">' + s.domain + '</span>'
+          + '<span style="color:#6c7686;font-size:.85em;">' + (s.bytes / 1024**2).toFixed(1) + ' MB</span></div>'
+        ).join('');
+      el.appendChild(card);
+    }
+  } catch (e) {
+    document.getElementById('top-sites-list').innerHTML = '<p style="color:#6c7686;font-size:.85em;padding:14px;">' + e.message + '</p>';
+  }
+}
+
+// ─── Alarms badge on Rules tab ──────────────────────────────────────────
+async function refreshAlarmsBadge() {
+  try {
+    const r = await api('/customer/alarms');
+    const unacked = (r.alarms || []).filter(a => !a.acked).length;
+    const btn = document.querySelector('nav.tabs button[data-tab="rules"]');
+    if (!btn) return;
+    let badge = btn.querySelector('.alarms-badge');
+    if (unacked > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'alarms-badge';
+        badge.style.cssText = 'position:absolute;top:6px;right:14px;background:#ff5c5c;color:#fff;font-size:.65em;font-weight:700;padding:1px 5px;border-radius:99px;min-width:14px;text-align:center;';
+        btn.style.position = 'relative';
+        btn.appendChild(badge);
+      }
+      badge.textContent = unacked > 99 ? '99+' : String(unacked);
+    } else if (badge) {
+      badge.remove();
+    }
+  } catch {}
+}
+
+// ─── Uptime card on Home tab (renders inside My boxes) ─────────────────
+async function loadUptimeOnHome() {
+  try {
+    const r = await api('/customer/uptime');
+    const data = r.uptime || {};
+    // Inject uptime % into each box card already rendered by loadMyBoxes()
+    // We update the meta line; loadMyBoxes runs first, so we attach after
+    setTimeout(() => {
+      const list = document.getElementById('my-boxes-list');
+      if (!list) return;
+      list.querySelectorAll('[data-box-mac]').forEach(el => {
+        const mac = el.dataset.boxMac;
+        const u = data[mac];
+        if (u && u.uptime_pct != null) {
+          const c = u.uptime_pct >= 99 ? '#3ad29f' : (u.uptime_pct >= 95 ? '#ffb84a' : '#ff5c5c');
+          el.querySelector('[data-uptime]').innerHTML = '<span style="color:' + c + ';font-weight:600;">' + u.uptime_pct + '%</span> uptime · 30d';
+        }
+      });
+    }, 800);
+  } catch {}
+}
+
+// ─── Speed history (settings tab) ──────────────────────────────────────
+async function loadSpeedHistory() {
+  try {
+    const r = await api('/customer/speedtest-history');
+    const el = document.getElementById('speed-history');
+    if (!el) return;
+    const allTests = [];
+    for (const [mac, list] of Object.entries(r.history || {})) {
+      for (const t of list) allTests.push({ ...t, mac });
+    }
+    if (!allTests.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:14px;">No tests yet — your box hasn\'t run one. Tap the button below.</p>';
+      return;
+    }
+    // Last 14 days
+    const cutoff = Date.now() - 14 * 24 * 3600_000;
+    const recent = allTests.filter(t => t.ts >= cutoff).sort((a, b) => a.ts - b.ts);
+    if (!recent.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:14px;">No tests in the last 14 days.</p>';
+      return;
+    }
+    const latest = recent[recent.length - 1];
+    const downs = recent.map(t => t.down_mbps);
+    const ups   = recent.map(t => t.up_mbps);
+    const lats  = recent.map(t => t.latency_ms);
+    const avg = a => a.reduce((s, x) => s + x, 0) / a.length;
+    const min = a => Math.min(...a);
+
+    el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">'
+      + '<div style="background:#0f1419;padding:10px;border-radius:6px;text-align:center;"><div style="color:#3ad29f;font-size:1.4em;font-weight:600;">' + latest.down_mbps.toFixed(1) + '</div><div style="color:#6c7686;font-size:.7em;">Mbps ↓</div></div>'
+      + '<div style="background:#0f1419;padding:10px;border-radius:6px;text-align:center;"><div style="color:#3ad29f;font-size:1.4em;font-weight:600;">' + latest.up_mbps.toFixed(1) + '</div><div style="color:#6c7686;font-size:.7em;">Mbps ↑</div></div>'
+      + '<div style="background:#0f1419;padding:10px;border-radius:6px;text-align:center;"><div style="color:#3ad29f;font-size:1.4em;font-weight:600;">' + Math.round(latest.latency_ms) + '</div><div style="color:#6c7686;font-size:.7em;">ms ping</div></div>'
+      + '</div>'
+      + '<div style="font-size:.75em;color:#6c7686;margin-bottom:6px;">Last 14 days · ' + recent.length + ' tests · avg ' + avg(downs).toFixed(0) + '/' + avg(ups).toFixed(0) + ' Mbps · min down ' + min(downs).toFixed(0) + ' Mbps</div>'
+      + sparkSvg(downs, '#3ad29f', 'down')
+      + sparkSvg(ups, '#ff8c42', 'up');
+  } catch (e) {}
+}
+
+function sparkSvg(arr, color, label) {
+  if (!arr.length) return '';
+  const w = 320, h = 50, pad = 4;
+  const max = Math.max(...arr) || 1;
+  const xs = arr.length === 1 ? [w/2] : arr.map((_, i) => pad + (i / (arr.length - 1)) * (w - 2*pad));
+  const ys = arr.map(v => h - pad - (v / max) * (h - 2*pad));
+  const points = xs.map((x, i) => x.toFixed(0) + ',' + ys[i].toFixed(0)).join(' ');
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:50px;display:block;margin-bottom:4px;">'
+    + '<text x="2" y="10" font-size="9" fill="#6c7686">' + label + '</text>'
+    + '<polyline points="' + points + '" fill="none" stroke="' + color + '" stroke-width="1.5"/>'
+    + '</svg>';
+}
+
+async function runSpeedtestNow() {
+  try {
+    const r = await api('/customer/box/action', { method:'POST', body: JSON.stringify({ action: 'speedtest' }) });
+    if (r.status === 'completed') {
+      alert('✓ ' + r.result.down_mbps + ' / ' + r.result.up_mbps + ' Mbps · ' + r.result.latency_ms + ' ms');
+    } else if (r.status === 'queued') {
+      alert('Speed test queued. Box will run it on next poll. Refresh in 60s.');
+    } else if (r.status === 'failed') {
+      alert('Speed test failed: ' + (r.error || ''));
+    }
+    setTimeout(loadSpeedHistory, 2000);
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Quotas ────────────────────────────────────────────────────────────
+async function loadQuotas() {
+  try {
+    const r = await api('/customer/quotas');
+    const el = document.getElementById('quotas-list');
+    if (!r.quotas || !r.quotas.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No quotas set</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const q of r.quotas) {
+      const pct = Math.min(100, Math.round((q.used_gb / q.monthly_gb) * 100));
+      const barColor = pct > 90 ? '#ff5c5c' : pct > 70 ? '#ffb84a' : '#3ad29f';
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:10px;background:#0f1419;border-radius:6px;margin-bottom:6px;';
+      row.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
+        + '<div style="flex:1;font-family:monospace;font-size:.85em;color:#fff;">' + q.device_mac + '</div>'
+        + '<div style="color:#aab2c0;font-size:.85em;">' + q.used_gb.toFixed(1) + ' / ' + q.monthly_gb + ' GB</div>'
+        + '<button class="ghost del-q" data-id="' + q.id + '" style="padding:4px 8px;font-size:.75em;color:#ff5c5c;">✕</button>'
+        + '</div>'
+        + '<div style="height:6px;background:#1a2028;border-radius:3px;overflow:hidden;margin-top:6px;">'
+        + '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';"></div></div>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('.del-q').forEach(b => b.onclick = async () => {
+      await api('/customer/quotas/delete', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+      loadQuotas();
+    });
+  } catch {}
+}
+async function setQuota() {
+  const mac = (document.getElementById('q-mac').value || '').trim().toLowerCase();
+  const gb  = parseFloat(document.getElementById('q-gb').value || '0');
+  if (!mac || !gb) return;
+  try {
+    await api('/customer/quotas/set', { method:'POST', body: JSON.stringify({ device_mac: mac, monthly_gb: gb }) });
+    document.getElementById('q-mac').value = '';
+    document.getElementById('q-gb').value = '';
+    loadQuotas();
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Geo blocks (live in the rules table; type='geo') ──────────────────
+async function loadGeoBlocks() {
+  try {
+    const r = await api('/customer/rules');
+    const geo = (r.rules || []).filter(x => x.type === 'geo' && x.action === 'block');
+    const el = document.getElementById('geo-list');
+    if (!geo.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No countries blocked</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const g of geo) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;padding:6px 8px;background:#0f1419;border-radius:6px;margin-bottom:4px;';
+      row.innerHTML = '<div style="flex:1;color:#fff;font-size:.9em;">' + (g.value || '').toUpperCase() + ' blocked</div>'
+        + '<button class="ghost del-g" data-id="' + g.id + '" style="padding:4px 10px;font-size:.8em;color:#ff5c5c;">✕</button>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('.del-g').forEach(b => b.onclick = async () => {
+      await api('/customer/rules/delete', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+      loadGeoBlocks();
+    });
+  } catch {}
+}
+async function addGeoBlock() {
+  const cc = document.getElementById('geo-cc').value;
+  try {
+    await api('/customer/rules/add', { method:'POST', body: JSON.stringify({ scope:'all', type:'geo', value: cc, action:'block' }) });
+    loadGeoBlocks();
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Live alarm SSE — toast on incoming alarms ─────────────────────────
+let _sse = null;
+function startCustomerSSE() {
+  if (_sse || !token) return;
+  // EventSource doesn't support custom headers; use ?_t=token convention if needed
+  // For now, use fetch streaming reader
+  fetch('/api/customer/events/stream', { headers: { Authorization: 'Bearer ' + token } })
+    .then(res => {
+      if (!res.body) return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      function loop() {
+        reader.read().then(({ value, done }) => {
+          if (done) return;
+          buf += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buf.indexOf('\n\n')) >= 0) {
+            const evt = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+            // Parse "event: X\ndata: ..."
+            const eMatch = evt.match(/^event:\s*(\w+)/m);
+            const dMatch = evt.match(/^data:\s*(.+)$/m);
+            if (eMatch && dMatch) {
+              try {
+                const data = JSON.parse(dMatch[1]);
+                handleSseEvent(eMatch[1], data);
+              } catch {}
+            }
+          }
+          loop();
+        }).catch(() => {});
+      }
+      loop();
+    }).catch(() => {});
+  _sse = true;
+}
+function handleSseEvent(type, data) {
+  if (type === 'alarm') {
+    showToast('🚨 ' + (data.title || 'Alert'), data.body || '', data.severity);
+    refreshAlarmsBadge();
+  } else if (type === 'flow') {
+    prependLiveFlow(data);
+  } else if (type === 'support_msg') {
+    showToast('💬 Support replied', data.body || '', 'low');
+    if (typeof refreshChat === 'function') try { refreshChat(); } catch {}
+  }
+}
+
+// ─── Add a box (claim by pairing code) ─────────────────────────────────
+function openAddBoxModal() {
+  document.getElementById('addbox-code').value = '';
+  document.getElementById('addbox-status').textContent = '';
+  document.getElementById('modal-addbox').style.display = 'flex';
+  setTimeout(() => document.getElementById('addbox-code').focus(), 100);
+}
+async function claimBox() {
+  const code = (document.getElementById('addbox-code').value || '').trim().toUpperCase();
+  const status = document.getElementById('addbox-status');
+  if (code.length !== 6) {
+    status.style.color = '#ff5c5c';
+    status.textContent = 'Code must be 6 characters';
+    return;
+  }
+  status.style.color = '#8aa0c0';
+  status.textContent = 'Linking box to your account…';
+  try {
+    const r = await api('/customer/box/claim', { method:'POST', body: JSON.stringify({ code }) });
+    status.style.color = '#3ad29f';
+    status.textContent = '✓ Box ' + (r.mac || '') + ' added!';
+    setTimeout(() => {
+      hideModal('addbox');
+      loadMyBoxes();
+    }, 1500);
+  } catch (e) {
+    status.style.color = '#ff5c5c';
+    if (e.message.includes('not_found')) {
+      status.textContent = 'Code not found or expired. Check the code on your box.';
+    } else {
+      status.textContent = e.message;
+    }
+  }
+}
+
+async function showMagicLogin() {
+  const email = prompt('Enter your registered email — we\'ll send you a one-tap login link.');
+  if (!email) return;
+  try {
+    const r = await fetch('/api/customer/login/magic', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const d = await r.json();
+    alert(d.message || 'Done. Check your email.');
+  } catch (e) { alert(e.message); }
+}
+
+// ─── UTM + referral capture (run as soon as JS loads) ─────────────────
+(function captureUtm() {
+  try {
+    const url = new URL(location.href);
+    const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    let captured = false;
+    for (const k of keys) {
+      const v = url.searchParams.get(k);
+      if (v) { sessionStorage.setItem(k, v); captured = true; }
+    }
+    const ref = url.searchParams.get('ref');
+    if (ref) sessionStorage.setItem('referral_code', ref);
+    if (captured && !sessionStorage.getItem('first_landing_at')) {
+      sessionStorage.setItem('first_landing_at', new Date().toISOString());
+    }
+  } catch {}
+})();
+
+// ─── NPS feedback prompt ──────────────────────────────────────────────
+async function maybeShowNps() {
+  try {
+    const r = await api('/customer/nps-due');
+    if (!r.due) return;
+  } catch { return; }
+  let modal = document.getElementById('modal-nps');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-nps';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;padding:20px;';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = '<div style="background:var(--bg-elev);padding:24px;border-radius:14px;max-width:420px;width:100%;text-align:center;">'
+    + '<h2 style="color:#fff;margin:0 0 6px 0;font-size:1.1em;">Quick question 🙏</h2>'
+    + '<p style="color:#aab2c0;font-size:.9em;margin-bottom:18px;">How likely are you to recommend mes Network to a friend?</p>'
+    + '<div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">'
+    + Array.from({length: 11}, (_, i) =>
+        '<button class="nps-btn" data-score="' + i + '" style="width:30px;height:30px;background:#0f1419;border:1px solid #2a3340;color:#fff;border-radius:6px;cursor:pointer;font-size:.85em;">' + i + '</button>'
+      ).join('')
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;color:#6c7686;font-size:.7em;margin-bottom:14px;"><span>not at all</span><span>extremely</span></div>'
+    + '<textarea id="nps-comment" placeholder="What\'s the main reason for your score? (optional)" style="width:100%;min-height:60px;font-size:.9em;margin-bottom:10px;"></textarea>'
+    + '<button class="primary" id="nps-submit" style="width:100%;" disabled>Submit</button>'
+    + '<button class="ghost" id="nps-skip" style="width:100%;margin-top:6px;font-size:.85em;">Maybe later</button></div>';
+  modal.style.display = 'flex';
+  let chosen = null;
+  modal.querySelectorAll('.nps-btn').forEach(b => b.onclick = () => {
+    chosen = parseInt(b.dataset.score);
+    modal.querySelectorAll('.nps-btn').forEach(x => {
+      const sc = parseInt(x.dataset.score);
+      x.style.background = sc === chosen ? '#3ad29f' : (sc <= chosen ? 'rgba(58,210,159,.2)' : '#0f1419');
+      x.style.color = sc === chosen ? '#000' : '#fff';
+    });
+    document.getElementById('nps-submit').disabled = false;
+  });
+  document.getElementById('nps-submit').onclick = async () => {
+    if (chosen === null) return;
+    try {
+      await api('/customer/nps', { method:'POST', body: JSON.stringify({
+        score: chosen, comment: document.getElementById('nps-comment').value
+      }) });
+      modal.innerHTML = '<div style="background:var(--bg-elev);padding:24px;border-radius:14px;text-align:center;"><div style="font-size:3em;">🙏</div><h2 style="color:#fff;">Thank you!</h2></div>';
+      setTimeout(() => modal.style.display = 'none', 2000);
+    } catch (e) { alert(e.message); }
+  };
+  document.getElementById('nps-skip').onclick = async () => {
+    try { await api('/customer/nps/dismiss', { method:'POST', body: '{}' }); } catch {}
+    modal.style.display = 'none';
+  };
+}
+
+// ─── First-time onboarding wizard ─────────────────────────────────────
+function maybeShowWizard() {
+  let modal = document.getElementById('modal-wizard');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-wizard';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;padding:20px;';
+    document.body.appendChild(modal);
+  }
+  let step = 0;
+  const steps = [
+    {
+      icon: '👋',
+      title: 'Welcome to mes Network',
+      body: 'Let\'s set up your account in 4 quick steps. You can skip and do them later from Settings.',
+      cta: 'Get started',
+    },
+    {
+      icon: '📦',
+      title: 'Add your box',
+      body: 'Plug in your mes Box (Pi 4 or pre-flashed device). It will display a 6-character pairing code on its sticker, screen, or LED. Tap "Add box" on the Home tab when ready.',
+      cta: 'Got it',
+    },
+    {
+      icon: '👨‍👩‍👧',
+      title: 'Add family members',
+      body: 'In the Family tab, add each person in your home. You\'ll then assign devices to them — that\'s how schedules and screen-time apply.',
+      cta: 'Got it',
+    },
+    {
+      icon: '🌙',
+      title: 'Set a schedule',
+      body: 'Use a preset like "Bedtime" or "School hours" to block kids\' devices during specific times. Find them in Family → Schedule blocks.',
+      cta: 'Got it',
+    },
+    {
+      icon: '🔔',
+      title: 'Enable notifications',
+      body: 'Get push alerts when a new device joins your network or a threat is blocked. Tap the bell icon in Settings to enable.',
+      cta: 'Finish',
+    },
+  ];
+
+  function render() {
+    const s = steps[step];
+    modal.innerHTML = '<div style="background:var(--bg-elev);padding:30px 24px;border-radius:14px;max-width:420px;width:100%;text-align:center;">'
+      + '<div style="font-size:3em;margin-bottom:14px;">' + s.icon + '</div>'
+      + '<h2 style="color:#fff;margin:0 0 10px 0;font-size:1.2em;">' + s.title + '</h2>'
+      + '<p style="color:#aab2c0;font-size:.95em;line-height:1.5;margin-bottom:24px;">' + s.body + '</p>'
+      + '<div style="display:flex;justify-content:center;gap:5px;margin-bottom:18px;">'
+      + steps.map((_, i) => '<span style="width:7px;height:7px;border-radius:50%;background:' + (i === step ? '#3ad29f' : '#2a3340') + ';"></span>').join('')
+      + '</div>'
+      + '<button class="primary wiz-next" style="width:100%;">' + s.cta + (step < steps.length - 1 ? ' →' : '') + '</button>'
+      + (step > 0 && step < steps.length - 1 ? '<button class="ghost wiz-skip" style="width:100%;margin-top:8px;font-size:.85em;">Skip the rest</button>' : '')
+      + '</div>';
+    modal.querySelector('.wiz-next').onclick = () => {
+      step++;
+      if (step >= steps.length) { localStorage.setItem('mes_wizard_done', '1'); modal.style.display = 'none'; }
+      else render();
+    };
+    const skip = modal.querySelector('.wiz-skip');
+    if (skip) skip.onclick = () => { localStorage.setItem('mes_wizard_done', '1'); modal.style.display = 'none'; };
+  }
+  modal.style.display = 'flex';
+  render();
+}
+
+// ─── Trial / paused banner ────────────────────────────────────────────
+async function refreshTrialBanner() {
+  try {
+    const [trial, sub] = await Promise.all([
+      api('/customer/trial'),
+      api('/customer/subscription/status'),
+    ]);
+    const el = document.getElementById('trial-banner');
+    if (!el) return;
+    if (sub.paused) {
+      const days = Math.ceil((sub.resumes_at - Date.now()) / (24*3600_000));
+      el.innerHTML = '<div class="card" style="background:linear-gradient(135deg,#4a3520,#2a1f10);border-left:4px solid #ffb84a;color:#fff;">'
+        + '<div style="font-weight:600;">⏸ Subscription paused</div>'
+        + '<div style="color:#aab2c0;font-size:.85em;margin-top:4px;">Auto-resumes in ' + days + ' days. <a href="#" id="resume-now" style="color:#3ad29f;">Resume now</a></div></div>';
+      el.style.display = 'block';
+      const btn = document.getElementById('resume-now');
+      if (btn) btn.onclick = async (e) => { e.preventDefault(); await api('/customer/subscription/resume', { method:'POST', body:'{}' }); refreshTrialBanner(); };
+    } else if (trial.in_trial) {
+      const c = trial.days_left <= 3 ? '#ff5c5c' : (trial.days_left <= 7 ? '#ffb84a' : '#3ad29f');
+      el.innerHTML = '<div class="card" style="background:linear-gradient(135deg,#1f4f3d,#0f2f25);border-left:4px solid ' + c + ';color:#fff;">'
+        + '<div style="font-weight:600;">🎉 Free trial: ' + trial.days_left + ' day' + (trial.days_left === 1 ? '' : 's') + ' left</div>'
+        + '<div style="color:#aab2c0;font-size:.85em;margin-top:4px;">After your trial ends, you\'ll auto-convert to your selected plan. Cancel any time.</div></div>';
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  } catch {}
+}
+
+// ─── Announcements (admin broadcast) ─────────────────────────────────
+async function refreshAnnouncements() {
+  try {
+    const r = await api('/customer/announcements');
+    const host = document.getElementById('announcement-banners');
+    if (!host) return;
+    if (!r.announcements || !r.announcements.length) { host.innerHTML = ''; return; }
+    host.innerHTML = r.announcements.map(a => {
+      const colors = { info: '#3ad29f', warn: '#ffb84a', urgent: '#ff5c5c' };
+      const bg = colors[a.severity] || colors.info;
+      return '<div class="card" style="background:linear-gradient(135deg,#1a2533,#0f1a26);border-left:4px solid '+bg+';color:#fff;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px;">'
+        + '<div><div style="font-weight:600;">📢 '+escapeHtml(a.title)+'</div>'
+        + '<div style="color:#aab2c0;font-size:.85em;margin-top:4px;white-space:pre-wrap;">'+escapeHtml(a.body)+'</div></div>'
+        + '<button onclick="dismissAnnouncement(\''+a.id+'\')" style="background:transparent;border:none;color:#6c7686;cursor:pointer;font-size:1.2em;">×</button>'
+        + '</div></div>';
+    }).join('');
+  } catch {}
+}
+async function dismissAnnouncement(id) {
+  try { await api('/customer/announcements/dismiss', { method:'POST', body: JSON.stringify({ id }) }); refreshAnnouncements(); } catch {}
+}
+
+// Auto-discover unclaimed boxes on same network (one-tap claim, no pairing code)
+async function refreshAutoDiscover() {
+  try {
+    const r = await api('/customer/box/discover');
+    const host = document.getElementById('auto-discover-banner');
+    if (!host) return;
+    if (!r.candidates || !r.candidates.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+    host.style.display = 'block';
+    host.innerHTML = r.candidates.map(c => {
+      const hw = c.hw && c.hw.hw_model ? c.hw.hw_model : 'mes Box';
+      return '<div class="card" style="background:linear-gradient(135deg,#1f4f3d,#0f2a25);border-left:4px solid #3ad29f;color:#fff;">'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        +   '<div style="width:40px;height:40px;border-radius:10px;background:rgba(0,212,170,0.18);display:flex;align-items:center;justify-content:center;font-size:1.4em;">📦</div>'
+        +   '<div style="flex:1;min-width:0;">'
+        +     '<div style="font-weight:700;color:#fff;">New box detected on your network</div>'
+        +     '<div style="color:#aab2c0;font-size:.82em;margin-top:2px;">' + escapeHtml(hw) + ' · ' + escapeHtml(c.mac) + '</div>'
+        +   '</div>'
+        +   '<button class="primary" onclick="autoClaim(\'' + c.mac + '\')" style="padding:8px 14px;font-size:.85em;">＋ Add</button>'
+        + '</div></div>';
+    }).join('');
+  } catch {}
+}
+async function autoClaim(mac) {
+  try {
+    await api('/customer/box/auto-claim', { method: 'POST', body: JSON.stringify({ mac }) });
+    refreshAutoDiscover();
+    if (typeof loadMyBoxes === 'function') loadMyBoxes();
+    if (typeof showToast === 'function') showToast('Box added!');
+    else alert('Box added!');
+  } catch (e) {
+    alert('Failed: ' + e.message + '\n\nFalling back to manual code entry.');
+  }
+}
+function escapeHtml(s) {
+  return String(s||'').replace(/[<>"&]/g, c => ({ '<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;' })[c]);
+}
+
+// ─── Onboarding checklist ────────────────────────────────────────────
+async function refreshOnboarding() {
+  try {
+    const r = await api('/customer/onboarding');
+    const card = document.getElementById('onboarding-card');
+    const items = document.getElementById('onboarding-items');
+    const bar = document.getElementById('onboarding-bar');
+    if (!card) return;
+    // Hide card when ≥80% complete (stop nagging)
+    if (r.percent >= 80) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    bar.style.width = r.percent + '%';
+    items.innerHTML = r.items.map(it =>
+      '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2a3340;">'
+      + '<span style="color:'+(it.done ? '#3ad29f' : '#6c7686')+';font-size:1.1em;">'+(it.done ? '✓' : '○')+'</span>'
+      + '<span style="color:'+(it.done ? '#aab2c0' : '#fff')+';flex:1;">'+escapeHtml(it.label)+'</span>'
+      + '</div>'
+    ).join('');
+  } catch {}
+}
+
+// Hero status — green when all good, orange when warning
+function updateHeroStatus(devices) {
+  const ring = document.getElementById('hero-ring');
+  const title = document.getElementById('hero-title');
+  const sub = document.getElementById('hero-sub');
+  const status = document.getElementById('hero-status');
+  if (!status) return;
+  const onlineCount = devices.filter(d => d.online).length;
+  const total = devices.length;
+  const blocked = devices.filter(d => d.blocked).length;
+  if (total === 0) {
+    status.classList.add('warn');
+    ring.textContent = '📦';
+    title.textContent = 'No box yet';
+    sub.textContent = 'Add a box below to get started';
+  } else if (blocked > 0) {
+    status.classList.add('warn');
+    ring.textContent = '⚠';
+    title.textContent = blocked + ' blocked';
+    sub.textContent = onlineCount + ' of ' + total + ' devices online';
+  } else {
+    status.classList.remove('warn');
+    ring.textContent = '🛡️';
+    title.textContent = 'All clear';
+    sub.textContent = onlineCount + ' of ' + total + ' devices online';
+  }
+}
+
+// ─── My boxes (home tab) ─────────────────────────────────────────────
+async function loadMyBoxes() {
+  try {
+    const r = await api('/customer/boxes');
+    const el = document.getElementById('my-boxes-list');
+    if (!r.boxes || !r.boxes.length) {
+      el.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--text-faint);font-size:.9em;">No box yet — add one below.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const b of r.boxes) {
+      const ago = b.last_heartbeat ? Math.round((Date.now() - b.last_heartbeat) / 60000) + 'm ago' : 'never';
+      const row = document.createElement('div');
+      row.dataset.boxMac = b.mac;
+      row.style.cssText = 'padding:14px;background:var(--bg-elev-2);border-radius:14px;margin-bottom:8px;border:1px solid var(--border);';
+      const headline = b.friendly_name || b.mac;
+      const statusPill = b.online
+        ? '<span class="pill ok">online</span>'
+        : '<span class="pill" style="background:rgba(255,255,255,0.06);color:var(--text-faint);">offline</span>';
+      row.innerHTML = '<div style="display:flex;align-items:center;gap:12px;">'
+        + '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1f3a5e,#0f2240);display:flex;align-items:center;justify-content:center;font-size:1.4em;flex-shrink:0;">📦</div>'
+        + '<div style="flex:1;min-width:0;">'
+        +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        +     '<span style="color:var(--text);font-size:1em;font-weight:600;">' + escapeHtml(headline) + '</span>'
+        +     statusPill
+        +   '</div>'
+        +   (b.friendly_name ? '<div style="color:var(--text-faint);font-size:.78em;font-family:ui-monospace,monospace;margin-top:2px;">' + b.mac + '</div>' : '')
+        +   '<div style="color:var(--text-faint);font-size:.78em;margin-top:3px;">' + ago + ' · v' + (b.version || '?') + '</div>'
+        + '</div>'
+        + '<button class="ghost rename-box" data-mac="' + b.mac + '" data-name="' + (b.friendly_name || '').replace(/"/g, '&quot;') + '" style="padding:6px 10px;font-size:.85em;flex-shrink:0;">✎</button>'
+        + '</div>'
+        + (b.online ? '<div style="display:flex;gap:14px;margin-top:12px;font-size:.78em;color:var(--text-dim);padding-top:12px;border-top:1px solid var(--border);">'
+            + '<span>📱 ' + b.device_count + '</span>'
+            + '<span>⚡ ' + b.cpu_pct + '%</span>'
+            + '<span>💾 ' + b.ram_pct + '%</span>'
+            + (b.temp_c != null ? '<span>🌡 ' + b.temp_c + '°</span>' : '')
+            + '</div>' : '');
+      el.appendChild(row);
+    }
+    el.querySelectorAll('.rename-box').forEach(b => b.onclick = (ev) => {
+      ev.stopPropagation();
+      const newName = prompt('Name your box (e.g. "Living Room")', b.dataset.name);
+      if (newName === null) return;
+      api('/customer/box/rename', { method:'POST', body: JSON.stringify({ mac: b.dataset.mac, friendly_name: newName }) })
+        .then(() => loadMyBoxes())
+        .catch(e => alert(e.message));
+    });
+  } catch {}
+}
+
+// ─── Live flows (home tab) ───────────────────────────────────────────
+async function loadLiveFlows() {
+  try {
+    const r = await api('/customer/flows?limit=10');
+    const el = document.getElementById('live-flows-list');
+    if (!r.flows || !r.flows.length) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">No flows yet — your box hasn\'t reported any traffic.</p>';
+      return;
+    }
+    el.innerHTML = r.flows.map(flowRowHtml).join('');
+  } catch {}
+}
+function flowRowHtml(f) {
+  const cat = f.category ? '<span style="background:#2a3340;color:#aab2c0;padding:1px 6px;border-radius:99px;font-size:.7em;margin-left:6px;">' + f.category + '</span>' : '';
+  const country = f.country && f.country !== 'XX' ? '<span style="color:#6c7686;font-size:.75em;margin-left:6px;">' + f.country + '</span>' : '';
+  const bytes = ((f.bytes_up + f.bytes_down) / 1024).toFixed(0);
+  const blocked = f.blocked ? '<span style="color:#ff5c5c;">🚫</span> ' : '';
+  return '<div style="padding:6px 8px;border-bottom:1px solid #1f2530;display:flex;align-items:center;gap:8px;">'
+    + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+    +   blocked + '<span style="color:#fff;font-size:.85em;">' + (f.dst_domain || f.dst_ip) + '</span>' + cat + country
+    +   '<div style="color:#6c7686;font-size:.7em;font-family:monospace;">from ' + (f.src_mac || f.src_ip) + '</div>'
+    + '</div>'
+    + '<div style="color:#aab2c0;font-size:.78em;white-space:nowrap;">' + bytes + ' KB</div>'
+    + '</div>';
+}
+function prependLiveFlow(f) {
+  const el = document.getElementById('live-flows-list');
+  if (!el) return;
+  // Remove the "no flows" placeholder if present
+  if (el.children.length === 1 && el.firstElementChild.tagName === 'P') el.innerHTML = '';
+  const div = document.createElement('div');
+  div.innerHTML = flowRowHtml(f);
+  el.insertBefore(div.firstElementChild, el.firstChild);
+  // Cap at 20 visible
+  while (el.children.length > 20) el.removeChild(el.lastElementChild);
+}
+function showToast(title, body, severity) {
+  const sevColor = { low:'#3ad29f', medium:'#ffb84a', high:'#ff8c42', critical:'#ff5c5c' }[severity] || '#6c7686';
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1a2028;border-left:4px solid ' + sevColor + ';padding:12px 16px;border-radius:8px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:1000;max-width:400px;animation:slideIn .3s;';
+  t.innerHTML = '<div style="font-weight:600;">' + title + '</div>' + (body ? '<div style="font-size:.85em;color:#aab2c0;margin-top:4px;">' + body + '</div>' : '');
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 6000);
+}
+
+// ─── Rules tab ─────────────────────────────────────────────────────────
+async function loadRulePresets() {
+  try {
+    const r = await api('/customer/rule-presets');
+    const el = document.getElementById('preset-list');
+    if (!el) return;
+    el.innerHTML = Object.entries(r.presets).map(([key, p]) => {
+      const ico = ({ kids: '👶', privacy: '🛡️', work_focus: '💼', security_max: '🔒' })[key] || '🎯';
+      return '<button class="ghost" onclick="applyPreset(\''+key+'\')" style="text-align:left;padding:10px;display:flex;align-items:center;gap:10px;">'
+        + '<span style="font-size:1.4em;">'+ico+'</span>'
+        + '<div style="flex:1;"><div style="color:#fff;font-weight:500;">'+escapeHtml(p.label)+'</div>'
+        + '<div style="color:#6c7686;font-size:.78em;">'+escapeHtml(p.description)+' · '+p.rules.length+' rules</div></div>'
+        + '<span style="color:#3ad29f;">＋</span>'
+        + '</button>';
+    }).join('');
+  } catch (e) {}
+}
+async function applyPreset(key) {
+  try {
+    const r = await api('/customer/rules/apply-preset', { method: 'POST', body: JSON.stringify({ preset: key }) });
+    showToast('Applied preset: '+r.added.length+' rule(s) added');
+    loadCategories(); loadCustomRules();
+  } catch (e) { showToast('Error: '+e.message, true); }
+}
+function showToast(msg, err) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:'+(err?'#ff5c5c':'#3ad29f')+';color:#000;padding:10px 16px;border-radius:8px;z-index:200;font-weight:500;font-size:.9em;';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+async function loadCategories() {
+  try {
+    const [cats, rules] = await Promise.all([
+      api('/customer/categories'),
+      api('/customer/rules'),
+    ]);
+    const blockedCats = new Set((rules.rules || []).filter(r => r.type === 'category' && r.action === 'block' && r.enabled !== false).map(r => r.value));
+    const ruleByCat = Object.fromEntries((rules.rules || []).filter(r => r.type === 'category').map(r => [r.value, r]));
+    const el = document.getElementById('cat-list');
+    el.innerHTML = '';
+    for (const [key, cat] of Object.entries(cats.categories)) {
+      const isOn = blockedCats.has(key);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:#0f1419;border-radius:8px;';
+      row.innerHTML = '<div style="font-size:1.6em;">' + (cat.icon || '🔘') + '</div>'
+        + '<div style="flex:1;"><div style="color:#fff;">' + cat.name + '</div><div style="color:#6c7686;font-size:.8em;">' + cat.domain_count + ' domains' + (cat.locked ? ' · locked' : '') + '</div></div>'
+        + '<button class="' + (isOn ? 'primary' : 'ghost') + '" data-key="' + key + '" data-rule="' + (ruleByCat[key] ? ruleByCat[key].id : '') + '">'
+        + (isOn ? '✓ Blocked' : 'Allow')
+        + '</button>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('button').forEach(b => b.onclick = () => toggleCategory(b.dataset.key, b.dataset.rule));
+  } catch (e) {
+    document.getElementById('cat-list').innerHTML = '<p style="color:#ff5c5c;font-size:.85em;">' + e.message + '</p>';
+  }
+}
+
+async function toggleCategory(key, ruleId) {
+  if (ruleId) {
+    await api('/customer/rules/delete', { method:'POST', body: JSON.stringify({ id: ruleId }) });
+  } else {
+    await api('/customer/rules/add', { method:'POST', body: JSON.stringify({ scope:'all', type:'category', value: key, action:'block' }) });
+  }
+  loadCategories();
+}
+
+async function loadCustomRules() {
+  const r = await api('/customer/rules');
+  const el = document.getElementById('custom-rules-list');
+  const custom = (r.rules || []).filter(x => x.type === 'domain');
+  if (!custom.length) { el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">No custom blocks yet</p>'; return; }
+  el.innerHTML = '';
+  for (const rule of custom) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#0f1419;border-radius:6px;margin-bottom:6px;';
+    row.innerHTML = '<div style="flex:1;color:#fff;font-family:monospace;font-size:.9em;">' + rule.value + '</div>'
+      + '<button class="ghost" style="padding:6px 10px;font-size:.85em;" data-id="' + rule.id + '">✕</button>';
+    el.appendChild(row);
+  }
+  el.querySelectorAll('button').forEach(b => b.onclick = async () => {
+    await api('/customer/rules/delete', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+    loadCustomRules();
+  });
+}
+
+async function addDomainRule() {
+  const v = (document.getElementById('rule-domain').value || '').trim();
+  if (!v) return;
+  try {
+    await api('/customer/rules/add', { method:'POST', body: JSON.stringify({ scope:'all', type:'domain', value: v, action:'block' }) });
+    document.getElementById('rule-domain').value = '';
+    loadCustomRules();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadAlarms() {
+  try {
+    const r = await api('/customer/alarms');
+    const el = document.getElementById('alarms-list');
+    if (!r.alarms || !r.alarms.length) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">No alarms — your network is quiet</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const a of r.alarms.slice(0, 30)) {
+      const sevColor = { low:'#3ad29f', medium:'#ffb84a', high:'#ff8c42', critical:'#ff5c5c' }[a.severity] || '#6c7686';
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:10px;background:#0f1419;border-radius:6px;border-left:3px solid ' + sevColor + ';margin-bottom:6px;' + (a.acked ? 'opacity:.5;' : '');
+      const ackBtn = a.acked
+        ? '<span style="color:#3ad29f;font-size:.8em;">✓ acked</span>'
+        : '<button class="ghost ack-btn" data-id="' + a.id + '" style="padding:4px 10px;font-size:.75em;">✓ Ack</button>';
+      row.innerHTML = '<div style="display:flex;align-items:start;gap:8px;">'
+        +   '<div style="flex:1;">'
+        +     '<div style="color:#fff;">' + (a.title || a.kind) + '</div>'
+        +     '<div style="color:#6c7686;font-size:.8em;margin-top:2px;">' + new Date(a.ts).toLocaleString() + ' · ' + a.severity + '</div>'
+        +     (a.body ? '<div style="color:#aab2c0;font-size:.85em;margin-top:4px;">' + a.body + '</div>' : '')
+        +   '</div>'
+        +   '<div>' + ackBtn + '</div>'
+        + '</div>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('.ack-btn').forEach(b => b.onclick = async () => {
+      try {
+        await api('/customer/alarms/ack', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+        loadAlarms();
+      } catch (e) { alert(e.message); }
+    });
+  } catch {}
+}
+
+// ─── WireGuard ─────────────────────────────────────────────────────────
+async function loadWgPeers() {
+  try {
+    const r = await api('/customer/wg/peers');
+    const el = document.getElementById('wg-peers-list');
+    if (!r.peers || !r.peers.length) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:8px;font-size:.85em;">No peers yet</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const p of r.peers) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#0f1419;border-radius:6px;margin-bottom:6px;';
+      row.innerHTML = '<div style="flex:1;"><div style="color:#fff;">' + p.label + '</div><div style="color:#6c7686;font-size:.8em;">' + p.address + '</div></div>'
+        + '<button class="ghost qr" style="padding:6px 10px;font-size:.85em;" data-pid="' + p.id + '" title="Show QR for WireGuard app">📱</button>'
+        + '<button class="ghost dl" style="padding:6px 10px;font-size:.85em;" data-pid="' + p.id + '">⬇</button>'
+        + '<button class="ghost del" style="padding:6px 10px;font-size:.85em;color:#ff5c5c;" data-id="' + p.id + '">✕</button>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('button.qr').forEach(b => b.onclick = () => showWgQr(b.dataset.pid));
+    el.querySelectorAll('button.dl').forEach(b => b.onclick = () => downloadWgConf(b.dataset.pid));
+    el.querySelectorAll('button.del').forEach(b => b.onclick = async () => {
+      if (!confirm('Delete this peer?')) return;
+      await api('/customer/wg/peers/delete', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+      loadWgPeers();
+    });
+  } catch (e) {
+    const el = document.getElementById('wg-peers-list');
+    el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">' + (e.message.includes('plan_limit') ? 'Upgrade to Pro for VPN' : e.message) + '</p>';
+  }
+}
+async function ensureQrcodeLib() {
+  if (window.QRCode) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/api/qrcode.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('failed to load qrcode lib'));
+    document.head.appendChild(s);
+  });
+}
+
+async function showWgQr(peerId) {
+  try {
+    await ensureQrcodeLib();
+    const res = await fetch('/api/customer/wg/peers/' + peerId + '.conf', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) throw new Error(await res.text());
+    const conf = await res.text();
+    let modal = document.getElementById('modal-wg-qr');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-wg-qr';
+      modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;padding:24px;';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = '<div style="background:var(--bg-elev);padding:20px;border-radius:14px;text-align:center;max-width:340px;">'
+      + '<h2 style="margin:0 0 14px 0;color:#fff;font-size:1em;">Scan with WireGuard app</h2>'
+      + '<canvas id="wg-qr-canvas" style="background:#fff;padding:8px;border-radius:8px;"></canvas>'
+      + '<p style="color:#8aa0c0;font-size:.85em;margin:14px 0;">Open the WireGuard app → ＋ → Scan from QR code</p>'
+      + '<button class="secondary close-wg-qr" style="width:100%;">Close</button>'
+      + '</div>';
+    modal.style.display = 'flex';
+    modal.querySelector('.close-wg-qr').onclick = () => modal.style.display = 'none';
+    QRCode.toCanvas(document.getElementById('wg-qr-canvas'), conf, { width: 280, margin: 1 }, (err) => {
+      if (err) console.error('qr render:', err);
+    });
+  } catch (e) { alert(e.message); }
+}
+
+async function addWgPeer() {
+  const label = (document.getElementById('wg-label').value || 'Device').trim();
+  try {
+    await api('/customer/wg/peers/create', { method:'POST', body: JSON.stringify({ label }) });
+    document.getElementById('wg-label').value = '';
+    loadWgPeers();
+  } catch (e) { alert(e.message); }
+}
+async function downloadWgConf(id) {
+  const url = '/api/customer/wg/peers/' + id + '.conf';
+  const a = document.createElement('a');
+  a.href = url + '?_t=' + token;  // not ideal but works for demo
+  a.download = 'mes-vpn.conf';
+  // Use fetch to include the auth header, then trigger download via blob URL
+  try {
+    const res = await fetch('/api/customer/wg/peers/' + id + '.conf', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const u = URL.createObjectURL(blob);
+    a.href = u;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 1000);
+  } catch (e) { alert(e.message); }
+}
+
+// ─── DDNS ─────────────────────────────────────────────────────────────
+async function loadDdns() {
+  try {
+    const r = await api('/customer/ddns');
+    const el = document.getElementById('ddns-info');
+    if (!r.records || !r.records.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No hostname claimed yet</p>';
+      return;
+    }
+    const d = r.records[0];
+    el.innerHTML = '<div style="padding:10px;background:#0f1419;border-radius:6px;">'
+      + '<div style="color:#3ad29f;font-family:monospace;font-size:.95em;">' + d.hostname + '</div>'
+      + '<div style="color:#6c7686;font-size:.8em;margin-top:4px;">→ ' + (d.current_ip || '(waiting for box heartbeat)') + (d.last_update ? ' · updated ' + new Date(d.last_update).toLocaleTimeString() : '') + '</div>'
+      + '</div>';
+  } catch {}
+}
+async function claimDdns() {
+  const slug = (document.getElementById('ddns-slug').value || '').trim();
+  if (!slug) return;
+  try {
+    const r = await api('/customer/ddns/claim', { method:'POST', body: JSON.stringify({ slug }) });
+    document.getElementById('ddns-slug').value = '';
+    loadDdns();
+    alert('Claimed: ' + r.hostname);
+  } catch (e) { alert(e.message); }
+}
+
+// ─── Multi-site ───────────────────────────────────────────────────────
+async function loadSites() {
+  try {
+    const r = await api('/customer/sites');
+    const el = document.getElementById('sites-list');
+    const card = document.getElementById('card-sites');
+    // Show the card only if user has business plan OR already has sites
+    if (user && (user.plan === 'business' || (r.sites && r.sites.length))) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+      return;
+    }
+    if (!r.sites || !r.sites.length) {
+      el.innerHTML = '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No additional sites yet</p>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const s of r.sites) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#0f1419;border-radius:6px;margin-bottom:6px;';
+      row.innerHTML = '<div style="flex:1;"><div style="color:#fff;">' + s.name + '</div>'
+        + (s.address ? '<div style="color:#6c7686;font-size:.8em;">' + s.address + '</div>' : '')
+        + '<div style="color:#6c7686;font-size:.8em;">' + (s.box_macs.length ? s.box_macs.length + ' box(es)' : 'no box assigned') + '</div></div>'
+        + '<button class="ghost" style="padding:6px 10px;color:#ff5c5c;" data-id="' + s.id + '">✕</button>';
+      el.appendChild(row);
+    }
+    el.querySelectorAll('button[data-id]').forEach(b => b.onclick = async () => {
+      if (!confirm('Delete this site?')) return;
+      await api('/customer/sites/delete', { method:'POST', body: JSON.stringify({ id: b.dataset.id }) });
+      loadSites();
+    });
+  } catch {}
+}
+async function addSite() {
+  const name = (document.getElementById('site-name').value || '').trim();
+  if (!name) return;
+  try {
+    await api('/customer/sites/create', { method:'POST', body: JSON.stringify({ name }) });
+    document.getElementById('site-name').value = '';
+    loadSites();
+  } catch (e) { alert(e.message); }
+}
+
+function logout() {
+  if (!confirm('Sign out?')) return;
+  localStorage.removeItem('mes_token');
+  token = null;
+  user = null;
+  show('login');
+}
+
+async function boxAction(action) {
+  const out = document.getElementById('action-output');
+  out.innerHTML = '<div class="card" style="background:#0f1419;text-align:center;padding:14px;"><span class="spinner"></span> Running ' + action + '...</div>';
+  if (action === 'reboot' && !confirm('Reboot the box? Internet will be down ~60 seconds.')) {
+    out.innerHTML = ''; return;
+  }
+  try {
+    const r = await api('/customer/box/action', { method:'POST', body: JSON.stringify({ action }) });
+    let html = '<div class="card" style="background:#0f1419;padding:14px;"><strong style="color:#3ad29f;">✓ ' + action + '</strong>';
+    if (r.result) {
+      if (action === 'speedtest') {
+        html += `<div style="margin-top:8px;font-size:.95em;">
+          ⬇ <strong>${r.result.down_mbps}</strong> Mbps · ⬆ <strong>${r.result.up_mbps}</strong> Mbps · 📡 ${r.result.latency_ms} ms</div>`;
+      } else if (action === 'status') {
+        html += `<div style="margin-top:8px;font-size:.9em;color:#8aa0c0;">
+          uptime ${r.result.uptime_h}h · CPU ${r.result.cpu_pct}% · RAM ${r.result.ram_pct}% · ${r.result.temp_c}°C · firmware ${r.result.firmware}</div>`;
+      }
+    } else {
+      html += '<div style="margin-top:8px;font-size:.9em;color:#8aa0c0;">Command sent to your box.</div>';
+    }
+    html += '</div>';
+    out.innerHTML = html;
+  } catch (e) {
+    out.innerHTML = '<div class="card" style="background:#4a2020;border-left:3px solid #ff5c5c;padding:14px;">Error: ' + e.message + '</div>';
+  }
+}
+
+async function downloadVPN() {
+  const r = await fetch('/api/customer/vpn', { headers: { 'Authorization': 'Bearer ' + token } });
+  if (!r.ok) { alert('Failed to download'); return; }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mes-vpn.ovpn';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openEditProfile() {
+  document.getElementById('ep-name').value = user.name || '';
+  document.getElementById('ep-email').value = user.email || '';
+  document.getElementById('ep-address').value = user.address || '';
+  document.getElementById('modal-edit').style.display = 'flex';
+}
+
+async function saveProfile() {
+  try {
+    const r = await api('/customer/me/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('ep-name').value,
+        email: document.getElementById('ep-email').value,
+        address: document.getElementById('ep-address').value,
+      }),
+    });
+    user = { ...user, ...r.customer };
+    hideModal('edit');
+    await bootApp();  // refresh display
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function exportMyData() {
+  const r = await fetch('/api/customer/me/export', { headers: { 'Authorization': 'Bearer ' + token } });
+  if (!r.ok) { alert('Failed'); return; }
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'my-mes-data.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function deleteMyAccount() {
+  if (!user) return;
+  if (!confirm('⚠ Permanently delete your account?\\n\\nThis removes:\\n- Profile + preferences\\n- Family members\\n- Schedules\\n- Notifications + chat history\\n\\nYour box stays installed but becomes unassigned.\\n\\nThis cannot be undone.')) return;
+  const phone = prompt('Type your phone number to confirm (' + user.phone + '):');
+  if (!phone) return;
+  try {
+    const r = await fetch('/api/customer/me/delete', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm_phone: phone }),
+    });
+    const d = await r.json();
+    if (!r.ok) { alert('Failed: ' + (d.error || 'try again')); return; }
+    alert('Account deleted. Goodbye.');
+    localStorage.removeItem('mes_token');
+    token = null; user = null;
+    show('login');
+  } catch (e) { alert(e.message); }
+}
+
+function openReport() {
+  // Open in new tab using token via short-lived URL with auth header is tricky; use window.open + JS fetch
+  fetch('/api/customer/report', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.text())
+    .then(html => {
+      const w = window.open('', '_blank');
+      w.document.write(html);
+      w.document.close();
+    })
+    .catch(e => alert(e.message));
+}
+
+// ============= Sparkline (no library) =============
+function sparklineHtml(series, w = 220, h = 28) {
+  if (!series || !series.length) return '';
+  const max = Math.max(...series, 1);
+  const step = w / (series.length - 1);
+  const points = series.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" style="margin-top:4px;display:block;" viewBox="0 0 ${w} ${h}">
+    <polyline points="${points}" fill="none" stroke="#3ad29f" stroke-width="1.5" />
+    <polyline points="0,${h} ${points} ${w},${h}" fill="rgba(58,210,159,0.12)" stroke="none" />
+  </svg>`;
+}
+
+// ============= Device detail modal =============
+function openDevice(mac, deviceJson) {
+  const d = (typeof deviceJson === 'string') ? JSON.parse(deviceJson) : deviceJson;
+  const fam = window.__family || [];
+  const ownerOpts = '<option value="">— ' + ((I18N[lang]||{})['device.unassigned'] || 'no owner') + ' —</option>' +
+    fam.map(f => `<option value="${f.id}" ${f.id===d.owner_id?'selected':''}>${f.name} (${f.role})</option>`).join('');
+
+  const total = d.total_24h_mb >= 1024 ? (d.total_24h_mb/1024).toFixed(1) + ' GB' : d.total_24h_mb + ' MB';
+  const renameLabel = (I18N[lang]||{})['device.rename'] || 'Custom name';
+  const placeholder = d.default_name || '';
+
+  document.getElementById('modal-device-body').innerHTML = `
+    <div style="text-align:center;font-size:2.5em;margin-bottom:8px;">${d.icon}</div>
+    <h2 style="margin:0 0 4px 0;text-align:center;font-size:1.1em;color:#fff;">${d.name}</h2>
+    <div style="text-align:center;color:#6c7686;font-size:.85em;font-family:monospace;margin-bottom:18px;">${d.mac} · ${d.ip || ''}</div>
+
+    <div style="background:#0f1419;border-radius:10px;padding:12px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="color:#8aa0c0;font-size:.85em;">${(I18N[lang]||{})['device.usage'] || '24h Usage'}</span>
+        <span style="color:#3ad29f;font-weight:600;">${total}</span>
+      </div>
+      ${sparklineHtml(d.usage_24h_mb, 320, 50)}
+    </div>
+
+    <label>${renameLabel}</label>
+    <input id="dev-rename" placeholder="${placeholder}" value="${d.custom_name ? d.name.replace(/"/g, '&quot;') : ''}" style="margin-bottom:10px;">
+
+    <label class="i18n" data-key="device.owner">Family member</label>
+    <select id="dev-owner" style="margin-bottom:14px;">${ownerOpts}</select>
+
+    <label>Tags (comma-separated: kid, iot, guest, …)</label>
+    <input id="dev-tags" placeholder="kid, trusted" style="margin-bottom:14px;">
+
+    <label>Daily screen-time minutes (0 = no limit)</label>
+    <input id="dev-tb-min" type="number" min="0" placeholder="0" style="margin-bottom:14px;">
+    <div id="dev-tb-status" style="color:#8aa0c0;font-size:.8em;margin-top:-8px;margin-bottom:12px;"></div>
+
+    <button class="primary" onclick="saveDevice('${d.mac}')" style="width:100%;">
+      ${(I18N[lang]||{})['save'] || 'Save'}
+    </button>
+    <button class="ghost" onclick="wakeDevice('${d.mac}')" style="width:100%;margin-top:8px;">⚡ Wake on LAN</button>
+    <button class="ghost" onclick="loadDeviceDnsLog('${d.mac}')" style="width:100%;margin-top:8px;">📜 Show last DNS queries</button>
+    <button class="ghost" onclick="downloadDeviceFlows('${d.mac}')" style="width:100%;margin-top:8px;">⬇ Download 24h flows (CSV)</button>
+    <div id="dev-dns-log" style="margin-top:10px;font-family:monospace;font-size:.78em;max-height:200px;overflow-y:auto;"></div>
+    <button class="secondary" onclick="hideModal('device')" style="width:100%;margin-top:8px;">
+      ${(I18N[lang]||{})['cancel'] || 'Cancel'}
+    </button>`;
+
+  document.getElementById('modal-device').style.display = 'flex';
+  // Hydrate tags + time bank for this device asynchronously
+  hydrateDeviceModal(d.mac);
+}
+
+async function hydrateDeviceModal(mac) {
+  try {
+    const [tagsRes, tbRes] = await Promise.all([
+      api('/customer/device-tags'),
+      api('/customer/time-bank'),
+    ]);
+    const tags = (tagsRes.tags && tagsRes.tags[mac]) || [];
+    document.getElementById('dev-tags').value = tags.join(', ');
+    const tb = (tbRes.entries || []).find(e => e.device_mac === mac);
+    if (tb) {
+      document.getElementById('dev-tb-min').value = tb.daily_minutes;
+      const remaining = Math.max(0, tb.daily_minutes - tb.used_minutes);
+      const c = remaining < 30 ? '#ff5c5c' : (remaining < 60 ? '#ffb84a' : '#3ad29f');
+      document.getElementById('dev-tb-status').innerHTML =
+        '<span style="color:' + c + ';">' + remaining + ' min remaining today (' + tb.used_minutes + '/' + tb.daily_minutes + ')</span>';
+    }
+  } catch {}
+}
+
+async function wakeDevice(mac) {
+  if (!confirm('Send Wake-on-LAN packet to ' + mac + '?')) return;
+  try {
+    const r = await api('/customer/box/action', {
+      method:'POST',
+      body: JSON.stringify({ action: 'wol', args: { target_mac: mac } }),
+    });
+    alert(r.status === 'completed' ? '✓ WoL packet sent' : '⏳ ' + (r.message || 'queued'));
+  } catch (e) { alert(e.message); }
+}
+
+async function runSelfTest() {
+  let modal = document.getElementById('modal-selftest');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-selftest';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;padding:20px;';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = '<div style="background:var(--bg-elev);padding:24px;border-radius:14px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">'
+    + '<h2 style="color:#fff;margin:0 0 16px 0;">🩺 Setup health check</h2>'
+    + '<div id="st-list" style="text-align:center;color:#6c7686;">Running…</div>'
+    + '<button class="secondary close-st" style="width:100%;margin-top:16px;">Close</button></div>';
+  modal.style.display = 'flex';
+  modal.querySelector('.close-st').onclick = () => modal.style.display = 'none';
+  try {
+    const r = await api('/customer/self-test');
+    const list = r.checks.map(c => {
+      const icon = c.status === 'pass' ? '✅' : (c.status === 'warn' ? '⚠️' : (c.status === 'fail' ? '❌' : '⏭'));
+      const color = c.status === 'pass' ? '#3ad29f' : (c.status === 'warn' ? '#ffb84a' : (c.status === 'fail' ? '#ff5c5c' : '#6c7686'));
+      return '<div style="padding:10px;background:#0f1419;border-left:3px solid ' + color + ';border-radius:6px;margin-bottom:6px;text-align:left;">'
+        + '<div style="color:#fff;">' + icon + ' ' + c.label + '</div>'
+        + '<div style="color:#aab2c0;font-size:.8em;margin-top:2px;">' + c.detail + '</div></div>';
+    }).join('');
+    document.getElementById('st-list').innerHTML =
+      '<div style="text-align:center;font-size:1.6em;color:#3ad29f;margin-bottom:14px;">' + r.score + ' / ' + r.max + ' (' + r.percent + '%)</div>'
+      + list;
+  } catch (e) {
+    document.getElementById('st-list').innerHTML = '<p style="color:#ff5c5c;">' + e.message + '</p>';
+  }
+}
+
+async function reportBug() {
+  const desc = prompt('Briefly describe the problem you\'re seeing:\n\n(Browser info + recent activity will be attached automatically — no need to include those.)');
+  if (!desc) return;
+  try {
+    // Collect browser-side context
+    const recent = (window.__recent_events || []).slice(-30);
+    await api('/customer/bug-report', { method:'POST', body: JSON.stringify({
+      description: desc,
+      url: location.pathname + location.search,
+      recent_events: recent,
+    }) });
+    alert('✓ Bug report sent. We\'ll respond in your support thread.');
+  } catch (e) { alert(e.message); }
+}
+
+async function downloadDeviceFlows(mac) {
+  try {
+    const res = await fetch('/api/customer/device/' + encodeURIComponent(mac) + '/flows.csv', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = 'device-' + mac.replace(/:/g, '') + '-flows.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 1000);
+  } catch (e) { alert(e.message); }
+}
+
+async function loadDeviceDnsLog(mac) {
+  try {
+    const r = await api('/customer/dns-queries?mac=' + encodeURIComponent(mac));
+    const el = document.getElementById('dev-dns-log');
+    if (!r.queries || !r.queries.length) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:8px;">No DNS queries logged for this device.</p>';
+      return;
+    }
+    el.innerHTML = r.queries.slice(0, 30).map(q =>
+      '<div style="padding:3px 6px;background:#0f1419;margin-bottom:2px;border-radius:4px;display:flex;justify-content:space-between;">'
+      + '<span style="color:' + (q.blocked ? '#ff5c5c' : '#aab2c0') + ';">' + (q.blocked ? '🚫 ' : '') + q.qname + '</span>'
+      + '<span style="color:#6c7686;font-size:.85em;">' + new Date(q.ts).toLocaleTimeString() + '</span>'
+      + '</div>'
+    ).join('');
+  } catch (e) { document.getElementById('dev-dns-log').textContent = e.message; }
+}
+
+async function saveDevice(mac) {
+  const family_id = document.getElementById('dev-owner').value;
+  const newName = document.getElementById('dev-rename').value.trim();
+  const tagsStr = (document.getElementById('dev-tags')?.value || '').trim();
+  const tags = tagsStr ? tagsStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+  const tbMin = parseInt(document.getElementById('dev-tb-min')?.value || '0');
+
+  try {
+    await api('/customer/device/assign', { method:'POST', body: JSON.stringify({ mac, family_id }) });
+    if (newName) await api('/customer/device/rename', { method:'POST', body: JSON.stringify({ mac, name: newName }) });
+    await api('/customer/device-tags/set', { method:'POST', body: JSON.stringify({ mac, tags }) });
+    if (tbMin > 0) {
+      await api('/customer/time-bank/set', { method:'POST', body: JSON.stringify({ device_mac: mac, daily_minutes: tbMin }) });
+    }
+  } catch (e) { alert('Save partial: ' + e.message); }
+  hideModal('device');
+  await bootApp();
+}
+
+// ============= Support chat =============
+async function refreshChat() {
+  try {
+    const r = await api('/customer/support');
+    const list = r.messages || [];
+    const el = document.getElementById('chat-thread');
+    if (!list.length) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:12px;font-size:.85em;">No messages yet — say hi!</p>';
+      return;
+    }
+    el.innerHTML = list.map(m => {
+      const isMe = m.from === 'customer';
+      const t = new Date(m.ts).toLocaleString();
+      return `<div style="text-align:${isMe ? 'right' : 'left'};margin-bottom:10px;">
+        <div style="display:inline-block;max-width:80%;padding:8px 12px;border-radius:14px;background:${isMe ? '#1f4f3d' : '#2a3340'};color:#fff;font-size:.92em;text-align:left;">${m.body}</div>
+        <div style="font-size:.7em;color:#6c7686;margin-top:2px;${isMe ? 'text-align:right;' : ''}">${isMe ? 'you' : 'mes Cloud'} · ${t}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch (e) {
+    document.getElementById('chat-thread').innerHTML = '<p style="color:#ff5c5c;font-size:.85em;text-align:center">Failed to load</p>';
+  }
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const body = input.value.trim();
+  if (!body) return;
+  try {
+    await api('/customer/support', { method:'POST', body: JSON.stringify({ body }) });
+    input.value = '';
+    await refreshChat();
+  } catch (e) { alert(e.message); }
+}
+
+// Poll chat every 15s while logged in
+setInterval(() => {
+  if (token && document.getElementById('screen-app').classList.contains('active')) {
+    refreshChat().catch(()=>{});
+  }
+}, 15000);
+
+// ============= Web Push subscription =============
+function urlB64ToUint8Array(b64) {
+  const padding = '='.repeat((4 - b64.length % 4) % 4);
+  const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function getPushState() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  if (sub) return 'subscribed';
+  return Notification.permission === 'denied' ? 'denied' : 'not-subscribed';
+}
+
+async function refreshPushUI() {
+  const row = document.getElementById('push-row');
+  const status = document.getElementById('push-status');
+  if (!row) return;
+  const state = await getPushState();
+  if (state === 'unsupported') {
+    status.textContent = 'Not supported on this browser';
+  } else if (state === 'denied') {
+    status.textContent = 'Blocked — re-enable in browser settings';
+    row.style.opacity = .6;
+  } else if (state === 'subscribed') {
+    status.textContent = '✓ Active · tap to disable';
+    row.style.opacity = 1;
+  } else {
+    status.textContent = 'Tap to enable';
+    row.style.opacity = 1;
+  }
+}
+
+async function togglePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Push notifications are not supported on this browser.');
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await api('/customer/push/unsubscribe', { method:'POST', body: JSON.stringify({ endpoint: existing.endpoint }) });
+    await existing.unsubscribe();
+    await refreshPushUI();
+    alert('Push notifications disabled.');
+    return;
+  }
+  // Request permission
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { alert('Permission denied.'); await refreshPushUI(); return; }
+  // Get VAPID public key
+  const r = await fetch('/api/vapid-public-key');
+  const { public_key } = await r.json();
+  // Subscribe
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlB64ToUint8Array(public_key),
+  });
+  // Send subscription to backend
+  const subscription = sub.toJSON();
+  await api('/customer/push/subscribe', { method:'POST', body: JSON.stringify({ subscription }) });
+  await refreshPushUI();
+  // Send a test push to confirm
+  setTimeout(async () => {
+    try { await api('/customer/push/test', { method:'POST', body: '{}' }); } catch {}
+  }, 500);
+  alert('✓ Push notifications enabled. A test will arrive shortly.');
+}
+
+// ============= PWA install prompt =============
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  const row = document.getElementById('install-row');
+  if (row) row.style.display = 'flex';
+  // Show inline banner once per session unless user dismissed before
+  if (!sessionStorage.getItem('mes_install_dismissed') && !localStorage.getItem('mes_install_done')) {
+    setTimeout(() => showInstallBanner(), 8000);  // wait 8s — let user see app first
+  }
+});
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('mes_install_done', '1');
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.remove();
+});
+
+function showInstallBanner() {
+  if (document.getElementById('install-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'install-banner';
+  b.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:linear-gradient(135deg,#ff8c42,#3ad29f);color:#000;padding:14px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:80;display:flex;align-items:center;gap:10px;animation:slideUp .3s ease-out;';
+  b.innerHTML = '<div style="font-size:1.6em;">📲</div>'
+    + '<div style="flex:1;"><div style="font-weight:700;color:#000;">Install mes Network</div><div style="font-size:.78em;color:rgba(0,0,0,.7);">Quick access from your home screen</div></div>'
+    + '<button id="ib-yes"  style="background:#000;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;">Install</button>'
+    + '<button id="ib-no"   style="background:transparent;color:rgba(0,0,0,.6);border:none;padding:8px;cursor:pointer;font-size:1.4em;">×</button>';
+  document.body.appendChild(b);
+  document.getElementById('ib-yes').onclick = () => installPWA();
+  document.getElementById('ib-no').onclick = () => {
+    sessionStorage.setItem('mes_install_dismissed', '1');
+    b.remove();
+  };
+}
+async function installPWA() {
+  if (!deferredInstall) {
+    alert('To install: open this in Safari/Chrome and use "Add to Home Screen".');
+    return;
+  }
+  deferredInstall.prompt();
+  const { outcome } = await deferredInstall.userChoice;
+  if (outcome === 'accepted') {
+    document.getElementById('install-row').style.display = 'none';
+  }
+  deferredInstall = null;
+}
+
+// ============= Invoices =============
+async function refreshInvoices() {
+  try {
+    const r = await api('/customer/invoices');
+    const list = r.invoices || [];
+    const el = document.getElementById('invoices-list');
+    if (!list.length) {
+      el.innerHTML = '<p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">No invoices yet.</p>';
+      return;
+    }
+    el.innerHTML = list.slice(0, 12).map(inv => {
+      const isPaid = inv.status === 'paid';
+      const color = isPaid ? '#3ad29f' : '#ff8c42';
+      const bg = isPaid ? '#1f4f3d' : '#4a3520';
+      return `<div class="list-item">
+        <div class="icon-circle" style="background:${bg};color:${color};">${isPaid ? '✓' : '!'}</div>
+        <div class="info">
+          <div class="name">${inv.period} · ${inv.currency} ${inv.amount.toFixed(2)}</div>
+          <div class="meta">${inv.lines && inv.lines[0] ? inv.lines[0].desc : ''}</div>
+        </div>
+        <div class="right">
+          <span class="pill ${isPaid ? 'ok' : 'warn'}">${inv.status}</span>
+          <button onclick="openInvoice('${inv.id}')" style="background:none;border:none;color:#3ad29f;cursor:pointer;font-size:1.2em;margin-${'inline-start'}:8px;">📄</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('invoices-list').innerHTML = '<p style="color:#ff5c5c;font-size:.85em;text-align:center;">Failed to load</p>';
+  }
+}
+
+function openInvoice(id) {
+  fetch('/api/customer/invoices/' + id + '.html', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.text())
+    .then(html => {
+      const w = window.open('', '_blank');
+      w.document.write(html);
+      w.document.close();
+    });
+}
+
+// ============= Per-customer activity log =============
+async function refreshActivity() {
+  try {
+    const r = await api('/customer/activity');
+    const list = r.activity || [];
+    const html = list.length
+      ? list.slice(0, 15).map(a => {
+          // Strip "[KIND] CustomerName " prefix for prettier display
+          const m = a.action.match(/^\[([^\]]+)\] [^\s]+ ?(.*)$/);
+          const kind = m ? m[1] : 'ACTION';
+          const desc = m ? m[2] : a.action;
+          return `<div class="list-item">
+            <div class="icon-circle">📜</div>
+            <div class="info">
+              <div class="name" style="font-size:.92em;">${kind}</div>
+              <div class="meta">${desc || '—'} · ${new Date(a.ts).toLocaleString()}</div>
+            </div>
+          </div>`;
+        }).join('')
+      : '<p style="color:#6c7686;text-align:center;padding:14px;font-size:.85em;">No activity yet.</p>';
+    document.getElementById('activity-list').innerHTML = html;
+  } catch (e) {
+    document.getElementById('activity-list').innerHTML = '<p style="color:#ff5c5c;font-size:.85em;text-align:center;">Failed to load</p>';
+  }
+}
+
+// ============= Notifications =============
+async function refreshNotifications() {
+  try {
+    const r = await api('/customer/notifications');
+    const list = (r.notifications || []).filter(n => !n.read);
+    const banner = document.getElementById('notif-banner');
+    if (list.length === 0) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+    banner.style.display = 'block';
+    // Compact design: collapsible card with most-recent on top, count badge.
+    const newest = list[0];
+    const accent = newest.kind === 'success' ? 'var(--accent)' : newest.kind === 'warn' ? 'var(--warn)' : newest.kind === 'system' ? 'var(--accent-2)' : 'var(--text-dim)';
+    const ico = newest.kind === 'success' ? '✓' : newest.kind === 'warn' ? '⚠' : newest.kind === 'system' ? 'ℹ' : '•';
+    const more = list.length > 1 ? `<span style="margin-${'inline-start'}:8px;background:var(--bg-elev-2);color:var(--text-dim);padding:2px 8px;border-radius:99px;font-size:.7em;font-weight:600;">+${list.length - 1} more</span>` : '';
+    banner.innerHTML = `<div class="card" style="display:flex;align-items:start;gap:10px;padding:12px 14px;cursor:pointer;" onclick="document.querySelector('[data-tab=\\'settings\\']').click()">
+      <div style="width:32px;height:32px;border-radius:10px;background:rgba(0,212,170,0.12);color:${accent};display:flex;align-items:center;justify-content:center;font-size:1.1em;flex-shrink:0;">${ico}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;color:var(--text);font-size:.95em;display:flex;align-items:center;flex-wrap:wrap;">${escapeHtml(newest.title)}${more}</div>
+        <div style="font-size:.8em;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(newest.body)}</div>
+      </div>
+      <button onclick="event.stopPropagation();dismissNotif('${newest.id}')" style="background:none;border:none;color:var(--text-faint);font-size:1.3em;cursor:pointer;flex-shrink:0;">×</button>
+    </div>`;
+  } catch (e) { /* silent */ }
+}
+
+async function dismissNotif(id) {
+  await api('/customer/notifications/read', { method:'POST', body: JSON.stringify({ ids: [id] }) });
+  await refreshNotifications();
+}
+
+// ============= Family =============
+let cachedDevices = [];
+
+async function refreshFamily() {
+  const r = await api('/customer/family');
+  const list = r.family || [];
+  window._famCache = list;
+  document.getElementById('family-list').innerHTML = list.length
+    ? list.map(f => `
+        <div class="list-item" style="cursor:pointer;" onclick="openFamilyDevicesModal('${f.id}')">
+          <div class="icon-circle">${f.icon || '👤'}</div>
+          <div class="info">
+            <div class="name">${f.name}</div>
+            <div class="meta">${f.role} · ${(f.device_macs||[]).length} device(s) · tap to manage</div>
+          </div>
+          <div class="right">
+            <span class="pill ${f.role==='Kid'?'warn':'ok'}">${f.role}</span>
+            <button onclick="event.stopPropagation();deleteFamily('${f.id}')" style="background:none;border:none;color:#ff5c5c;font-size:1.2em;cursor:pointer;margin-${'left'}:8px;">×</button>
+          </div>
+        </div>`).join('')
+    : `<p style="color:#6c7686;text-align:center;padding:14px">${I18N[lang]['family.empty']||'No family yet'}</p>`;
+}
+
+async function openFamilyDevicesModal(famId) {
+  const fam = (window._famCache || []).find(x => x.id === famId);
+  if (!fam) return;
+  // Load devices to choose from
+  let devices = window._cachedDevicesFresh;
+  try {
+    const r = await api('/customer/devices');
+    devices = r.devices || [];
+    window._cachedDevicesFresh = devices;
+  } catch {}
+  if (!devices) devices = [];
+
+  const assignedMacs = new Set((fam.device_macs || []).map(m => m.toLowerCase()));
+  // Find devices already assigned to OTHER members so we can show that
+  const otherOwner = {};
+  for (const m of (window._famCache || [])) {
+    if (m.id === famId) continue;
+    for (const mac of (m.device_macs || [])) otherOwner[mac.toLowerCase()] = m.name;
+  }
+
+  const assignedHtml = (fam.device_macs || []).map(mac => {
+    const dev = devices.find(d => d.mac && d.mac.toLowerCase() === mac.toLowerCase());
+    const label = dev ? (dev.hostname || dev.icon + ' ' + dev.mac) : mac;
+    return '<div class="list-item" style="background:#0f1419;margin-bottom:6px;border-radius:8px;">'
+      + '<div class="icon-circle">' + (dev ? (dev.device_icon || dev.icon || '📱') : '📱') + '</div>'
+      + '<div class="info"><div class="name">' + label + '</div><div class="meta" style="font-family:monospace;font-size:.75em;">' + mac + '</div></div>'
+      + '<div class="right"><button class="ghost remove-mac" data-mac="' + mac + '" style="padding:4px 10px;color:#ff5c5c;">✕</button></div>'
+      + '</div>';
+  }).join('') || '<p style="color:#6c7686;font-size:.85em;text-align:center;padding:8px;">No devices assigned</p>';
+
+  const unassignedDevs = devices.filter(d => d.mac && !assignedMacs.has(d.mac.toLowerCase()) && !otherOwner[d.mac.toLowerCase()]);
+
+  const optionsHtml = unassignedDevs.map(d => '<option value="' + d.mac + '">' + (d.hostname || (d.icon || '📱') + ' ' + d.mac) + '</option>').join('');
+
+  const modalHtml = '<div style="background:var(--bg-elev);border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;">'
+    + '<h2 style="margin:0 0 14px 0;color:#fff;font-size:1.05em;">' + (fam.icon || '👤') + ' ' + fam.name + ' — devices</h2>'
+    + '<div id="fam-assigned-list" style="margin-bottom:14px;">' + assignedHtml + '</div>'
+    + (unassignedDevs.length ? '<div style="display:flex;gap:6px;align-items:end;">'
+      + '<select id="fam-assign-pick" style="flex:1;"><option value="">-- pick a device --</option>' + optionsHtml + '</select>'
+      + '<button class="primary assign-fam-btn" data-fam="' + famId + '" style="padding:10px 14px;">＋</button></div>'
+      : '<p style="color:#6c7686;font-size:.8em;text-align:center;">No more unassigned devices.</p>')
+    + '<button class="secondary close-fam-modal" style="width:100%;margin-top:14px;">Close</button>'
+    + '</div>';
+
+  let modal = document.getElementById('modal-fam-devices');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-fam-devices';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:24px;';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = modalHtml;
+  modal.style.display = 'flex';
+
+  modal.querySelectorAll('.remove-mac').forEach(b => b.onclick = () => removeDeviceFromFamily(famId, b.dataset.mac));
+  const ab = modal.querySelector('.assign-fam-btn');
+  if (ab) ab.onclick = () => assignDeviceToFamily(ab.dataset.fam);
+  const cb = modal.querySelector('.close-fam-modal');
+  if (cb) cb.onclick = () => modal.style.display = 'none';
+}
+
+async function assignDeviceToFamily(famId) {
+  const sel = document.getElementById('fam-assign-pick');
+  const mac = sel && sel.value;
+  if (!mac) return;
+  try {
+    await api('/customer/family/assign-device', { method:'POST', body: JSON.stringify({ member_id: famId, mac }) });
+    await refreshFamily();
+    openFamilyDevicesModal(famId);  // re-render
+  } catch (e) { alert(e.message); }
+}
+
+async function removeDeviceFromFamily(famId, mac) {
+  try {
+    await api('/customer/family/assign-device', { method:'POST', body: JSON.stringify({ member_id: '', mac }) });
+    await refreshFamily();
+    openFamilyDevicesModal(famId);
+  } catch (e) { alert(e.message); }
+}
+
+async function refreshSchedules() {
+  const r = await api('/customer/schedules');
+  const list = r.schedules || [];
+  const dayMap = ['S','M','T','W','T','F','S'];
+  document.getElementById('schedule-list').innerHTML = list.length
+    ? list.map(s => `
+        <div class="list-item">
+          <div class="icon-circle">🕐</div>
+          <div class="info">
+            <div class="name">${s.name}</div>
+            <div class="meta">${s.start_hhmm} → ${s.end_hhmm} · ${(s.device_macs||[]).length} device(s) · ${(s.days||[]).map(d=>dayMap[d]).join('')}</div>
+          </div>
+          <div class="right">
+            <span class="pill ${s.enabled ? 'ok' : ''}">${s.enabled ? '●' : '○'}</span>
+            <button onclick="deleteSchedule('${s.id}')" style="background:none;border:none;color:#ff5c5c;font-size:1.2em;cursor:pointer;margin-${'left'}:8px;">×</button>
+          </div>
+        </div>`).join('')
+    : `<p style="color:#6c7686;text-align:center;padding:14px">${I18N[lang]['sched.empty']||'No schedules yet'}</p>`;
+}
+
+function showAddFamily() {
+  document.getElementById('fam-name').value = '';
+  document.getElementById('modal-family').style.display = 'flex';
+}
+
+async function addFamily() {
+  const name = document.getElementById('fam-name').value.trim();
+  const role = document.getElementById('fam-role').value;
+  if (!name) { alert('Name required'); return; }
+  try {
+    await api('/customer/family/add', { method:'POST', body: JSON.stringify({ name, role }) });
+    hideModal('family');
+    await refreshFamily();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteFamily(id) {
+  if (!confirm('Remove this family member?')) return;
+  await api('/customer/family/delete', { method:'POST', body: JSON.stringify({ id }) });
+  await refreshFamily();
+}
+
+function showAddSchedule() {
+  document.getElementById('sch-name').value = 'Bedtime';
+  document.getElementById('sch-start').value = '22:00';
+  document.getElementById('sch-end').value = '06:00';
+
+  // Day toggles
+  const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const days = [0,1,2,3,4,5,6];
+  document.getElementById('sch-days').innerHTML = days.map(d => `
+    <button type="button" data-day="${d}" class="day-toggle" onclick="this.classList.toggle('active');this.style.background=this.classList.contains('active')?'#3ad29f':'#0f1419';this.style.color=this.classList.contains('active')?'#000':'#8aa0c0';" style="flex:1;min-width:38px;padding:8px;background:#3ad29f;color:#000;border:1px solid #2a3340;border-radius:8px;cursor:pointer;font-size:.85em;">${dayLabels[d]}</button>`).join('');
+  document.querySelectorAll('.day-toggle').forEach(b => b.classList.add('active'));
+
+  // Devices checklist
+  document.getElementById('sch-devices').innerHTML = cachedDevices.length
+    ? cachedDevices.map(d => `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;">
+          <input type="checkbox" class="sch-dev" data-mac="${d.mac}" style="width:auto;">
+          <span style="font-size:.9em">${d.icon} ${d.name}</span>
+        </label>`).join('')
+    : '<p style="color:#6c7686;font-size:.85em">No devices loaded yet — open Devices tab first.</p>';
+
+  document.getElementById('modal-schedule').style.display = 'flex';
+}
+
+async function addSchedule() {
+  const name = document.getElementById('sch-name').value.trim() || 'Schedule';
+  const start_hhmm = document.getElementById('sch-start').value;
+  const end_hhmm = document.getElementById('sch-end').value;
+  const days = Array.from(document.querySelectorAll('.day-toggle.active')).map(b => parseInt(b.dataset.day));
+  const device_macs = Array.from(document.querySelectorAll('.sch-dev:checked')).map(c => c.dataset.mac);
+  if (!days.length) { alert('Pick at least one day'); return; }
+  try {
+    await api('/customer/schedules/add', { method:'POST', body: JSON.stringify({ name, start_hhmm, end_hhmm, days, device_macs, enabled: true }) });
+    hideModal('schedule');
+    await refreshSchedules();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('Delete this schedule?')) return;
+  await api('/customer/schedules/delete', { method:'POST', body: JSON.stringify({ id }) });
+  await refreshSchedules();
+}
+
+function hideModal(name) {
+  document.getElementById('modal-' + name).style.display = 'none';
+}
+
+// Cache devices for schedule UI
+const _origApi = api;
+api = async function(path, opts) {
+  const res = await _origApi(path, opts);
+  if (path === '/customer/devices' && res.devices) cachedDevices = res.devices;
+  return res;
+};
+
+// Poll notifications every 30s while logged in
+setInterval(() => {
+  if (token && document.getElementById('screen-app').classList.contains('active')) {
+    refreshNotifications().catch(()=>{});
+  }
+}, 30000);
+
+// ============= Impersonation token =============
+function checkImpersonateToken() {
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get('impersonate');
+  if (!t) return false;
+  token = t;
+  localStorage.setItem('mes_token', t);
+  localStorage.setItem('mes_impersonating', '1');
+  window.history.replaceState({}, '', '/pwa/');
+  // Show a persistent banner
+  setTimeout(() => {
+    const banner = document.createElement('div');
+    banner.id = 'imp-banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#4a3520;color:#ff8c42;padding:8px;text-align:center;font-size:.85em;z-index:200;border-bottom:2px solid #ff8c42;';
+    banner.innerHTML = '👁 SUPPORT MODE — viewing as customer · 1h session · <a href="#" onclick="logout();return false" style="color:#ff8c42;text-decoration:underline">exit</a>';
+    document.body.appendChild(banner);
+  }, 100);
+  return true;
+}
+
+// ============= Invitation landing =============
+async function checkInviteToken() {
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get('invite');
+  if (!inviteToken) return false;
+  try {
+    const r = await fetch('/api/customer/invite/claim', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: inviteToken }),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      alert('Invitation: ' + (err.error || 'failed'));
+      // Clean URL
+      window.history.replaceState({}, '', '/pwa/');
+      return false;
+    }
+    const d = await r.json();
+    token = d.token;
+    localStorage.setItem('mes_token', token);
+    window.history.replaceState({}, '', '/pwa/');
+    alert('✓ Welcome ' + d.customer.name + '! You are now signed in.');
+    await bootApp();
+    return true;
+  } catch (e) {
+    alert('Failed to claim invitation: ' + e.message);
+    return false;
+  }
+}
+
+// ============= Activate tab from ?tab=X (deep links from index.html "More" tab) =============
+function activateTabFromQuery() {
+  try {
+    const t = new URLSearchParams(location.search).get('tab');
+    const valid = ['home','devices','rules','family','settings'];
+    if (t && valid.includes(t) && typeof switchTab === 'function') {
+      switchTab(t);
+    }
+  } catch {}
+}
+
+// ============= Restore session OR claim invite OR impersonation =============
+(async () => {
+  if (checkImpersonateToken()) { await bootApp(); activateTabFromQuery(); return; }
+  if (await checkInviteToken()) return;
+  if (token) { bootApp(); activateTabFromQuery(); }
+})();
+
+applyLang();
+applyTheme();
+
+// Service worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/pwa/sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

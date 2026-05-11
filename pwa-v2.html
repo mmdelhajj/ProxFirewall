@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e14">
+<title>mes Network</title>
+<link rel="manifest" href="/pwa/manifest.json">
+<link rel="icon" href="/pwa/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pwa/icon.svg">
+<style>
+:root {
+  --bg: #0a0e14;
+  --elev: #11161f;
+  --elev2: #1a212e;
+  --line: #1f2937;
+  --text: #e5e7eb;
+  --mute: #94a3b8;
+  --dim: #64748b;
+  --accent: #00d4aa;
+  --accent-soft: rgba(0,212,170,.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251,191,36,.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248,113,113,.14);
+  --info: #60a5fa;
+  --info-soft: rgba(96,165,250,.14);
+  --shadow: 0 8px 32px rgba(0,0,0,.4);
+  --shadow-soft: 0 2px 12px rgba(0,0,0,.25);
+  --r-card: 18px;
+  --r-pill: 999px;
+  --r-btn: 12px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+[data-theme="light"] {
+  --bg: #f6f7f9;
+  --elev: #ffffff;
+  --elev2: #f1f3f6;
+  --line: #e5e7eb;
+  --text: #111827;
+  --mute: #4b5563;
+  --dim: #6b7280;
+  --shadow: 0 8px 32px rgba(15,23,42,.08);
+  --shadow-soft: 0 1px 4px rgba(15,23,42,.06);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  font-size: 16px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: contain;
+}
+body { padding-left: var(--safe-l); padding-right: var(--safe-r); }
+button, input, select, textarea { font-family: inherit; font-size: 16px; color: inherit; }
+button { background: none; border: 0; cursor: pointer; padding: 0; }
+a { color: var(--accent); text-decoration: none; }
+.tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* ───────── Header ───────── */
+.header {
+  position: sticky; top: 0; z-index: 50;
+  height: calc(52px + var(--safe-top));
+  padding-top: var(--safe-top);
+  display: flex; align-items: center; justify-content: space-between;
+  padding-left: 16px; padding-right: 16px;
+  background: color-mix(in oklab, var(--bg) 75%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  transition: box-shadow .25s var(--ease);
+}
+.header.scrolled { box-shadow: 0 1px 0 var(--line); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.02em; font-size: 17px; }
+.brand svg { width: 24px; height: 24px; }
+.brand .accent { color: var(--accent); }
+.h-actions { display: flex; align-items: center; gap: 8px; }
+.pill-btn {
+  height: 32px; padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--elev); color: var(--text);
+  font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: transform .15s var(--ease), background .2s var(--ease);
+}
+.pill-btn:active { transform: scale(0.94); }
+.icon-btn {
+  width: 36px; height: 36px; border-radius: var(--r-pill);
+  background: var(--elev); display: inline-flex; align-items: center; justify-content: center;
+  position: relative; transition: transform .15s var(--ease);
+}
+.icon-btn:active { transform: scale(0.94); }
+.badge-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.badge-num {
+  position: absolute; top: 0; right: 0;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--danger); color: #fff;
+  font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* ───────── Main scroll ───────── */
+.app {
+  min-height: 100dvh;
+  padding-bottom: calc(72px + var(--safe-bot) + 8px);
+}
+.tab-pane { display: none; padding: 16px; gap: 14px; flex-direction: column; }
+.tab-pane.active { display: flex; animation: fadeIn .25s var(--ease); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ───────── Bottom tab bar ───────── */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  padding-bottom: var(--safe-bot);
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-top: 1px solid var(--line);
+  display: flex; align-items: stretch;
+}
+.tabbar button {
+  flex: 1; height: 60px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; color: var(--dim); position: relative;
+  transition: color .2s var(--ease), transform .15s var(--ease);
+}
+.tabbar button .ti { font-size: 22px; line-height: 1; }
+.tabbar button .tl { font-size: 10px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+.tabbar button.active { color: var(--accent); }
+.tabbar button:active { transform: scale(0.92); }
+.tabbar .has-alert::after {
+  content: ""; position: absolute; top: 8px; right: 22%;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--danger);
+}
+
+/* ───────── Cards ───────── */
+.card {
+  background: var(--elev); border-radius: var(--r-card);
+  padding: 16px; box-shadow: var(--shadow-soft);
+}
+.card-title { font-size: 12px; font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px 0; }
+.row { display: flex; align-items: center; gap: 12px; }
+.row.between { justify-content: space-between; }
+.col { display: flex; flex-direction: column; }
+.gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; }
+.muted { color: var(--mute); }
+.dim { color: var(--dim); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+/* ───────── Badges / Pills ───────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  font-size: 12px; font-weight: 600;
+}
+.badge.ok { background: var(--accent-soft); color: var(--accent); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.bad { background: var(--danger-soft); color: var(--danger); }
+.badge.info { background: var(--info-soft); color: var(--info); }
+.badge.neutral { background: var(--elev2); color: var(--mute); }
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ───────── Buttons ───────── */
+.btn {
+  height: 48px; padding: 0 18px; border-radius: var(--r-btn);
+  background: var(--elev2); color: var(--text);
+  font-size: 15px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .12s var(--ease), background .2s var(--ease), opacity .2s var(--ease);
+  width: 100%;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn.primary { background: var(--accent); color: #00211b; }
+.btn.danger { background: var(--danger); color: #2b0a0a; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); }
+.btn.sm { height: 36px; font-size: 13px; padding: 0 14px; }
+.btn-row { display: flex; gap: 10px; }
+
+/* ───────── Forms ───────── */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: 0.06em; }
+.field .hint { font-size: 12px; color: var(--dim); }
+.field input, .field select, .field textarea {
+  height: 50px; padding: 0 14px;
+  background: var(--elev2); border: 1px solid transparent; border-radius: var(--r-btn);
+  font-size: 16px; color: var(--text);
+  transition: border-color .2s var(--ease), background .2s var(--ease);
+  width: 100%;
+}
+.field textarea { padding: 12px 14px; height: auto; min-height: 80px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+.radio-cards { display: flex; flex-direction: column; gap: 8px; }
+.radio-card {
+  padding: 14px; background: var(--elev2); border-radius: var(--r-btn);
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  transition: background .2s var(--ease), transform .12s var(--ease);
+  border: 1px solid transparent;
+}
+.radio-card:active { transform: scale(0.98); }
+.radio-card.selected { border-color: var(--accent); background: var(--accent-soft); }
+.radio-card input { display: none; }
+.radio-card .rc-icon { font-size: 22px; }
+.radio-card .rc-title { font-weight: 600; }
+.radio-card .rc-sub { font-size: 12px; color: var(--mute); }
+
+/* ───────── Stat cards ───────── */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat {
+  background: var(--elev); padding: 14px; border-radius: var(--r-card);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat .v { font-size: 1.9em; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.stat .l { font-size: 0.7em; color: var(--mute); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+/* ───────── Hero (speedometer) ───────── */
+.hero {
+  background: linear-gradient(180deg, var(--elev) 0%, var(--elev2) 100%);
+  border-radius: var(--r-card); padding: 18px;
+  box-shadow: var(--shadow-soft);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; inset: -1px;
+  background: radial-gradient(circle at 50% 0%, var(--accent-soft), transparent 60%);
+  pointer-events: none;
+}
+.hero-inner { position: relative; }
+.gauge { width: 100%; max-width: 280px; margin: 0 auto; display: block; }
+.gauge .arc-bg { stroke: var(--elev2); }
+.gauge .arc-fg { stroke: var(--accent); transition: stroke-dashoffset .5s var(--ease); filter: drop-shadow(0 0 8px var(--accent-soft)); }
+.gauge-center { text-align: center; margin-top: -56px; }
+.gauge-center .v { font-size: 2.4em; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.gauge-center .u { font-size: 0.85em; color: var(--mute); font-weight: 500; }
+.spd-row { display: flex; justify-content: space-around; margin-top: 8px; }
+.spd { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.spd .arr { font-size: 16px; line-height: 1; }
+.spd.up .arr { color: var(--info); }
+.spd.dn .arr { color: var(--accent); }
+.spd .num { font-weight: 700; }
+.sparkline { width: 100%; height: 36px; margin-top: 8px; }
+
+/* ───────── Greeting ───────── */
+.greet { padding: 4px 2px; }
+.greet .hi { font-size: 1.6em; font-weight: 700; letter-spacing: -0.02em; }
+.greet .sub { color: var(--mute); font-size: 13px; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+
+/* ───────── Box card ───────── */
+.box-list { display: flex; flex-direction: column; gap: 10px; }
+.box-item {
+  padding: 12px; background: var(--elev2); border-radius: var(--r-btn);
+  display: flex; align-items: center; gap: 12px;
+}
+.box-icon {
+  width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 22px;
+}
+.box-meta { flex: 1; min-width: 0; }
+.box-meta .nm { font-weight: 600; }
+.box-meta .ms { font-size: 11px; color: var(--mute); display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.add-btn {
+  height: 52px; border-radius: var(--r-btn);
+  background: var(--accent-soft); color: var(--accent);
+  width: 100%; font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .12s var(--ease);
+}
+.add-btn:active { transform: scale(0.97); }
+
+/* ───────── Discover banner ───────── */
+.discover-card {
+  background: linear-gradient(135deg, var(--accent) 0%, #00b894 100%);
+  color: #00211b; padding: 14px 16px; border-radius: var(--r-card);
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 8px 24px rgba(0,212,170,.25);
+}
+.discover-card .ic { font-size: 28px; }
+.discover-card .tx { flex: 1; }
+.discover-card .tx .t { font-weight: 700; }
+.discover-card .tx .s { font-size: 12px; opacity: 0.85; }
+.discover-card button { background: rgba(0,33,27,.25); color: #00211b; height: 36px; padding: 0 16px; border-radius: var(--r-pill); font-weight: 700; font-size: 13px; }
+
+/* ───────── List rows (devices, alarms, flows) ───────── */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.list-row {
+  background: var(--elev); border-radius: var(--r-card);
+  padding: 12px; display: flex; align-items: center; gap: 12px;
+  transition: background .15s var(--ease), transform .12s var(--ease);
+  user-select: none;
+}
+.list-row:active { transform: scale(0.99); background: var(--elev2); }
+.avatar {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--elev2);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 20px;
+  flex-shrink: 0; position: relative;
+}
+.avatar .online {
+  position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--elev);
+}
+.avatar .online.off { background: var(--dim); }
+.lr-meta { flex: 1; min-width: 0; }
+.lr-meta .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lr-meta .sub { font-size: 12px; color: var(--mute); display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.bw-bar {
+  width: 64px; height: 4px; border-radius: 2px; background: var(--elev2); overflow: hidden;
+}
+.bw-bar > div { height: 100%; background: var(--accent); transition: width .4s var(--ease); }
+.lr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+/* ───────── Flow row ───────── */
+.flow-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.flow-row + .flow-row { border-top: 1px solid var(--line); }
+.flow-row .flag { font-size: 18px; flex-shrink: 0; }
+.flow-row .meta { flex: 1; min-width: 0; }
+.flow-row .meta .top { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow-row .meta .bot { font-size: 11px; color: var(--mute); margin-top: 2px; }
+
+/* ───────── Sheet / modal ───────── */
+.scrim {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s var(--ease);
+}
+.scrim.open { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 101;
+  background: var(--elev); border-radius: 24px 24px 0 0;
+  padding: 8px 16px calc(20px + var(--safe-bot)) 16px;
+  max-height: 88dvh; overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform .35s var(--ease);
+  box-shadow: 0 -8px 40px rgba(0,0,0,.4);
+}
+.sheet.open { transform: translateY(0); }
+.sheet-handle {
+  width: 38px; height: 4px; border-radius: 2px; background: var(--line);
+  margin: 6px auto 14px auto;
+}
+.sheet h2 { margin: 0 0 4px 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.sheet .sheet-sub { color: var(--mute); font-size: 13px; margin: 0 0 16px 0; }
+.sheet-actions { display: flex; flex-direction: column; gap: 4px; }
+.sheet-action {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 12px; border-radius: var(--r-btn);
+  width: 100%; text-align: left;
+  transition: background .15s var(--ease);
+  font-size: 15px; font-weight: 500;
+}
+.sheet-action:active { background: var(--elev2); }
+.sheet-action .si { font-size: 22px; width: 28px; text-align: center; }
+.sheet-action.danger { color: var(--danger); }
+.sheet-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%; background: var(--elev2); display: inline-flex; align-items: center; justify-content: center; }
+
+@media (min-width: 700px) {
+  .sheet {
+    left: 50%; right: auto; bottom: auto; top: 50%;
+    width: 480px; max-width: 92vw; max-height: 86vh;
+    border-radius: 18px;
+    transform: translate(-50%, -45%) scale(0.96); opacity: 0;
+  }
+  .sheet.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* ───────── Toast ───────── */
+.toast-stack {
+  position: fixed; left: 50%; bottom: calc(80px + var(--safe-bot)); z-index: 200;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  width: min(92vw, 420px);
+}
+.toast {
+  background: var(--elev); border-radius: 14px;
+  padding: 12px 14px; box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 10px;
+  animation: toastIn .3s var(--ease);
+  font-size: 14px;
+  border-left: 3px solid var(--accent);
+}
+.toast.warn { border-left-color: var(--warn); }
+.toast.bad { border-left-color: var(--danger); }
+.toast.info { border-left-color: var(--info); }
+.toast.fade { animation: toastOut .3s var(--ease) forwards; }
+@keyframes toastIn { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastOut { to { transform: translateY(20px); opacity: 0; } }
+
+/* ───────── Login ───────── */
+.login-wrap {
+  min-height: 100dvh; display: flex; flex-direction: column; justify-content: center;
+  padding: calc(40px + var(--safe-top)) 24px calc(20px + var(--safe-bot)) 24px;
+  max-width: 460px; margin: 0 auto;
+}
+.login-logo {
+  width: 72px; height: 72px; margin: 0 auto 18px auto;
+  background: linear-gradient(135deg, var(--accent) 0%, #00b894 100%);
+  border-radius: 22px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 36px rgba(0,212,170,.3);
+}
+.login-logo svg { width: 40px; height: 40px; }
+.login-title { font-size: 1.9em; font-weight: 700; letter-spacing: -0.03em; text-align: center; margin: 0 0 6px 0; }
+.login-sub { color: var(--mute); text-align: center; margin: 0 0 32px 0; font-size: 14px; }
+.demo-hint { font-size: 12px; color: var(--dim); text-align: center; margin-top: 18px; }
+
+/* ───────── Spinner ───────── */
+.spin {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.skel { background: linear-gradient(90deg, var(--elev2) 0%, var(--line) 50%, var(--elev2) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 8px; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* ───────── Category grid (rules) ───────── */
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cat-card {
+  padding: 14px; background: var(--elev); border-radius: var(--r-card);
+  display: flex; flex-direction: column; gap: 8px;
+  transition: transform .12s var(--ease);
+}
+.cat-card:active { transform: scale(0.98); }
+.cat-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.cat-card .ico { font-size: 26px; }
+.cat-card .nm { font-weight: 600; font-size: 14px; }
+.cat-card .sub { font-size: 11px; color: var(--mute); }
+.switch { width: 44px; height: 26px; border-radius: 13px; background: var(--elev2); position: relative; transition: background .25s var(--ease); flex-shrink: 0; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .25s var(--ease); }
+.switch.on { background: var(--accent); }
+.switch.on::after { transform: translateX(18px); }
+
+/* ───────── Pull-to-refresh ───────── */
+.ptr-bar {
+  height: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--mute); font-size: 12px; overflow: hidden; transition: height .25s var(--ease);
+}
+.ptr-bar.show { height: 40px; }
+
+/* ───────── Tab section heading ───────── */
+.section-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px; margin-top: 4px;
+}
+.section-h h3 { margin: 0; font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.section-h .more { font-size: 13px; color: var(--accent); font-weight: 600; }
+
+/* ───────── RTL ───────── */
+[dir="rtl"] .badge-dot, [dir="rtl"] .badge-num { right: auto; left: 6px; }
+[dir="rtl"] .switch.on::after { transform: translateX(-18px); }
+
+/* ───────── Misc ───────── */
+.empty { text-align: center; padding: 28px 16px; color: var(--mute); font-size: 14px; }
+.empty .em { font-size: 36px; margin-bottom: 8px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ───────── Login screen ───────── -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" fill="#00211b" stroke="#00211b" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M9 12l2 2 4-4" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h1 class="login-title" data-i="login.title">mes Network</h1>
+  <p class="login-sub" data-i="login.sub">Sign in to manage your home network</p>
+
+  <div id="login-step-phone">
+    <div class="field">
+      <label data-i="login.phone">Phone number</label>
+      <input id="li-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+961 71 555 0001">
+      <div class="hint" data-i="login.phone_hint">Enter your registered phone with country code</div>
+    </div>
+    <button id="li-send" class="btn primary">
+      <span data-i="login.send">Send code</span>
+    </button>
+  </div>
+
+  <div id="login-step-otp" class="hidden">
+    <div class="field">
+      <label data-i="login.code">Verification code</label>
+      <input id="li-otp" type="text" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="0000">
+      <div class="hint">
+        <span data-i="login.sent_to">Code sent to</span>
+        <span id="li-phone-display" class="mono"></span>
+      </div>
+    </div>
+    <button id="li-verify" class="btn primary">
+      <span data-i="login.verify">Verify & sign in</span>
+    </button>
+    <button id="li-back" class="btn ghost" style="margin-top:10px">
+      <span data-i="login.back">← Use different number</span>
+    </button>
+  </div>
+
+  <p class="demo-hint">Demo: +961 71 555 0001 · OTP: 0000</p>
+</div>
+
+<!-- ───────── Main app ───────── -->
+<div id="app" class="hidden">
+
+  <header class="header" id="header">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M9 12l2 2 4-4" stroke="currentColor" class="accent" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>mes <span class="accent">Network</span></span>
+    </div>
+    <div class="h-actions">
+      <button class="pill-btn" id="btn-lang">EN</button>
+      <button class="icon-btn" id="btn-theme" aria-label="Theme">
+        <span id="theme-ic">🌙</span>
+      </button>
+      <button class="icon-btn" id="btn-bell" aria-label="Notifications">
+        🔔
+        <span id="bell-badge" class="badge-num hidden">0</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="app">
+    <div id="ptr" class="ptr-bar">↓ Pull to refresh</div>
+
+    <!-- ───────── Network tab ───────── -->
+    <section id="tab-network" class="tab-pane active">
+      <div class="greet">
+        <div class="hi" id="greet-hi">Hello</div>
+        <div class="sub">
+          <span id="greet-status" class="badge ok"><span class="dot"></span> All clear</span>
+          <span id="greet-net">·</span>
+        </div>
+      </div>
+
+      <div id="discover-banner" class="hidden"></div>
+
+      <div class="hero">
+        <div class="hero-inner">
+          <svg class="gauge" viewBox="0 0 280 160">
+            <path class="arc-bg" d="M 30 140 A 110 110 0 0 1 250 140" fill="none" stroke-width="14" stroke-linecap="round"/>
+            <path class="arc-fg" id="gauge-arc" d="M 30 140 A 110 110 0 0 1 250 140" fill="none" stroke-width="14" stroke-linecap="round" stroke-dasharray="346" stroke-dashoffset="346"/>
+          </svg>
+          <div class="gauge-center">
+            <div class="v tabular"><span id="g-val">0</span> <span class="u">Mbps</span></div>
+          </div>
+          <div class="spd-row">
+            <div class="spd dn"><span class="arr">↓</span> <span class="num tabular" id="g-down">0</span> <span class="muted">Mbps</span></div>
+            <div class="spd up"><span class="arr">↑</span> <span class="num tabular" id="g-up">0</span> <span class="muted">Mbps</span></div>
+          </div>
+          <svg class="sparkline" id="sparkline" viewBox="0 0 280 36" preserveAspectRatio="none">
+            <polyline id="spark-line" points="" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.7"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="v tabular" id="s-online">—</div>
+          <div class="l" data-i="stat.online">Devices online</div>
+        </div>
+        <div class="stat">
+          <div class="v tabular" id="s-blocked">—</div>
+          <div class="l" data-i="stat.blocked">Blocked today</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-h" style="margin-bottom:12px">
+          <h3 data-i="boxes.title">My boxes</h3>
+        </div>
+        <div id="box-list" class="box-list"></div>
+        <button class="add-btn" id="btn-add-box" style="margin-top:10px">＋ <span data-i="boxes.add">Add a box</span></button>
+      </div>
+
+      <div class="card">
+        <div class="section-h" style="margin-bottom:8px">
+          <h3 data-i="flows.recent">Recent activity</h3>
+          <button class="more" id="more-flows" data-i="common.more">See all</button>
+        </div>
+        <div id="flow-list"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Devices tab ───────── -->
+    <section id="tab-devices" class="tab-pane">
+      <div class="section-h">
+        <h3 data-i="devices.title">Devices</h3>
+        <span class="muted" id="dev-count">—</span>
+      </div>
+      <div class="list" id="dev-list"></div>
+    </section>
+
+    <!-- ───────── Alarms tab ───────── -->
+    <section id="tab-alarms" class="tab-pane">
+      <div class="section-h">
+        <h3 data-i="alarms.title">Alarms</h3>
+        <button class="btn sm primary" id="ack-all" data-i="alarms.ack_all">✓ Acknowledge all</button>
+      </div>
+      <div class="list" id="alarm-list"></div>
+    </section>
+
+    <!-- ───────── Rules tab ───────── -->
+    <section id="tab-rules" class="tab-pane">
+      <div class="section-h"><h3 data-i="rules.cats">Block categories</h3></div>
+      <div class="cat-grid" id="cat-grid"></div>
+
+      <div class="section-h" style="margin-top:6px">
+        <h3 data-i="rules.custom">Custom rules</h3>
+        <button class="btn sm primary" id="btn-add-rule">＋ <span data-i="rules.add">Add</span></button>
+      </div>
+      <div class="list" id="rule-list"></div>
+    </section>
+
+    <!-- ───────── More tab ───────── -->
+    <section id="tab-more" class="tab-pane">
+      <div class="card">
+        <div class="row gap-12">
+          <div class="avatar" style="font-size:22px">👤</div>
+          <div class="lr-meta">
+            <div class="nm" id="me-name">—</div>
+            <div class="sub mono" id="me-phone">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" data-i="more.network">Network controls</div>
+        <button class="sheet-action" id="m-pause"><span class="si">⏸</span><span data-i="more.pause">Pause internet</span></button>
+        <button class="sheet-action" id="m-claim"><span class="si">📦</span><span data-i="more.claim">Add a box (pairing code)</span></button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" data-i="more.account">Account & people</div>
+        <a class="sheet-action" href="/pwa/v1/family"><span class="si">👨‍👩‍👧</span><span data-i="more.family">Family & profiles</span></a>
+        <a class="sheet-action" href="/pwa/v1/schedules"><span class="si">📅</span><span data-i="more.schedules">Schedules</span></a>
+        <a class="sheet-action" href="/pwa/v1/billing"><span class="si">💳</span><span data-i="more.billing">Billing & plan</span></a>
+        <a class="sheet-action" href="/pwa/v1/tickets"><span class="si">🎫</span><span data-i="more.support">Support tickets</span></a>
+      </div>
+
+      <div class="card">
+        <div class="card-title" data-i="more.app">App</div>
+        <button class="sheet-action" id="m-theme"><span class="si">🎨</span><span data-i="more.theme">Theme</span></button>
+        <button class="sheet-action" id="m-lang"><span class="si">🌐</span><span data-i="more.lang">Language</span></button>
+        <button class="sheet-action danger" id="m-logout"><span class="si">⏏</span><span data-i="more.logout">Sign out</span></button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-tab="network" class="active"><span class="ti">🛡</span><span class="tl">Network</span></button>
+    <button data-tab="devices"><span class="ti">📱</span><span class="tl">Devices</span></button>
+    <button data-tab="alarms" id="tab-btn-alarms"><span class="ti">🚨</span><span class="tl">Alarms</span></button>
+    <button data-tab="rules"><span class="ti">🛠</span><span class="tl">Rules</span></button>
+    <button data-tab="more"><span class="ti">⚙</span><span class="tl">More</span></button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <button class="sheet-close" id="sheet-x" aria-label="Close">✕</button>
+  <div id="sheet-body"></div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script>
+'use strict';
+
+/* ──────── i18n ──────── */
+const I18N = {
+  en: {
+    'login.title': 'mes Network', 'login.sub': 'Sign in to manage your home network',
+    'login.phone': 'Phone number', 'login.phone_hint': 'Enter your registered phone with country code',
+    'login.send': 'Send code', 'login.code': 'Verification code', 'login.sent_to': 'Code sent to',
+    'login.verify': 'Verify & sign in', 'login.back': '← Use different number',
+    'stat.online': 'Devices online', 'stat.blocked': 'Blocked today',
+    'boxes.title': 'My boxes', 'boxes.add': 'Add a box',
+    'flows.recent': 'Recent activity', 'common.more': 'See all',
+    'devices.title': 'Devices', 'alarms.title': 'Alarms', 'alarms.ack_all': '✓ Acknowledge all',
+    'rules.cats': 'Block categories', 'rules.custom': 'Custom rules', 'rules.add': 'Add',
+    'more.network': 'Network controls', 'more.pause': 'Pause internet', 'more.claim': 'Add a box (pairing code)',
+    'more.account': 'Account & people', 'more.family': 'Family & profiles', 'more.schedules': 'Schedules',
+    'more.billing': 'Billing & plan', 'more.support': 'Support tickets',
+    'more.app': 'App', 'more.theme': 'Theme', 'more.lang': 'Language', 'more.logout': 'Sign out',
+    'greet.allclear': 'All clear', 'greet.alerts': 'alerts',
+    'dev.rename': 'Rename', 'dev.block': 'Block', 'dev.unblock': 'Unblock',
+    'dev.timelimit': 'Set time limit', 'dev.bwlimit': 'Set bandwidth limit',
+    'dev.schedule': 'Add to schedule', 'dev.cap': 'Set monthly cap', 'dev.family': 'Add to family',
+    'sheet.cancel': 'Cancel', 'sheet.save': 'Save',
+  },
+  ar: {
+    'login.title': 'شبكة mes', 'login.sub': 'سجّل الدخول لإدارة شبكتك المنزلية',
+    'login.phone': 'رقم الهاتف', 'login.phone_hint': 'أدخل هاتفك المسجل مع رمز البلد',
+    'login.send': 'إرسال الرمز', 'login.code': 'رمز التحقق', 'login.sent_to': 'أُرسل الرمز إلى',
+    'login.verify': 'تحقّق وسجّل الدخول', 'login.back': '← استخدم رقمًا آخر',
+    'stat.online': 'الأجهزة المتصلة', 'stat.blocked': 'المحظورة اليوم',
+    'boxes.title': 'صناديقي', 'boxes.add': 'أضف صندوقًا',
+    'flows.recent': 'النشاط الأخير', 'common.more': 'عرض الكل',
+    'devices.title': 'الأجهزة', 'alarms.title': 'التنبيهات', 'alarms.ack_all': '✓ تأكيد الكل',
+    'rules.cats': 'الفئات المحظورة', 'rules.custom': 'قواعد مخصصة', 'rules.add': 'إضافة',
+    'more.network': 'تحكم الشبكة', 'more.pause': 'إيقاف الإنترنت', 'more.claim': 'إضافة صندوق (رمز إقران)',
+    'more.account': 'الحساب والأشخاص', 'more.family': 'العائلة والملفات', 'more.schedules': 'الجداول',
+    'more.billing': 'الفوترة والباقة', 'more.support': 'تذاكر الدعم',
+    'more.app': 'التطبيق', 'more.theme': 'المظهر', 'more.lang': 'اللغة', 'more.logout': 'تسجيل الخروج',
+    'greet.allclear': 'كل شيء على ما يرام', 'greet.alerts': 'تنبيهات',
+    'dev.rename': 'إعادة التسمية', 'dev.block': 'حظر', 'dev.unblock': 'إلغاء الحظر',
+    'dev.timelimit': 'حد الوقت', 'dev.bwlimit': 'حد عرض النطاق',
+    'dev.schedule': 'إضافة لجدول', 'dev.cap': 'حد شهري', 'dev.family': 'إضافة لعائلة',
+    'sheet.cancel': 'إلغاء', 'sheet.save': 'حفظ',
+  }
+};
+let LANG = localStorage.getItem('mes_lang') || 'en';
+function t(k) { return (I18N[LANG] && I18N[LANG][k]) || I18N.en[k] || k; }
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i]').forEach(el => { el.textContent = t(el.dataset.i); });
+  document.getElementById('btn-lang').textContent = LANG.toUpperCase();
+}
+
+/* ──────── Theme ──────── */
+let THEME = localStorage.getItem('mes_theme') || 'dark';
+function applyTheme() {
+  document.documentElement.dataset.theme = THEME;
+  document.getElementById('theme-ic').textContent = THEME === 'dark' ? '🌙' : '☀️';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = THEME === 'dark' ? '#0a0e14' : '#f6f7f9';
+}
+
+/* ──────── State ──────── */
+const state = {
+  token: localStorage.getItem('mes_token') || null,
+  me: null, boxes: [], devices: [], flows: [], alarms: [], rules: [], categories: [],
+  throughput: { up: 0, down: 0, total: 0, history: [] },
+  pause: null,
+};
+
+/* ──────── API ──────── */
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const r = await fetch('/api' + path, { ...opts, headers });
+  let body;
+  try { body = await r.json(); } catch { body = { error: r.statusText || 'request failed' }; }
+  if (!r.ok) throw Object.assign(new Error(body.error || body.message || 'request failed'), { status: r.status, body });
+  return body;
+}
+
+/* ──────── Toast ──────── */
+function toast(msg, kind) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = msg;
+  document.getElementById('toast-stack').appendChild(el);
+  setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 350); }, 3500);
+}
+
+/* ──────── Sheet ──────── */
+function sheet(title, sub, bodyHtml, onMount) {
+  const s = document.getElementById('sheet'), sc = document.getElementById('scrim'), b = document.getElementById('sheet-body');
+  b.innerHTML = (title ? `<h2>${title}</h2>` : '') + (sub ? `<p class="sheet-sub">${sub}</p>` : '') + (bodyHtml || '');
+  sc.classList.add('open'); s.classList.add('open');
+  if (onMount) onMount(b);
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('scrim').classList.remove('open');
+}
+document.getElementById('scrim').addEventListener('click', closeSheet);
+document.getElementById('sheet-x').addEventListener('click', closeSheet);
+
+/* ──────── Login ──────── */
+const liPhone = document.getElementById('li-phone');
+const liOtp = document.getElementById('li-otp');
+const liSend = document.getElementById('li-send');
+const liVerify = document.getElementById('li-verify');
+
+document.getElementById('li-back').addEventListener('click', () => {
+  document.getElementById('login-step-otp').classList.add('hidden');
+  document.getElementById('login-step-phone').classList.remove('hidden');
+});
+
+liSend.addEventListener('click', async () => {
+  const phone = liPhone.value.trim();
+  if (!phone) { toast('Enter your phone number', 'warn'); return; }
+  liSend.disabled = true; liSend.innerHTML = '<span class="spin"></span>';
+  try {
+    await api('/customer/login', { method: 'POST', body: JSON.stringify({ phone }) });
+    document.getElementById('li-phone-display').textContent = phone;
+    document.getElementById('login-step-phone').classList.add('hidden');
+    document.getElementById('login-step-otp').classList.remove('hidden');
+    setTimeout(() => liOtp.focus(), 100);
+  } catch (e) {
+    toast(e.status === 404 ? 'Phone not registered' : (e.message || 'Failed'), 'bad');
+  } finally {
+    liSend.disabled = false; liSend.innerHTML = `<span data-i="login.send">${t('login.send')}</span>`;
+  }
+});
+
+liVerify.addEventListener('click', async () => {
+  const phone = liPhone.value.trim(), code = liOtp.value.trim();
+  if (code.length !== 4) { toast('Enter 4-digit code', 'warn'); return; }
+  liVerify.disabled = true; liVerify.innerHTML = '<span class="spin"></span>';
+  try {
+    const r = await api('/customer/verify', { method: 'POST', body: JSON.stringify({ phone, code }) });
+    state.token = r.token;
+    localStorage.setItem('mes_token', r.token);
+    bootApp();
+  } catch (e) {
+    toast(e.message || 'Invalid code', 'bad');
+  } finally {
+    liVerify.disabled = false; liVerify.innerHTML = `<span data-i="login.verify">${t('login.verify')}</span>`;
+  }
+});
+
+[liPhone, liOtp].forEach(el => el.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); (el === liPhone ? liSend : liVerify).click(); }
+}));
+
+/* ──────── Tabs ──────── */
+document.getElementById('tabbar').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  document.querySelectorAll('.tabbar [data-tab]').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + b.dataset.tab));
+  if (b.dataset.tab === 'devices') renderDevices();
+  if (b.dataset.tab === 'alarms') renderAlarms();
+  if (b.dataset.tab === 'rules') renderRules();
+  if (b.dataset.tab === 'more') renderMe();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+/* ──────── Boot ──────── */
+function bootApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  applyI18n();
+  applyTheme();
+  refreshAll();
+  startPolling();
+  startSse();
+  // Tell server PWA installed
+  try { api('/customer/onboarding/pwa-installed', { method: 'POST', body: '{}' }); } catch {}
+  // sw register
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/pwa/sw.js').catch(() => {});
+  }
+}
+
+async function refreshAll() {
+  try {
+    const [me, boxes, devices, flows, alarms, throughput, pause] = await Promise.all([
+      api('/customer/me').catch(() => null),
+      api('/customer/boxes').catch(() => []),
+      api('/customer/devices').catch(() => []),
+      api('/customer/flows?limit=20').catch(() => []),
+      api('/customer/alarms').catch(() => []),
+      api('/customer/throughput').catch(() => null),
+      api('/customer/pause/status').catch(() => null),
+    ]);
+    state.me = me?.user || me || null;
+    state.boxes = Array.isArray(boxes) ? boxes : (boxes?.boxes || []);
+    state.devices = Array.isArray(devices) ? devices : (devices?.devices || []);
+    state.flows = Array.isArray(flows) ? flows : (flows?.flows || []);
+    state.alarms = Array.isArray(alarms) ? alarms : (alarms?.alarms || []);
+    state.pause = pause;
+    if (throughput) updateThroughput(throughput);
+    renderHome();
+    updateBell();
+    discoverBoxes();
+  } catch (e) {
+    if (e.status === 401) { logout(); return; }
+    console.warn('refresh failed', e);
+  }
+}
+
+function logout() {
+  localStorage.removeItem('mes_token'); state.token = null;
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+/* ──────── Home render ──────── */
+function renderHome() {
+  // greeting
+  const name = (state.me?.full_name || state.me?.name || 'there').split(' ')[0];
+  document.getElementById('greet-hi').textContent = (LANG === 'ar' ? 'مرحبًا، ' : 'Hello, ') + name;
+  const unack = state.alarms.filter(a => !a.ack).length;
+  const gs = document.getElementById('greet-status');
+  if (unack > 0) {
+    gs.className = 'badge bad'; gs.innerHTML = `<span class="dot"></span> ${unack} ${t('greet.alerts')}`;
+  } else {
+    gs.className = 'badge ok'; gs.innerHTML = `<span class="dot"></span> ${t('greet.allclear')}`;
+  }
+  const onlineBoxes = state.boxes.filter(b => b.online).length;
+  document.getElementById('greet-net').textContent = `${onlineBoxes}/${state.boxes.length} boxes online`;
+
+  // stats
+  const onlineDev = state.devices.filter(d => d.online).length;
+  document.getElementById('s-online').textContent = `${onlineDev} / ${state.devices.length}`;
+  const blockedToday = state.flows.filter(f => f.blocked).length;
+  document.getElementById('s-blocked').textContent = blockedToday;
+
+  // box list
+  const bl = document.getElementById('box-list');
+  if (state.boxes.length === 0) {
+    bl.innerHTML = `<div class="empty"><div class="em">📦</div>No boxes yet — tap below to add your first.</div>`;
+  } else {
+    bl.innerHTML = state.boxes.map(b => `
+      <div class="box-item">
+        <div class="box-icon">📦</div>
+        <div class="box-meta">
+          <div class="nm">${esc(b.friendly_name || b.mac)}</div>
+          <div class="ms">
+            <span>${b.online ? '🟢 Online' : '⚪ Offline'}</span>
+            ${b.cpu_pct != null ? `<span>CPU ${Math.round(b.cpu_pct)}%</span>` : ''}
+            ${b.ram_pct != null ? `<span>RAM ${Math.round(b.ram_pct)}%</span>` : ''}
+            ${b.temp_c != null ? `<span>${Math.round(b.temp_c)}°C</span>` : ''}
+            <span>${b.device_count || 0} devices</span>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // flows (last 5)
+  const fl = document.getElementById('flow-list');
+  const recent = state.flows.slice(0, 5);
+  if (recent.length === 0) {
+    fl.innerHTML = `<div class="empty">No traffic yet.</div>`;
+  } else {
+    fl.innerHTML = recent.map(f => {
+      const dev = state.devices.find(d => d.mac === f.src_mac);
+      const flag = countryFlag(f.country) || '🌐';
+      const right = f.blocked
+        ? '<span class="badge bad">Blocked</span>'
+        : (f.country ? `<span class="badge neutral">${f.country}</span>` : '');
+      return `<div class="flow-row">
+        <div class="flag">${flag}</div>
+        <div class="meta">
+          <div class="top">${esc(dev?.name || f.src_mac || 'device')} → <strong>${esc(f.dst_domain || f.dst_ip)}</strong></div>
+          <div class="bot">${timeAgo(f.ts)} · ${formatBytes((f.bytes_up||0)+(f.bytes_down||0))}</div>
+        </div>
+        <div>${right}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function updateBell() {
+  const unack = state.alarms.filter(a => !a.ack).length;
+  const b = document.getElementById('bell-badge');
+  if (unack > 0) { b.textContent = unack > 99 ? '99+' : unack; b.classList.remove('hidden'); }
+  else b.classList.add('hidden');
+  document.getElementById('tab-btn-alarms').classList.toggle('has-alert', unack > 0);
+}
+
+/* ──────── Discover ──────── */
+async function discoverBoxes() {
+  try {
+    const r = await api('/customer/box/discover');
+    const cands = r.candidates || r.boxes || [];
+    const banner = document.getElementById('discover-banner');
+    if (cands.length === 0) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+    const c = cands[0];
+    banner.classList.remove('hidden');
+    banner.innerHTML = `<div class="discover-card">
+      <div class="ic">📦</div>
+      <div class="tx"><div class="t">New box on your network</div><div class="s">${esc(c.hw || c.model || c.mac)} — tap to add</div></div>
+      <button id="auto-claim-btn">Add</button>
+    </div>`;
+    document.getElementById('auto-claim-btn').onclick = async () => {
+      try {
+        await api('/customer/box/auto-claim', { method: 'POST', body: JSON.stringify({ mac: c.mac }) });
+        toast('Box added!', 'info');
+        banner.classList.add('hidden');
+        refreshAll();
+      } catch (e) { toast(e.message || 'Failed to add', 'bad'); }
+    };
+  } catch {}
+}
+
+/* ──────── Throughput / gauge / sparkline ──────── */
+const SPARK_LEN = 60;
+function updateThroughput(t) {
+  let up = 0, down = 0;
+  if (Array.isArray(t)) { t.forEach(x => { up += x.up_mbps || x.up || 0; down += x.down_mbps || x.down || 0; }); }
+  else if (t && typeof t === 'object') {
+    const arr = t.boxes || t.throughput || (t.up_mbps != null ? [t] : []);
+    if (Array.isArray(arr)) arr.forEach(x => { up += x.up_mbps || x.up || 0; down += x.down_mbps || x.down || 0; });
+    else { up = t.up_mbps || 0; down = t.down_mbps || 0; }
+  }
+  const total = up + down;
+  state.throughput.up = up; state.throughput.down = down; state.throughput.total = total;
+  state.throughput.history.push(total);
+  if (state.throughput.history.length > SPARK_LEN) state.throughput.history.shift();
+  drawGauge();
+}
+function drawGauge() {
+  document.getElementById('g-val').textContent = state.throughput.total.toFixed(1);
+  document.getElementById('g-up').textContent = state.throughput.up.toFixed(1);
+  document.getElementById('g-down').textContent = state.throughput.down.toFixed(1);
+  // gauge max — adapt based on history
+  const max = Math.max(50, ...state.throughput.history) * 1.2;
+  const pct = Math.max(0, Math.min(1, state.throughput.total / max));
+  const arcLen = 346;
+  document.getElementById('gauge-arc').setAttribute('stroke-dashoffset', arcLen * (1 - pct));
+  // sparkline
+  const h = state.throughput.history;
+  if (h.length < 2) return;
+  const w = 280, hh = 36;
+  const peak = Math.max(...h, 1);
+  const pts = h.map((v, i) => {
+    const x = (i / (SPARK_LEN - 1)) * w;
+    const y = hh - (v / peak) * (hh - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  document.getElementById('spark-line').setAttribute('points', pts);
+}
+
+/* ──────── Devices ──────── */
+function renderDevices() {
+  document.getElementById('dev-count').textContent = `${state.devices.filter(d=>d.online).length} / ${state.devices.length}`;
+  const el = document.getElementById('dev-list');
+  if (!state.devices.length) { el.innerHTML = `<div class="empty"><div class="em">📱</div>No devices yet</div>`; return; }
+  el.innerHTML = state.devices.map(d => {
+    const ic = d.icon || deviceIcon(d.device_type) || '💻';
+    const bw = Math.min(100, ((d.bw_mbps || 0) / 50) * 100);
+    return `<div class="list-row" data-mac="${esc(d.mac)}">
+      <div class="avatar">${ic}<div class="online ${d.online?'':'off'}"></div></div>
+      <div class="lr-meta">
+        <div class="nm">${esc(d.name || d.hostname || 'device')} ${d.blocked ? '<span class="badge bad" style="margin-left:6px">Blocked</span>' : ''}</div>
+        <div class="sub"><span class="mono">${esc(d.mac)}</span>${d.ip?` · ${esc(d.ip)}`:''}</div>
+      </div>
+      <div class="lr-right">
+        <div class="bw-bar"><div style="width:${bw}%"></div></div>
+        <div class="dim" style="font-size:11px">${(d.bw_mbps||0).toFixed(1)} Mbps</div>
+      </div>
+    </div>`;
+  }).join('');
+  // attach long-press + tap
+  el.querySelectorAll('.list-row').forEach(row => attachActionDrawer(row));
+}
+
+function attachActionDrawer(row) {
+  let timer = null, longFired = false;
+  const open = () => openDeviceSheet(row.dataset.mac);
+  row.addEventListener('pointerdown', e => {
+    if (e.button !== undefined && e.button !== 0) return;
+    longFired = false;
+    timer = setTimeout(() => { longFired = true; open(); }, 450);
+  });
+  const cancel = () => { if (timer) clearTimeout(timer); timer = null; };
+  row.addEventListener('pointerup', e => {
+    if (timer) { clearTimeout(timer); timer = null; if (!longFired) open(); }
+  });
+  row.addEventListener('pointercancel', cancel);
+  row.addEventListener('pointerleave', cancel);
+}
+
+function openDeviceSheet(mac) {
+  const d = state.devices.find(x => x.mac === mac); if (!d) return;
+  const acts = [
+    { i: '✏️', l: t('dev.rename'), fn: () => renameDevice(d) },
+    { i: d.blocked ? '✅' : '⛔', l: d.blocked ? t('dev.unblock') : t('dev.block'), danger: !d.blocked, fn: () => blockDevice(d) },
+    { i: '⏱', l: t('dev.timelimit'), fn: () => toast('Time limit — link to /pwa/v1/schedules', 'info') },
+    { i: '📶', l: t('dev.bwlimit'), fn: () => bwLimitDevice(d) },
+    { i: '📅', l: t('dev.schedule'), fn: () => location.href = '/pwa/v1/schedules' },
+    { i: '📊', l: t('dev.cap'), fn: () => toast('Monthly cap — coming soon', 'info') },
+    { i: '👨‍👩‍👧', l: t('dev.family'), fn: () => location.href = '/pwa/v1/family' },
+  ];
+  const html = `<div class="sheet-actions">${acts.map((a,i) => `
+    <button class="sheet-action ${a.danger?'danger':''}" data-i="${i}"><span class="si">${a.i}</span><span>${a.l}</span></button>
+  `).join('')}</div>`;
+  sheet(esc(d.name || d.mac), `<span class="mono">${esc(d.mac)}</span> · ${d.ip||''}`, html, body => {
+    body.querySelectorAll('.sheet-action').forEach(b => b.onclick = () => { closeSheet(); acts[+b.dataset.i].fn(); });
+  });
+}
+
+function renameDevice(d) {
+  const html = `<div class="field">
+    <label>${t('dev.rename')}</label>
+    <input id="rn-input" value="${esc(d.name||'')}" maxlength="48">
+    <div class="hint">Pick a friendly name for this device.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn ghost" id="rn-cancel">${t('sheet.cancel')}</button>
+    <button class="btn primary" id="rn-save">${t('sheet.save')}</button>
+  </div>`;
+  sheet(t('dev.rename'), `<span class="mono">${esc(d.mac)}</span>`, html, body => {
+    body.querySelector('#rn-cancel').onclick = closeSheet;
+    body.querySelector('#rn-save').onclick = async () => {
+      const name = body.querySelector('#rn-input').value.trim();
+      if (!name) return;
+      try {
+        await api('/customer/device/rename', { method: 'POST', body: JSON.stringify({ mac: d.mac, name }) });
+        d.name = name; renderDevices(); closeSheet(); toast('Renamed', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+    setTimeout(() => body.querySelector('#rn-input').focus(), 200);
+  });
+}
+
+async function blockDevice(d) {
+  try {
+    await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: 'mac', value: d.mac, action: d.blocked ? 'allow' : 'block' }) });
+    d.blocked = !d.blocked; renderDevices(); toast(d.blocked ? 'Device blocked' : 'Device unblocked', 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+}
+
+function bwLimitDevice(d) {
+  const opts = [
+    { v: 5, l: '5 Mbps', s: 'Slow streaming' },
+    { v: 10, l: '10 Mbps', s: 'HD streaming' },
+    { v: 25, l: '25 Mbps', s: '4K + light gaming' },
+    { v: 50, l: '50 Mbps', s: 'Heavy use' },
+    { v: 0, l: 'No limit', s: 'Remove cap' },
+  ];
+  const html = `<div class="radio-cards">${opts.map(o => `
+    <label class="radio-card">
+      <input type="radio" name="bw" value="${o.v}">
+      <div class="rc-icon">📶</div>
+      <div style="flex:1"><div class="rc-title">${o.l}</div><div class="rc-sub">${o.s}</div></div>
+    </label>`).join('')}</div>
+  <div class="btn-row" style="margin-top:14px"><button class="btn ghost" id="bw-cancel">${t('sheet.cancel')}</button><button class="btn primary" id="bw-save">${t('sheet.save')}</button></div>`;
+  sheet(t('dev.bwlimit'), `<span class="mono">${esc(d.mac)}</span>`, html, body => {
+    body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected'); c.querySelector('input').checked = true;
+    });
+    body.querySelector('#bw-cancel').onclick = closeSheet;
+    body.querySelector('#bw-save').onclick = () => { closeSheet(); toast('Saved (mock — wire to /api/customer/device/bwlimit)', 'info'); };
+  });
+}
+
+/* ──────── Alarms ──────── */
+function renderAlarms() {
+  const el = document.getElementById('alarm-list');
+  if (!state.alarms.length) { el.innerHTML = `<div class="empty"><div class="em">🛡</div>All clear — no alarms.</div>`; return; }
+  el.innerHTML = state.alarms.map(a => {
+    const sev = a.severity || 'info';
+    const sevClass = { high: 'bad', critical: 'bad', medium: 'warn', low: 'info' }[sev] || 'info';
+    const ts = a.ts ? timeAgo(a.ts) : '';
+    return `<div class="list-row">
+      <div class="avatar" style="background:var(--${sevClass}-soft);color:var(--${sevClass==='bad'?'danger':sevClass==='warn'?'warn':'info'})">⚠</div>
+      <div class="lr-meta">
+        <div class="nm">${esc(a.title || a.type || 'Alarm')}</div>
+        <div class="sub">${esc(a.message || a.desc || '')} ${ts ? `· ${ts}` : ''}</div>
+      </div>
+      <div class="lr-right">
+        ${a.ack ? `<span class="badge ok">✓</span>` : `<button class="btn sm primary" data-ack="${esc(a.id)}">Ack</button>`}
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-ack]').forEach(b => b.onclick = async () => {
+    try { await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids: [b.dataset.ack] }) });
+      const a = state.alarms.find(x => String(x.id) === b.dataset.ack); if (a) a.ack = true;
+      renderAlarms(); updateBell(); renderHome(); toast('Acknowledged', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+}
+document.getElementById('ack-all').onclick = async () => {
+  const ids = state.alarms.filter(a => !a.ack).map(a => a.id);
+  if (!ids.length) return;
+  try { await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids }) });
+    state.alarms.forEach(a => a.ack = true); renderAlarms(); updateBell(); renderHome();
+    toast(`${ids.length} alarms acknowledged`, 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── Rules ──────── */
+const DEFAULT_CATS = [
+  { id: 'ads', name: 'Ads & trackers', icon: '🚫', sub: 'Block ads everywhere' },
+  { id: 'social', name: 'Social media', icon: '📱', sub: 'TikTok, Insta, FB, X' },
+  { id: 'adult', name: 'Adult content', icon: '🔞', sub: 'NSFW & gambling' },
+  { id: 'gaming', name: 'Gaming', icon: '🎮', sub: 'Steam, Epic, console' },
+  { id: 'malware', name: 'Malware', icon: '🦠', sub: 'Threat intelligence' },
+  { id: 'streaming', name: 'Streaming', icon: '🎬', sub: 'Netflix, Shahid, etc.' },
+];
+async function renderRules() {
+  try {
+    const [cats, rules] = await Promise.all([
+      api('/customer/categories').catch(() => null),
+      api('/customer/rules').catch(() => []),
+    ]);
+    state.categories = (cats?.categories || cats) || DEFAULT_CATS;
+    if (!Array.isArray(state.categories) || !state.categories.length) state.categories = DEFAULT_CATS;
+    state.rules = Array.isArray(rules) ? rules : (rules?.rules || []);
+  } catch {}
+  // category grid
+  const cg = document.getElementById('cat-grid');
+  cg.innerHTML = state.categories.slice(0, 6).map(c => {
+    const id = c.id || c.key || c.name;
+    const on = state.rules.some(r => r.type === 'category' && r.value === id && r.action === 'block');
+    return `<div class="cat-card" data-cat="${esc(id)}">
+      <div class="top">
+        <div class="ico">${c.icon || '📁'}</div>
+        <div class="switch ${on?'on':''}"></div>
+      </div>
+      <div class="nm">${esc(c.name || id)}</div>
+      <div class="sub">${esc(c.sub || c.desc || '')}</div>
+    </div>`;
+  }).join('');
+  cg.querySelectorAll('.cat-card').forEach(card => card.onclick = () => toggleCategory(card.dataset.cat));
+
+  // custom rules
+  const rl = document.getElementById('rule-list');
+  const custom = state.rules.filter(r => r.type !== 'category');
+  if (!custom.length) { rl.innerHTML = `<div class="empty">No custom rules. Tap + Add to create one.</div>`; }
+  else rl.innerHTML = custom.map(r => `
+    <div class="list-row">
+      <div class="avatar">${r.action === 'block' ? '⛔' : '✅'}</div>
+      <div class="lr-meta">
+        <div class="nm">${esc(r.value)}</div>
+        <div class="sub">${esc(r.type)} · ${r.action}</div>
+      </div>
+      <button class="btn sm ghost" data-rdel="${esc(r.id)}">✕</button>
+    </div>`).join('');
+  rl.querySelectorAll('[data-rdel]').forEach(b => b.onclick = async () => {
+    try { await api('/customer/rules/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.rdel }) });
+      state.rules = state.rules.filter(r => String(r.id) !== b.dataset.rdel); renderRules(); toast('Rule deleted', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+}
+
+async function toggleCategory(id) {
+  const existing = state.rules.find(r => r.type === 'category' && r.value === id);
+  try {
+    if (existing) {
+      await api('/customer/rules/delete', { method: 'POST', body: JSON.stringify({ id: existing.id }) });
+    } else {
+      await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type: 'category', value: id, action: 'block' }) });
+    }
+    renderRules(); toast(existing ? 'Category unblocked' : 'Category blocked', 'info');
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+}
+
+document.getElementById('btn-add-rule').onclick = () => {
+  const html = `
+    <div class="field">
+      <label>Type</label>
+      <select id="ru-type">
+        <option value="domain">Domain (e.g., example.com)</option>
+        <option value="ip">IP address</option>
+        <option value="geo">Country code (e.g., RU)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Value</label>
+      <input id="ru-val" placeholder="example.com">
+      <div class="hint">Exact match. Wildcards not supported here.</div>
+    </div>
+    <div class="field">
+      <label>Action</label>
+      <div class="radio-cards" id="ru-act">
+        <label class="radio-card selected"><input type="radio" name="act" value="block" checked>
+          <div class="rc-icon">⛔</div><div style="flex:1"><div class="rc-title">Block</div><div class="rc-sub">Deny traffic</div></div></label>
+        <label class="radio-card"><input type="radio" name="act" value="allow">
+          <div class="rc-icon">✅</div><div style="flex:1"><div class="rc-title">Allow</div><div class="rc-sub">Bypass blocks</div></div></label>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn ghost" id="ru-cancel">${t('sheet.cancel')}</button><button class="btn primary" id="ru-save">${t('sheet.save')}</button></div>`;
+  sheet('Add custom rule', '', html, body => {
+    body.querySelectorAll('#ru-act .radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('#ru-act .radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected'); c.querySelector('input').checked = true;
+    });
+    body.querySelector('#ru-cancel').onclick = closeSheet;
+    body.querySelector('#ru-save').onclick = async () => {
+      const type = body.querySelector('#ru-type').value;
+      const value = body.querySelector('#ru-val').value.trim();
+      const action = body.querySelector('input[name="act"]:checked').value;
+      if (!value) { toast('Enter a value', 'warn'); return; }
+      try {
+        await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type, value, action }) });
+        closeSheet(); renderRules(); toast('Rule added', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+
+/* ──────── More ──────── */
+function renderMe() {
+  document.getElementById('me-name').textContent = state.me?.full_name || state.me?.name || '—';
+  document.getElementById('me-phone').textContent = state.me?.phone || '—';
+}
+document.getElementById('m-pause').onclick = () => {
+  const html = `<div class="radio-cards" id="p-opts">
+    ${[15,30,60,120].map(m => `<label class="radio-card"><input type="radio" name="m" value="${m}">
+      <div class="rc-icon">⏸</div><div style="flex:1"><div class="rc-title">${m} min</div><div class="rc-sub">Resume manually anytime</div></div></label>`).join('')}
+  </div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn ghost" id="p-cancel">${t('sheet.cancel')}</button>
+    <button class="btn primary" id="p-go">Pause</button>
+  </div>`;
+  sheet(t('more.pause'), 'Internet will pause for everyone on the network.', html, body => {
+    body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
+      body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected'); c.querySelector('input').checked = true;
+    });
+    body.querySelector('#p-cancel').onclick = closeSheet;
+    body.querySelector('#p-go').onclick = async () => {
+      const sel = body.querySelector('input[name="m"]:checked');
+      if (!sel) { toast('Pick a duration', 'warn'); return; }
+      try { await api('/customer/pause/start', { method: 'POST', body: JSON.stringify({ minutes: +sel.value }) });
+        closeSheet(); toast(`Paused for ${sel.value} min`, 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+document.getElementById('m-claim').onclick = () => {
+  const html = `<div class="field">
+    <label>Pairing code</label>
+    <input id="cl-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.3em;text-align:center;font-family:ui-monospace,monospace;font-size:24px">
+    <div class="hint">Find this 6-character code on your box's display or sticker.</div>
+  </div>
+  <div class="btn-row"><button class="btn ghost" id="cl-x">${t('sheet.cancel')}</button><button class="btn primary" id="cl-go">Add box</button></div>`;
+  sheet(t('more.claim'), '', html, body => {
+    body.querySelector('#cl-x').onclick = closeSheet;
+    body.querySelector('#cl-go').onclick = async () => {
+      const code = body.querySelector('#cl-code').value.trim().toUpperCase();
+      if (code.length < 4) { toast('Enter a valid code', 'warn'); return; }
+      try { await api('/customer/box/claim', { method: 'POST', body: JSON.stringify({ code }) });
+        closeSheet(); toast('Box added!', 'info'); refreshAll();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
+  });
+};
+document.getElementById('m-theme').onclick = toggleTheme;
+document.getElementById('m-lang').onclick = toggleLang;
+document.getElementById('m-logout').onclick = logout;
+document.getElementById('btn-add-box').onclick = () => document.getElementById('m-claim').click();
+
+/* ──────── Header buttons ──────── */
+document.getElementById('btn-theme').onclick = toggleTheme;
+document.getElementById('btn-lang').onclick = toggleLang;
+document.getElementById('btn-bell').onclick = () => {
+  document.querySelector('[data-tab="alarms"]').click();
+};
+
+function toggleTheme() { THEME = THEME === 'dark' ? 'light' : 'dark'; localStorage.setItem('mes_theme', THEME); applyTheme(); }
+function toggleLang() { LANG = LANG === 'en' ? 'ar' : 'en'; localStorage.setItem('mes_lang', LANG); applyI18n(); renderHome(); renderMe(); }
+
+/* ──────── Polling + SSE ──────── */
+let pollT = null;
+function startPolling() {
+  if (pollT) clearInterval(pollT);
+  pollT = setInterval(async () => {
+    try {
+      const t = await api('/customer/throughput');
+      updateThroughput(t);
+    } catch (e) { if (e.status === 401) logout(); }
+  }, 12000);
+}
+let sseAbort = null;
+function startSse() {
+  if (sseAbort) sseAbort.abort();
+  sseAbort = new AbortController();
+  fetch('/api/customer/events/stream', {
+    headers: { 'Authorization': 'Bearer ' + state.token },
+    signal: sseAbort.signal,
+  }).then(res => {
+    if (!res.body) return;
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    function loop() {
+      reader.read().then(({ value, done }) => {
+        if (done) return;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const evt = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const em = evt.match(/^event:\s*(\w+)/m), dm = evt.match(/^data:\s*(.+)$/m);
+          if (em && dm) { try { handleSse(em[1], JSON.parse(dm[1])); } catch {} }
+        }
+        loop();
+      }).catch(() => {});
+    }
+    loop();
+  }).catch(() => {});
+}
+function handleSse(type, data) {
+  if (type === 'throughput') updateThroughput(data);
+  else if (type === 'alarm') {
+    state.alarms.unshift(data);
+    updateBell(); renderHome();
+    toast(`🚨 ${data.title || 'New alarm'}`, 'warn');
+  } else if (type === 'flow') {
+    state.flows.unshift(data); state.flows = state.flows.slice(0, 20);
+    if (document.getElementById('tab-network').classList.contains('active')) renderHome();
+  } else if (type === 'device.online' || type === 'device.offline') {
+    refreshAll();
+  }
+}
+
+/* ──────── Pull-to-refresh ──────── */
+let ptrStart = null, ptrPulled = 0;
+const ptr = document.getElementById('ptr');
+window.addEventListener('touchstart', e => {
+  if (window.scrollY === 0) ptrStart = e.touches[0].clientY;
+}, { passive: true });
+window.addEventListener('touchmove', e => {
+  if (ptrStart == null) return;
+  ptrPulled = e.touches[0].clientY - ptrStart;
+  if (ptrPulled > 30) ptr.classList.add('show');
+  if (ptrPulled > 80) ptr.textContent = '↑ Release to refresh';
+  else ptr.textContent = '↓ Pull to refresh';
+}, { passive: true });
+window.addEventListener('touchend', () => {
+  if (ptrPulled > 80) {
+    ptr.textContent = 'Refreshing…';
+    refreshAll().finally(() => { setTimeout(() => ptr.classList.remove('show'), 600); });
+  } else { ptr.classList.remove('show'); }
+  ptrStart = null; ptrPulled = 0;
+});
+
+/* ──────── Header scroll shadow ──────── */
+window.addEventListener('scroll', () => {
+  document.getElementById('header').classList.toggle('scrolled', window.scrollY > 4);
+}, { passive: true });
+
+/* ──────── Helpers ──────── */
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function timeAgo(ts) {
+  const now = Date.now(), then = (typeof ts === 'string' ? new Date(ts).getTime() : ts*(ts<2e10?1000:1));
+  const s = Math.max(0, Math.floor((now - then) / 1000));
+  if (s < 60) return s + 's ago'; if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago'; return Math.floor(s/86400) + 'd ago';
+}
+function formatBytes(b) {
+  if (!b) return '0 B';
+  const u = ['B','KB','MB','GB']; let i = 0; while (b >= 1024 && i < 3) { b /= 1024; i++; }
+  return b.toFixed(b < 10 && i > 0 ? 1 : 0) + ' ' + u[i];
+}
+function countryFlag(cc) {
+  if (!cc || cc.length !== 2) return '';
+  const A = 0x1F1E6 - 65;
+  return String.fromCodePoint(cc.charCodeAt(0) + A) + String.fromCodePoint(cc.charCodeAt(1) + A);
+}
+function deviceIcon(t) {
+  return ({ phone: '📱', laptop: '💻', desktop: '🖥', tv: '📺', console: '🎮',
+    iot: '💡', router: '📡', tablet: '📱', watch: '⌚', camera: '📷' })[t] || '';
+}
+
+/* ──────── Init ──────── */
+applyI18n();
+applyTheme();
+if (state.token) bootApp();
+</script>
+</body>
+</html>

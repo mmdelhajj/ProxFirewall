@@ -1,0 +1,19 @@
+services:
+  mock-cloud:
+    build: .
+    container_name: mock-firewalla-cloud
+    restart: unless-stopped
+    ports:
+      # Bind to localhost only — public traffic comes via nginx on port 80/443
+      - "127.0.0.1:18080:8080"
+    environment:
+      - PORT=8080
+      - HOST=0.0.0.0
+      - STATE_FILE=/data/state.json
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-mes-cloud-admin}
+    volumes:
+      - ./data:/data
+      - /var/backups:/var/backups
+      - /opt/mes-box-images:/data/images:ro
+    # See logs in real time:
+    #   docker compose logs -f
