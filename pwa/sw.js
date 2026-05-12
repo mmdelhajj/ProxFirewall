@@ -1,5 +1,5 @@
 // mes Network PWA service worker — offline shell + Web Push handler
-const CACHE = 'mes-pwa-v42-tier1-visibility-dns-family';
+const CACHE = 'mes-pwa-v43-tier2-intel-threats-family';
 const ASSETS = [
   '/pwa/',
   '/pwa/index.html',

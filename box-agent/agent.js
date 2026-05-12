@@ -48,6 +48,11 @@ let openvpnClient = null;
 try { openvpnClient = require('./openvpn-client'); } catch (e) { console.error('[agent] openvpn-client missing:', e.message); }
 let devThroughput = null;
 try { devThroughput = require('./device-throughput'); } catch (e) { console.error('[agent] device-throughput missing:', e.message); }
+// Tier 2 — Suricata IDS/IPS + per-alarm pcap capture
+let suricata = null;
+try { suricata     = require('./suricata');     } catch (e) { console.error('[agent] suricata missing:', e.message); }
+let pcapCapture = null;
+try { pcapCapture  = require('./pcap-capture'); } catch (e) { console.error('[agent] pcap-capture missing:', e.message); }
 
 // Read MAC of the requested interface (defaults to eth0)
 function readMac(iface) {
@@ -1149,6 +1154,51 @@ async function reportDnsQueries() {
   } catch (e) { /* dnsmasq log may not exist on first boot — silent */ }
 }
 
+// ─── Tier 2 Feature A: Suricata EVE alert tailer ─────────────────────────
+// Tail the last 100 lines of /var/log/suricata/eve.json, filter alerts that
+// post-date the last flow_id we shipped, POST the batch to the cloud.
+let _idsLastSeen = { flow_id: 0, ts: 0 };
+async function tickIdsEvents() {
+  if (!suricata) return;
+  const evs = suricata.tailEvents(100);
+  if (!evs.length) return;
+  // dedupe: only ship events with flow_id > _idsLastSeen.flow_id (or ts-based)
+  const fresh = evs.filter(e => {
+    const fid = parseInt(e.flow_id || 0);
+    const ts = +new Date(e.timestamp || 0);
+    if (fid && fid > _idsLastSeen.flow_id) return true;
+    if (ts && ts > _idsLastSeen.ts) return true;
+    return false;
+  });
+  if (!fresh.length) return;
+  // Update marker to the max we've seen.
+  for (const e of fresh) {
+    const fid = parseInt(e.flow_id || 0);
+    const ts = +new Date(e.timestamp || 0);
+    if (fid > _idsLastSeen.flow_id) _idsLastSeen.flow_id = fid;
+    if (ts > _idsLastSeen.ts) _idsLastSeen.ts = ts;
+  }
+  // Slim payload: only the fields the cloud needs.
+  const payload = fresh.slice(0, 100).map(e => ({
+    ts: +new Date(e.timestamp || Date.now()),
+    flow_id: e.flow_id || 0,
+    src_ip: e.src_ip || '', src_port: e.src_port || 0,
+    dst_ip: e.dest_ip || e.dst_ip || '', dst_port: e.dest_port || e.dst_port || 0,
+    proto:  (e.proto || '').toString().toLowerCase(),
+    alert: e.alert ? {
+      signature_id: e.alert.signature_id,
+      signature:    e.alert.signature || '',
+      category:     e.alert.category || '',
+      severity:     e.alert.severity || 3,
+      action:       e.alert.action || '',
+    } : null,
+  }));
+  try {
+    await api('POST', '/api/box/ids-alerts', { alerts: payload });
+    console.log(`[agent] ids: shipped ${payload.length} suricata alerts to cloud`);
+  } catch (e) { console.error('[agent] ids upload failed:', e.message); }
+}
+
 async function reportAlarm(severity, kind, title, body, deviceMac) {
   try {
     return await api('POST', '/api/box/alarms', {
@@ -1519,6 +1569,35 @@ async function runAction(action, args) {
     // Schedule a reboot so we re-self-register on next boot
     setTimeout(() => { try { execSync('reboot'); } catch {} }, 3000);
     return { wiped: true, will_reboot: true };
+  }
+  // ─── Suricata IDS/IPS (Tier 2 Feature A) ──────────────────────────────
+  if (action === 'suricata-status') {
+    if (!suricata) throw new Error('suricata module not loaded');
+    return suricata.getStatus();
+  }
+  if (action === 'suricata-restart') {
+    if (!suricata) throw new Error('suricata module not loaded');
+    suricata.stop(); return suricata.start();
+  }
+  if (action === 'suricata-update-rules') {
+    if (!suricata) throw new Error('suricata module not loaded');
+    return suricata.updateRules();
+  }
+  if (action === 'suricata-install') {
+    if (!suricata) throw new Error('suricata module not loaded');
+    const ins = suricata.install();
+    if (!ins.ok) return ins;
+    suricata.configure(LAN_IF);
+    return { ...ins, configured: true };
+  }
+  // ─── Per-alarm PCAP (Tier 2 Feature D) ────────────────────────────────
+  if (action === 'pcap-capture') {
+    if (!pcapCapture) throw new Error('pcap-capture module not loaded');
+    const r = pcapCapture.captureFlow({ ...(args || {}), iface: LAN_IF });
+    if (!r.ok) return r;
+    // Upload the bytes back to the cloud, indexed by alarm_id
+    const up = await pcapCapture.uploadPcap(args.alarm_id, api);
+    return { ...r, upload: up };
   }
   if (action === 'tail-logs') {
     const lines = Math.min(parseInt(args.lines) || 200, 1000);
@@ -1970,6 +2049,40 @@ async function uploadConfigSnapshot() {
       }
       console.log('[agent] sni-parser started on', LAN_IF);
     } catch (e) { console.error('[agent] sni-parser start:', e.message); }
+  }
+
+  // ─── Tier 2 Feature A: Suricata IDS/IPS bootstrap ───────────────────────
+  // On every boot: idempotent install (skip if already present), write/refresh
+  // config, ensure ET-OPEN rules are present (first-run download + reload),
+  // make sure suricata is running. EVE JSON events are tailed by tickIdsEvents.
+  if (suricata) {
+    (async () => {
+      try {
+        const ins = suricata.install();
+        if (!ins.ok) { console.error('[agent] suricata install failed:', ins.error); return; }
+        suricata.configure(LAN_IF);
+        // First-run rule download. If we've never updated, do it now (blocking-ish).
+        const st0 = suricata.getStatus();
+        if (!st0.last_update || st0.rule_count < 50) {
+          console.log('[agent] suricata: pulling ET-OPEN rules (first run)…');
+          const r = suricata.updateRules();
+          console.log('[agent] suricata rule update:', r.ok ? `${r.rule_count} rules` : `failed: ${r.error}`);
+        }
+        const st = suricata.start();
+        console.log('[agent] suricata:', st.ok ? 'running' : `start failed: ${st.error}`);
+      } catch (e) { console.error('[agent] suricata bootstrap:', e.message); }
+    })();
+    // Tail eve.json every 60s, ship new alerts to cloud
+    setInterval(() => safe(tickIdsEvents), 60_000);
+    setTimeout(() => safe(tickIdsEvents), 30_000);   // first sample after 30s
+    // Daily rule refresh — 03:17 local-ish. We approximate via 24h interval.
+    setInterval(() => {
+      try {
+        console.log('[agent] suricata: daily rule refresh');
+        const r = suricata.updateRules();
+        console.log('[agent] suricata rule refresh:', r.ok ? `${r.rule_count} rules` : `failed: ${r.error}`);
+      } catch (e) { console.error('[agent] suricata rule refresh err:', e.message); }
+    }, 24 * 3600_000);
   }
 
   // Boot-time auto-mode: if /etc/mes-box/preferred-mode says "simple", start

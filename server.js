@@ -8207,12 +8207,14 @@ app.get('/api/box/policy/:mac', (req, res) => {
     const used_gb = (u.bytes_up + u.bytes_down) / (1024 ** 3);
     if (used_gb >= q.monthly_gb) quota_blocked.push(q.device_mac);
   }
-  // Time bank — devices over today's minute budget (incl. parent-granted bonus) → block
+  // Time bank — devices over today's minute budget (incl. parent-granted bonus
+  // and Tier-2 Feature D rolled-over minutes) → block
   if (cust_id) {
     timeBankResetIfNew(cust_id);
     for (const e of (state.time_bank[cust_id] || [])) {
-      const bonus = e.bonus_minutes_today || 0;
-      if (e.used_minutes >= (e.daily_minutes + bonus)) quota_blocked.push(e.device_mac);
+      const bonus  = e.bonus_minutes_today || 0;
+      const rolled = e.rolled_minutes_today || 0;
+      if (e.used_minutes >= (e.daily_minutes + bonus + rolled)) quota_blocked.push(e.device_mac);
     }
   }
   // MAC-type block rules (created when customer taps "Block device" in PWA).
@@ -8236,6 +8238,23 @@ app.get('/api/box/policy/:mac', (req, res) => {
     for (const dmac of Object.keys(state.box_devices[mac] || {})) {
       quota_blocked.push(dmac);
     }
+  }
+  // Tier-2 Feature C — Selective family pause. When active, push every device
+  // on the box into quota_blocked EXCEPT those whose MAC is exempted or whose
+  // owner family member is in exclude_member_ids. Cancels itself once `until`
+  // elapses (next policy fetch).
+  let selective_pause = null;
+  if (cust_id && c && selectivePauseActive(c)) {
+    const exempted = selectivePauseExpandExcluded(cust_id);
+    for (const dmac of Object.keys(state.box_devices[mac] || {})) {
+      if (!exempted.has(dmac.toLowerCase())) quota_blocked.push(dmac);
+    }
+    selective_pause = {
+      active: true,
+      until: c.selective_pause.until,
+      exempted_count: exempted.size,
+      reason: c.selective_pause.reason || '',
+    };
   }
 
   // Geo-blocking (collect from rules)
@@ -8345,6 +8364,7 @@ app.get('/api/box/policy/:mac', (req, res) => {
           extra_blocked_categories: ['social', 'video', 'adult'] }
       : { active: false },
     auto_quarantine: !!(c && c.auto_quarantine),
+    selective_pause,
   };
   // Apply vacation extras to blocked sets
   if (bundle.vacation_mode.active) {
@@ -8895,12 +8915,23 @@ function timeBankResetIfNew(c_id) {
   const list = state.time_bank[c_id] || [];
   for (const e of list) {
     if (e.period_yyyy_mm_dd !== today) {
+      // Tier-2 Feature D: compute rollover from yesterday's leftover BEFORE reset.
+      // Unused minutes carry over up to max_rollover_minutes (default = daily_minutes).
+      const yesterdayBudget = (e.daily_minutes || 0) + (e.bonus_minutes_today || 0) + (e.rolled_minutes_today || 0);
+      const yesterdayLeftover = Math.max(0, yesterdayBudget - (e.used_minutes || 0));
+      const cap = (typeof e.max_rollover_minutes === 'number')
+        ? e.max_rollover_minutes
+        : (e.daily_minutes || 0);
+      e.rolled_minutes_today = e.rollover_enabled ? Math.min(cap, yesterdayLeftover) : 0;
       e.period_yyyy_mm_dd = today;
       e.used_minutes = 0;
       // Tier-1 Feature D: bonus minutes are per-day and reset alongside used_minutes.
       e.bonus_minutes_today = 0;
     }
     if (typeof e.bonus_minutes_today !== 'number') e.bonus_minutes_today = 0;
+    if (typeof e.rolled_minutes_today !== 'number') e.rolled_minutes_today = 0;
+    if (typeof e.rollover_enabled !== 'boolean')   e.rollover_enabled = false;
+    if (typeof e.max_rollover_minutes !== 'number') e.max_rollover_minutes = e.daily_minutes || 0;
   }
 }
 
@@ -8973,6 +9004,390 @@ function tallyTimeBank(f) {
     e.used_minutes = (e.used_minutes || 0) + 1;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIER-2 Feature A — Per-device risk score (0..100)
+// TIER-2 Feature B — Behavioural baselines + deviation alerts
+// TIER-2 Feature C — Selective family pause
+// TIER-2 Feature D — Time-bank rollover
+// ═══════════════════════════════════════════════════════════════════════════
+if (!state.device_risk)      state.device_risk      = {};   // { cid: { mac: { score, factors, severity, computed_at } } }
+if (!state.device_baselines) state.device_baselines = {};   // { cid: { mac: { avg_bytes, std_bytes, avg_dests, std_dests, avg_countries, std_countries, avg_ports, std_ports, samples, computed_at } } }
+if (!state.device_cves)      state.device_cves      = {};   // sibling agent populates — we only read
+
+const RISK_SEVERITY_BAND = (s) => s >= 76 ? 'critical' : s >= 51 ? 'high' : s >= 26 ? 'medium' : 'low';
+
+// IoT classifier hint — used for the baseline +10 in the risk score. We look at
+// device_type AND vendor strings since some boxes report 'iot' explicitly and
+// some leave the type generic but the vendor is a known IoT maker.
+const IOT_VENDOR_HINTS = /hikvision|dahua|reolink|tp-?link|ezviz|amcrest|nest|ring|amazon|google home|sonoff|tuya|xiaomi|wyze|eufy|tplink|broadlink|shelly|philips|lifx|sonos|ecobee|honeywell|smartthings/i;
+function isIoTDevice(dev) {
+  if (!dev) return false;
+  if (dev.device_type === 'iot') return true;
+  if (dev.vendor && IOT_VENDOR_HINTS.test(dev.vendor)) return true;
+  const fp = (dev.dhcp_fp || '').toLowerCase();
+  if (fp && /(hikvision|nest|ring|amazon|google|sonos)/.test(fp)) return true;
+  return false;
+}
+
+// Resolve the customer's devices across all their boxes (deduped by MAC, latest wins).
+function devicesForCustomer(cid) {
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === cid);
+  const out = {};
+  for (const b of myBoxes) {
+    const bucket = state.box_devices[b.mac] || {};
+    for (const d of Object.values(bucket)) {
+      const prev = out[d.mac];
+      if (!prev || (d.last_seen || 0) > (prev.last_seen || 0)) out[d.mac] = d;
+    }
+  }
+  return out;
+}
+
+// ─── Feature A — risk score
+function computeDeviceRiskScore(cid, mac) {
+  const macL = (mac || '').toLowerCase();
+  const factors = [];
+  let score = 0;
+
+  // CVE hits — sibling Feature
+  const cves = (state.device_cves && state.device_cves[cid] && state.device_cves[cid][macL]) || null;
+  if (cves && Array.isArray(cves.matches || cves)) {
+    const list = Array.isArray(cves.matches) ? cves.matches : cves;
+    let cveWeight = 0;
+    for (const c of list) {
+      const sev = String(c.severity || c.cvss_severity || '').toLowerCase();
+      if (sev === 'critical') cveWeight += 25;
+      else if (sev === 'high') cveWeight += 10;
+      else if (sev === 'medium' || sev === 'moderate') cveWeight += 5;
+    }
+    cveWeight = Math.min(40, cveWeight);
+    if (cveWeight > 0) { score += cveWeight; factors.push({ name: 'cve_hits', weight: cveWeight, count: list.length }); }
+  }
+
+  // Behavior deviation (if baseline shows >3σ today on any metric → +20)
+  const baseline = (state.device_baselines[cid] || {})[macL] || null;
+  if (baseline && baseline.samples >= 3) {
+    const today = currentDay();
+    const todayBucket = ((state.usage_daily || {})[cid] || {})[today] || {};
+    const u = todayBucket[macL] || { bytes_up: 0, bytes_down: 0 };
+    const todayBytes = (u.bytes_up || 0) + (u.bytes_down || 0);
+    const todayMetrics = computeTodayMetrics(cid, macL);
+    let deviated = false;
+    if (baseline.std_bytes > 0 && todayBytes > baseline.avg_bytes + 3 * baseline.std_bytes) deviated = true;
+    if (baseline.std_dests > 0 && todayMetrics.dests > baseline.avg_dests + 3 * baseline.std_dests) deviated = true;
+    if (baseline.std_countries > 0 && todayMetrics.countries > baseline.avg_countries + 3 * baseline.std_countries) deviated = true;
+    if (baseline.std_ports > 0 && todayMetrics.ports > baseline.avg_ports + 3 * baseline.std_ports) deviated = true;
+    if (deviated) { score += 20; factors.push({ name: 'behaviour_deviation', weight: 20 }); }
+  }
+
+  // Threat-intel hits — alarms last 7 days for this device, certain kinds
+  const intelKinds = new Set(['sig_match','signature_match','ja3_malware_signature','bypass_attempt','dga_suspected','c2_beacon_suspected','ids_match']);
+  const cutoff = Date.now() - 7 * 86400_000;
+  let intelHits = 0;
+  for (const a of (state.alarms || [])) {
+    if (a.customer_id !== cid) continue;
+    if (!a.ts || a.ts < cutoff) continue;
+    if ((a.device_mac || '').toLowerCase() !== macL) continue;
+    if (intelKinds.has(a.kind)) intelHits++;
+  }
+  if (intelHits > 0) {
+    const w = Math.min(30, intelHits * 5);
+    score += w;
+    factors.push({ name: 'threat_intel_hits', weight: w, count: intelHits });
+  }
+
+  // IoT classification
+  const devs = devicesForCustomer(cid);
+  const dev = devs[macL] || null;
+  if (dev && isIoTDevice(dev)) {
+    score += 10;
+    factors.push({ name: 'iot_baseline', weight: 10 });
+  }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const severity = RISK_SEVERITY_BAND(score);
+  const cached = { score, factors, severity, computed_at: Date.now() };
+  if (!state.device_risk[cid]) state.device_risk[cid] = {};
+  state.device_risk[cid][macL] = cached;
+  return cached;
+}
+
+function recomputeAllRiskForCustomer(cid) {
+  const devs = devicesForCustomer(cid);
+  for (const mac of Object.keys(devs)) computeDeviceRiskScore(cid, mac);
+}
+function recomputeAllRiskFleet() {
+  for (const cid of Object.keys(state.customers || {})) {
+    try { recomputeAllRiskForCustomer(cid); } catch(e) {}
+  }
+  saveState();
+}
+// Hourly fleet-wide refresh
+setTimeout(recomputeAllRiskFleet, 4 * 60_000);
+setInterval(recomputeAllRiskFleet, 3600_000);
+
+app.get('/api/customer/devices/:mac/risk', customerAuth, (req, res) => {
+  const macL = (req.params.mac || '').toLowerCase();
+  const cid = req.customer.id;
+  let cached = (state.device_risk[cid] || {})[macL];
+  // Recompute on demand if missing or stale (>1h)
+  if (!cached || (Date.now() - cached.computed_at) > 3600_000) {
+    cached = computeDeviceRiskScore(cid, macL);
+  }
+  res.json(cached);
+});
+
+app.get('/api/customer/risk-overview', customerAuth, (req, res) => {
+  const cid = req.customer.id;
+  const devs = devicesForCustomer(cid);
+  const out = [];
+  for (const [mac, d] of Object.entries(devs)) {
+    let cached = (state.device_risk[cid] || {})[mac];
+    if (!cached || (Date.now() - cached.computed_at) > 3600_000) {
+      cached = computeDeviceRiskScore(cid, mac);
+    }
+    out.push({
+      mac,
+      name: d.hostname || d.device_label || d.vendor || mac,
+      vendor: d.vendor || '',
+      device_type: d.device_type || '',
+      ip: d.ip || '',
+      online: d.last_seen ? (Date.now() - d.last_seen) < 10 * 60_000 : false,
+      ...cached,
+    });
+  }
+  out.sort((a, b) => b.score - a.score);
+  res.json({ devices: out, generated_at: Date.now() });
+});
+
+// ─── Feature B — baselines
+// Compute today's actual destinations / countries / ports from flow_archive
+function computeTodayMetrics(cid, macL) {
+  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
+  const startMs = startOfDay.getTime();
+  const dests = new Set(), countries = new Set(), ports = new Set();
+  const arr = state.flow_archive[cid] || [];
+  for (const f of arr) {
+    if (f.ts < startMs) continue;
+    if ((f.src_mac || '').toLowerCase() !== macL) continue;
+    if (f.dst_domain) dests.add(f.dst_domain);
+    else if (f.dst_ip) dests.add(f.dst_ip);
+    if (f.country) countries.add(f.country);
+    if (f.dst_port) ports.add(f.dst_port);
+  }
+  return { dests: dests.size, countries: countries.size, ports: ports.size };
+}
+function metricsForDay(cid, macL, dayStr) {
+  // returns {bytes, dests, countries, ports} for a single yyyy-mm-dd
+  const dayStartMs = new Date(dayStr + 'T00:00:00Z').getTime();
+  const dayEndMs   = dayStartMs + 86400_000;
+  const u = ((state.usage_daily[cid] || {})[dayStr] || {})[macL] || { bytes_up: 0, bytes_down: 0 };
+  const bytes = (u.bytes_up || 0) + (u.bytes_down || 0);
+  const dests = new Set(), countries = new Set(), ports = new Set();
+  for (const f of (state.flow_archive[cid] || [])) {
+    if (f.ts < dayStartMs || f.ts >= dayEndMs) continue;
+    if ((f.src_mac || '').toLowerCase() !== macL) continue;
+    if (f.dst_domain) dests.add(f.dst_domain);
+    else if (f.dst_ip) dests.add(f.dst_ip);
+    if (f.country) countries.add(f.country);
+    if (f.dst_port) ports.add(f.dst_port);
+  }
+  return { bytes, dests: dests.size, countries: countries.size, ports: ports.size };
+}
+function recomputeBaseline(cid, macL) {
+  // Look at the last 7 days (excluding today)
+  const samples = [];
+  for (let i = 1; i <= 7; i++) {
+    const day = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
+    const m = metricsForDay(cid, macL, day);
+    samples.push(m);
+  }
+  // Only retain non-zero days so brand-new devices don't have artificially low std
+  const valid = samples.filter(s => (s.bytes + s.dests + s.countries + s.ports) > 0);
+  if (!valid.length) return null;
+  const meanStd = arr => {
+    const n = arr.length;
+    const mean = arr.reduce((a,b)=>a+b,0) / n;
+    const variance = arr.reduce((a,b)=>a + (b-mean)*(b-mean), 0) / n;
+    return { mean, std: Math.sqrt(variance) };
+  };
+  const b = meanStd(valid.map(s => s.bytes));
+  const d = meanStd(valid.map(s => s.dests));
+  const c = meanStd(valid.map(s => s.countries));
+  const p = meanStd(valid.map(s => s.ports));
+  const out = {
+    avg_bytes: b.mean, std_bytes: b.std,
+    avg_dests: d.mean, std_dests: d.std,
+    avg_countries: c.mean, std_countries: c.std,
+    avg_ports: p.mean, std_ports: p.std,
+    samples: valid.length,
+    computed_at: Date.now(),
+  };
+  if (!state.device_baselines[cid]) state.device_baselines[cid] = {};
+  state.device_baselines[cid][macL] = out;
+  return out;
+}
+function recomputeAllBaselines() {
+  for (const cid of Object.keys(state.customers || {})) {
+    const devs = devicesForCustomer(cid);
+    for (const mac of Object.keys(devs)) {
+      try { recomputeBaseline(cid, mac); } catch(e) {}
+    }
+  }
+  saveState();
+}
+// Daily baseline rebuild — once after startup (5 min), then every 24h
+setTimeout(recomputeAllBaselines, 5 * 60_000);
+setInterval(recomputeAllBaselines, 24 * 3600_000);
+
+// Hourly deviation check — fires `behavior_deviation` alarm at >3σ
+function detectBehaviorDeviations() {
+  for (const cid of Object.keys(state.customers || {})) {
+    const devs = devicesForCustomer(cid);
+    for (const [mac, dev] of Object.entries(devs)) {
+      const macL = mac.toLowerCase();
+      const baseline = (state.device_baselines[cid] || {})[macL];
+      if (!baseline || baseline.samples < 3) continue;
+      const today = currentDay();
+      const u = ((state.usage_daily[cid] || {})[today] || {})[macL] || { bytes_up: 0, bytes_down: 0 };
+      const todayBytes = (u.bytes_up || 0) + (u.bytes_down || 0);
+      const tm = computeTodayMetrics(cid, macL);
+      const fmtMB = b => (b/1024/1024).toFixed(0) + ' MB';
+      const fmtGB = b => (b/1024/1024/1024).toFixed(1) + ' GB';
+      const fmtBytes = b => b >= 1024*1024*1024 ? fmtGB(b) : fmtMB(b);
+      let breach = null;
+      if (baseline.std_bytes > 0 && todayBytes > baseline.avg_bytes + 3 * baseline.std_bytes) {
+        breach = { metric: 'bytes', actual: todayBytes, expected: baseline.avg_bytes,
+                   body: `Device ${dev.hostname || mac} transferred ${fmtBytes(todayBytes)} today (typical: ${fmtBytes(baseline.avg_bytes)}).` };
+      } else if (baseline.std_dests > 0 && tm.dests > baseline.avg_dests + 3 * baseline.std_dests) {
+        breach = { metric: 'destinations', actual: tm.dests, expected: baseline.avg_dests,
+                   body: `Device ${dev.hostname || mac} contacted ${tm.dests} destinations today (typical: ${Math.round(baseline.avg_dests)}).` };
+      } else if (baseline.std_countries > 0 && tm.countries > baseline.avg_countries + 3 * baseline.std_countries) {
+        breach = { metric: 'countries', actual: tm.countries, expected: baseline.avg_countries,
+                   body: `Device ${dev.hostname || mac} reached ${tm.countries} countries today (typical: ${Math.round(baseline.avg_countries)}).` };
+      } else if (baseline.std_ports > 0 && tm.ports > baseline.avg_ports + 3 * baseline.std_ports) {
+        breach = { metric: 'ports', actual: tm.ports, expected: baseline.avg_ports,
+                   body: `Device ${dev.hostname || mac} hit ${tm.ports} distinct ports today (typical: ${Math.round(baseline.avg_ports)}).` };
+      }
+      if (breach && typeof fireSyntheticAlarm === 'function') {
+        // Pick the first customer's box mac if any
+        const boxMac = (Object.values(state.authorized_macs).find(m => m.customer_id === cid) || {}).mac || null;
+        fireSyntheticAlarm(cid, boxMac, 'medium', 'behavior_deviation',
+          `Unusual activity: ${dev.hostname || mac}`,
+          breach.body,
+          { device_mac: mac, metric_name: breach.metric, actual: breach.actual, expected: Math.round(breach.expected) });
+      }
+    }
+  }
+}
+setTimeout(detectBehaviorDeviations, 7 * 60_000);
+setInterval(detectBehaviorDeviations, 3600_000);
+
+// Register the new MITRE tag for behavior_deviation. We attach it after the
+// MITRE_TAGS const is defined (later in this file) — see additional block below.
+
+app.get('/api/customer/devices/:mac/baseline', customerAuth, (req, res) => {
+  const cid = req.customer.id;
+  const macL = (req.params.mac || '').toLowerCase();
+  let baseline = (state.device_baselines[cid] || {})[macL];
+  if (!baseline) baseline = recomputeBaseline(cid, macL);
+  const today = currentDay();
+  const u = ((state.usage_daily[cid] || {})[today] || {})[macL] || { bytes_up: 0, bytes_down: 0 };
+  const todayBytes = (u.bytes_up || 0) + (u.bytes_down || 0);
+  const tm = computeTodayMetrics(cid, macL);
+  const dev_pct = (actual, expected) => (expected > 0) ? Math.round(((actual - expected) / expected) * 100) : (actual > 0 ? 999 : 0);
+  res.json({
+    mac: macL,
+    baseline: baseline || null,
+    today: { bytes: todayBytes, dests: tm.dests, countries: tm.countries, ports: tm.ports },
+    deviation_pct: baseline ? {
+      bytes:     dev_pct(todayBytes, baseline.avg_bytes),
+      dests:     dev_pct(tm.dests,    baseline.avg_dests),
+      countries: dev_pct(tm.countries, baseline.avg_countries),
+      ports:     dev_pct(tm.ports,    baseline.avg_ports),
+    } : null,
+  });
+});
+
+// ─── Feature C — Selective family pause
+//   state.customers[cid].selective_pause = { active, until, exclude_member_ids[], exclude_device_macs[], reason }
+function selectivePauseActive(c) {
+  return !!(c && c.selective_pause && c.selective_pause.active && c.selective_pause.until > Date.now());
+}
+function selectivePauseExpandExcluded(cid) {
+  const c = state.customers[cid];
+  if (!c || !selectivePauseActive(c)) return new Set();
+  const sp = c.selective_pause;
+  const out = new Set((sp.exclude_device_macs || []).map(m => (m||'').toLowerCase()).filter(Boolean));
+  const fam = state.family_members[cid] || [];
+  for (const fid of (sp.exclude_member_ids || [])) {
+    const m = fam.find(x => x.id === fid);
+    if (m) for (const dmac of (m.device_macs || [])) out.add((dmac||'').toLowerCase());
+  }
+  return out;
+}
+app.post('/api/customer/selective-pause', customerAuth, (req, res) => {
+  const c = req.customer;
+  const minutes = Math.max(1, Math.min(parseInt(req.body.minutes) || 60, 1440));
+  const exclude_member_ids = Array.isArray(req.body.exclude_member_ids) ? req.body.exclude_member_ids.slice(0, 50) : [];
+  const exclude_device_macs = Array.isArray(req.body.exclude_device_macs)
+    ? req.body.exclude_device_macs.map(m => (m||'').toLowerCase()).filter(Boolean).slice(0, 200)
+    : [];
+  const reason = String(req.body.reason || '').slice(0, 120);
+  c.selective_pause = {
+    active: true,
+    until: Date.now() + minutes * 60_000,
+    exclude_member_ids,
+    exclude_device_macs,
+    reason,
+    started_at: Date.now(),
+  };
+  state.events.push({ ts: Date.now(), method: 'CUSTOMER',
+    path: `[SELECTIVE-PAUSE] ${c.name} → ${minutes}m, exempt ${exclude_member_ids.length} members + ${exclude_device_macs.length} devices`, ip: req.ip });
+  saveState();
+  if (typeof bumpPolicyEtagGlobal === 'function') bumpPolicyEtagGlobal(`selective_pause:${c.id}`);
+  res.json({ ok: true, selective_pause: c.selective_pause });
+});
+app.post('/api/customer/selective-pause/cancel', customerAuth, (req, res) => {
+  const c = req.customer;
+  if (c.selective_pause) c.selective_pause.active = false;
+  saveState();
+  if (typeof bumpPolicyEtagGlobal === 'function') bumpPolicyEtagGlobal(`selective_pause_cancel:${c.id}`);
+  state.events.push({ ts: Date.now(), method: 'CUSTOMER',
+    path: `[SELECTIVE-PAUSE-CANCEL] ${c.name}`, ip: req.ip });
+  res.json({ ok: true });
+});
+app.get('/api/customer/selective-pause', customerAuth, (req, res) => {
+  const c = req.customer;
+  const sp = c.selective_pause || null;
+  let exempted = [];
+  if (sp && selectivePauseActive(c)) {
+    exempted = Array.from(selectivePauseExpandExcluded(c.id));
+  }
+  res.json({ selective_pause: sp, exempted_macs: exempted, active: selectivePauseActive(c) });
+});
+
+// ─── Feature D — Time-bank rollover (extends Tier-1 time-bank)
+// New per-entry fields:
+//   rollover_enabled, max_rollover_minutes, rolled_minutes_today, _last_rolled_day
+app.post('/api/customer/time-bank/rollover-prefs', customerAuth, (req, res) => {
+  const cid = req.customer.id;
+  const mac = normalizeMac(req.body.device_mac || '');
+  if (!mac) return res.status(400).json({ error: 'device_mac required' });
+  const enabled = req.body.enabled !== false && req.body.enabled !== 'false';
+  const list = state.time_bank[cid] || [];
+  const e = list.find(x => (x.device_mac || '').toLowerCase() === mac);
+  if (!e) return res.status(404).json({ error: 'no time-bank entry for that device' });
+  e.rollover_enabled = !!enabled;
+  if (req.body.max_rollover_minutes != null) {
+    const v = parseInt(req.body.max_rollover_minutes, 10);
+    if (Number.isFinite(v) && v >= 0 && v <= 1440) e.max_rollover_minutes = v;
+  }
+  if (e.max_rollover_minutes == null) e.max_rollover_minutes = e.daily_minutes;
+  saveState();
+  res.json({ ok: true, entry: e });
+});
 
 // ─── Device tags (per customer) ─────
 // state.device_tags = { customer_id: { mac: [tag, tag, ...] } }
@@ -13617,6 +14032,13 @@ const MITRE_TAGS = {
   vpn_activity:        ['T1572'],
   bypass_attempt:      ['T1090'],
   ja3_malware_signature: ['T1071.001', 'T1573'],
+  // Tier-2 Feature B — could also be benign, but the hint is appropriate
+  behavior_deviation:  ['T1041'],
+  // Tier-2 threat-detection-depth additions
+  ids_match:           ['T1190', 'T1071'],
+  dga_suspected:       ['T1568.002'],
+  c2_beacon_suspected: ['T1071.001'],
+  device_cve_match:    ['T1190'],
 };
 
 // SNI patterns that indicate a device is trying to bypass parental controls
@@ -13719,6 +14141,10 @@ function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body, e
   };
   state.alarms.unshift(a);
   if (state.alarms.length > 5000) state.alarms.length = 5000;
+  // Tier-2 Feature A — recompute device risk on every alarm involving a device
+  if (typeof computeDeviceRiskScore === 'function' && extras.device_mac) {
+    try { computeDeviceRiskScore(customer_id, extras.device_mac); } catch(e) {}
+  }
   pushNotification(customer_id, 'security', title, body);
   customerSseEmit(customer_id, 'alarm', a);
   fireWebhooks('alarm.created', { id: a.id, customer_id, severity, kind, title });
@@ -13727,6 +14153,10 @@ function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body, e
   // (The pushNotification call above already fires; we *also* check mute and skip if active.
   //  Implementation: shadow pushNotification for muted kinds by checking before customerSseEmit).
   console.log(`         ⚠️  ANOMALY ${severity.toUpperCase()} cust=${customer_id} ${kind}: ${title}`);
+  // Tier-2 Feature D: auto-queue pcap capture on high/critical alarms when we
+  // have both src_ip and dst_ip in extras. Privacy filter is also enforced on
+  // the box itself (pcap-capture.js), but we double-check here.
+  try { maybeQueuePcapCapture(a); } catch (e) { console.error('pcap queue err:', e.message); }
 }
 
 // Per-kind mute: customer can silence specific alarm kinds for N hours.
@@ -15266,6 +15696,443 @@ app.get(['/portal', '/portal/'], (req, res) => {
     res.status(500).send('portal not available: ' + e.message);
   }
 });
+// ════════════════════════════════════════════════════════════════════════
+// TIER 2 — THREAT DETECTION DEPTH
+//   A) Suricata IDS ingest (POST /api/box/ids-alerts)
+//   B) DGA / beaconing detection (cloud-side analytics over flows)
+//   C) Per-device CVE matching (data/device-cves.json)
+//   D) Per-alarm packet capture (POST /api/box/pcap-upload/:id +
+//                                GET /api/customer/alarms/:id/pcap)
+// ════════════════════════════════════════════════════════════════════════
+
+// ─── State tables (idempotent init) ──────────────────────────────────────
+if (!state.suricata_alerts) state.suricata_alerts = {};     // { box_mac: { flow_id: ts } }
+if (!state.beacon_tracker) state.beacon_tracker = {};       // { customer_id: { 'src_mac|dst_ip': [ts, ts, ...] } }
+if (!state.dga_tracker)    state.dga_tracker    = {};       // { customer_id: { src_mac: [ts, ts, ...] } }
+if (!state.device_cve_last) state.device_cve_last = {};     // { 'cid|mac|cve': ts } — 7-day dedupe
+
+// ─── (A) Suricata EVE ingest ─────────────────────────────────────────────
+// Box ships batches every 60s. We dedupe by flow_id+signature_id per box_mac,
+// then fire `ids_match` alarms. Severity maps from Suricata's `alert.severity`
+// (1=critical … 4=low).
+function _suricataSevToString(n) {
+  return ({ 1: 'critical', 2: 'high', 3: 'medium', 4: 'low' })[parseInt(n) || 3] || 'medium';
+}
+app.post('/api/box/ids-alerts', boxAuth, (req, res) => {
+  const alerts = Array.isArray(req.body.alerts) ? req.body.alerts : [];
+  const bag = state.suricata_alerts[req.boxMac] = state.suricata_alerts[req.boxMac] || {};
+  // GC entries older than 24h
+  const cutoff = Date.now() - 24 * 3600_000;
+  for (const k of Object.keys(bag)) if (bag[k] < cutoff) delete bag[k];
+  let fired = 0, deduped = 0;
+  for (const ev of alerts.slice(0, 200)) {
+    if (!ev || !ev.alert) continue;
+    const key = `${ev.flow_id || 0}|${ev.alert.signature_id || 0}`;
+    if (bag[key]) { deduped++; continue; }
+    bag[key] = Date.now();
+    const sev = _suricataSevToString(ev.alert.severity);
+    if (req.boxCustomerId && typeof fireSyntheticAlarm === 'function') {
+      fireSyntheticAlarm(req.boxCustomerId, req.boxMac, sev, 'ids_match',
+        `IDS: ${ev.alert.signature || 'Suricata alert'}`,
+        `Suricata flagged traffic from ${ev.src_ip || '?'} → ${ev.dst_ip || '?'} (sig ${ev.alert.signature_id || '?'}, category: ${ev.alert.category || 'n/a'}).`,
+        {
+          signature_id: ev.alert.signature_id,
+          signature:    ev.alert.signature,
+          category:     ev.alert.category,
+          src_ip:       ev.src_ip || '',
+          dst_ip:       ev.dst_ip || '',
+        });
+      fired++;
+    }
+  }
+  res.json({ ok: true, accepted: alerts.length, fired, deduped });
+});
+
+// ─── (B) DGA detection ───────────────────────────────────────────────────
+// looksLikeDGA(domain) returns a 0..1 score combining four heuristics.
+// >0.8 = treat as DGA-candidate. We track per-device hits in state.dga_tracker
+// and fire `dga_suspected` when a device hits >3 such domains within 1 hour.
+const COMMON_BIGRAMS = new Set([
+  'th','he','in','er','an','re','on','at','en','nd','ti','es','or','te','of',
+  'ed','is','it','al','ar','st','to','nt','ng','se','ha','as','ou','io','le',
+  've','co','me','de','hi','ri','ro','ic','ne','ea','ra','ce','li','ch','ll',
+]);
+function shannonEntropy(s) {
+  if (!s) return 0;
+  const freq = {};
+  for (const c of s) freq[c] = (freq[c] || 0) + 1;
+  const len = s.length;
+  let h = 0;
+  for (const c of Object.keys(freq)) {
+    const p = freq[c] / len;
+    h -= p * Math.log2(p);
+  }
+  return h;
+}
+function looksLikeDGA(domain) {
+  if (!domain || typeof domain !== 'string') return 0;
+  // Take the SLD only (drop TLD + subdomains). Real DGA usually targets the SLD.
+  const parts = domain.toLowerCase().replace(/[^a-z0-9.\-]/g, '').split('.');
+  if (parts.length < 2) return 0;
+  const sld = parts[parts.length - 2];
+  if (sld.length < 8) return 0;          // too short to score
+  let score = 0;
+  // Heuristic 1: length (>12 strong, ≥10 mild)
+  if (sld.length > 12) score += 0.20;
+  else if (sld.length >= 10) score += 0.10;
+  // Heuristic 2: Shannon entropy. Real DGAs tend toward 3.0–4.0 bits/char.
+  // 12-char strings physically can't reach 3.8 (max ≈ log2(12) ≈ 3.58),
+  // so we keep tiered thresholds.
+  const h = shannonEntropy(sld);
+  if (h >= 3.8) score += 0.35;
+  else if (h >= 3.4) score += 0.25;
+  else if (h >= 3.0) score += 0.15;
+  // Heuristic 3: vowel ratio — natural English ~0.38; <0.20 is suspect.
+  const vowels = (sld.match(/[aeiou]/g) || []).length;
+  const ratio = vowels / sld.length;
+  if (ratio < 0.15)      score += 0.25;
+  else if (ratio < 0.25) score += 0.15;
+  // Heuristic 4: common-English bigram density (target ≤ 10% for DGAs).
+  let hits = 0;
+  for (let i = 0; i < sld.length - 1; i++) {
+    if (COMMON_BIGRAMS.has(sld.substr(i, 2))) hits++;
+  }
+  const bgRatio = hits / Math.max(1, sld.length - 1);
+  if (bgRatio < 0.05)      score += 0.30;
+  else if (bgRatio < 0.10) score += 0.20;
+  else if (bgRatio < 0.15) score += 0.10;
+  // Heuristic 5: digit-mixed long string is extra suspicious.
+  if (/[0-9]/.test(sld) && sld.length >= 10) score += 0.10;
+  return Math.min(1, score);
+}
+
+function _trackDgaHit(customer_id, src_mac, domain) {
+  if (!customer_id) return;
+  const b = state.dga_tracker[customer_id] = state.dga_tracker[customer_id] || {};
+  const k = (src_mac || 'unknown').toLowerCase();
+  const now = Date.now();
+  b[k] = (b[k] || []).filter(t => now - t < 3600_000);
+  b[k].push(now);
+  if (b[k].length >= 3 && typeof fireSyntheticAlarm === 'function') {
+    fireSyntheticAlarm(customer_id, null, 'high', 'dga_suspected',
+      `Possible DGA / malware C2 domain pattern`,
+      `Device ${src_mac || 'unknown'} has resolved ${b[k].length} algorithmically-generated domains in the last hour. Latest: ${domain}. This pattern is typical of malware command-and-control beacons.`,
+      { device_mac: src_mac, dst_domain: domain });
+    // After firing reset the counter so we don't spam (30-min dedupe in fireSyntheticAlarm anyway)
+    b[k] = [];
+  }
+}
+
+function _trackBeacon(customer_id, src_mac, dst_ip, ts, bytes) {
+  if (!customer_id || !src_mac || !dst_ip) return;
+  const b = state.beacon_tracker[customer_id] = state.beacon_tracker[customer_id] || {};
+  const k = `${src_mac.toLowerCase()}|${dst_ip}`;
+  const now = ts || Date.now();
+  const win = 4 * 3600_000;
+  b[k] = (b[k] || []).filter(p => now - p.ts < win);
+  b[k].push({ ts: now, bytes: bytes || 0 });
+  if (b[k].length < 5) return;
+  // Inter-arrival std dev
+  const seq = b[k].slice().sort((x, y) => x.ts - y.ts);
+  const deltas = [];
+  for (let i = 1; i < seq.length; i++) deltas.push((seq[i].ts - seq[i-1].ts) / 1000);
+  const mean = deltas.reduce((a, x) => a + x, 0) / deltas.length;
+  const variance = deltas.reduce((a, x) => a + (x - mean) ** 2, 0) / deltas.length;
+  const sd = Math.sqrt(variance);
+  const totalBytes = seq.reduce((a, p) => a + p.bytes, 0);
+  if (sd < 30 && totalBytes < 100 * 1024 && typeof fireSyntheticAlarm === 'function') {
+    fireSyntheticAlarm(customer_id, null, 'high', 'c2_beacon_suspected',
+      `Possible C2 beaconing detected`,
+      `Device ${src_mac} reached ${dst_ip} ${seq.length} times at ~${mean.toFixed(0)}s intervals (σ=${sd.toFixed(1)}s) with only ${(totalBytes/1024).toFixed(1)} KB total — the signature of a malware beacon checking in with its C2 server.`,
+      { device_mac: src_mac, dst_ip });
+    b[k] = [];
+  }
+}
+
+// Hook the existing flow-ingest path via setImmediate. We do NOT touch the
+// POST /api/box/flows handler; instead, we listen for the post-ingest by
+// monkey-patching tallyFlow (best-effort, only if it exists).
+// Cleaner alternative: walk state.flows in a periodic scanner.
+setInterval(function tier2FlowScanner() {
+  try {
+    const cutoff = Date.now() - 60_000;          // last 60s of flows
+    const recent = state.flows.filter(f => f.ts >= cutoff);
+    for (const f of recent) {
+      if (f._t2_seen) continue;
+      f._t2_seen = true;
+      const cid = f.customer_id;
+      if (!cid) continue;
+      if (f.dst_domain) {
+        const score = looksLikeDGA(f.dst_domain);
+        if (score > 0.8) _trackDgaHit(cid, f.src_mac, f.dst_domain);
+      }
+      if (f.src_mac && f.dst_ip) {
+        _trackBeacon(cid, f.src_mac, f.dst_ip, f.ts, (f.bytes_up || 0) + (f.bytes_down || 0));
+      }
+    }
+  } catch (e) { console.error('tier2 flow scan err:', e.message); }
+}, 60_000);
+
+// ─── (C) Per-device CVE matching ────────────────────────────────────────
+let DEVICE_CVES = [];
+function loadDeviceCves() {
+  // Prefer data/ in source tree; fallback to /data/ when running in Docker.
+  const candidates = [
+    path.join(__dirname, 'data', 'device-cves.json'),
+    '/data/device-cves.json',
+    '/app/data/device-cves.json',
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        DEVICE_CVES = JSON.parse(fs.readFileSync(p, 'utf8'));
+        console.log(`         🛡  Loaded ${DEVICE_CVES.length} device CVEs from ${p}`);
+        return;
+      }
+    } catch (e) { console.error('CVE load fail:', e.message); }
+  }
+  console.error('         ⚠ device-cves.json not found in any candidate path');
+}
+loadDeviceCves();
+
+function _matchVendorPattern(pat, vendor) {
+  if (!pat || pat === '*') return true;
+  if (!vendor) return false;
+  // Case-insensitive substring + wildcard for now.
+  if (pat.endsWith('*')) return vendor.toLowerCase().startsWith(pat.slice(0, -1).toLowerCase());
+  return vendor.toLowerCase().includes(pat.toLowerCase());
+}
+function cvesForDevice(device) {
+  if (!device || !device.vendor) return [];
+  const out = [];
+  for (const c of DEVICE_CVES) {
+    if (!_matchVendorPattern(c.vendor_pattern, device.vendor)) continue;
+    if (c.model_pattern && c.model_pattern !== '*' && device.model && !_matchVendorPattern(c.model_pattern, device.model)) continue;
+    out.push(c);
+  }
+  return out;
+}
+function scanDeviceCves(customer_id, opts = {}) {
+  if (!customer_id) return { scanned: 0, alarms: 0 };
+  // Find all boxes for this customer, then enumerate their devices.
+  const myMacs = Object.values(state.authorized_macs).filter(m => m.customer_id === customer_id);
+  let scanned = 0, alarms = 0;
+  const cutoff7d = Date.now() - 7 * 24 * 3600_000;
+  for (const m of myMacs) {
+    const bucket = state.box_devices[m.mac] || {};
+    for (const d of Object.values(bucket)) {
+      scanned++;
+      const matches = cvesForDevice(d);
+      for (const c of matches) {
+        const dedup = `${customer_id}|${d.mac}|${c.cve}`;
+        const last = state.device_cve_last[dedup] || 0;
+        if (last > cutoff7d) continue;            // alarmed for this device+CVE in last 7d
+        state.device_cve_last[dedup] = Date.now();
+        const sev = (c.severity === 'critical') ? 'critical'
+                  : (c.severity === 'high')     ? 'high'
+                  : 'medium';
+        if (typeof fireSyntheticAlarm === 'function') {
+          fireSyntheticAlarm(customer_id, m.mac, sev, 'device_cve_match',
+            `Vulnerable device: ${d.vendor || 'Unknown'} (${c.cve})`,
+            `${c.description} — applies to device ${d.hostname || d.mac} (${d.vendor || '?'}). See nvd.nist.gov/vuln/detail/${c.cve} for remediation.`,
+            { device_mac: d.mac, cve: c.cve, vendor: d.vendor || '', description: c.description });
+          alarms++;
+        }
+      }
+    }
+  }
+  return { scanned, alarms };
+}
+
+// Daily CVE scan per customer (staggered start to avoid thundering herd)
+setTimeout(() => {
+  setInterval(() => {
+    for (const cid of Object.keys(state.customers || {})) {
+      try { scanDeviceCves(cid); } catch (e) { console.error('cve scan err:', e.message); }
+    }
+  }, 24 * 3600_000);
+  // First pass 2 minutes after boot
+  setTimeout(() => {
+    for (const cid of Object.keys(state.customers || {})) {
+      try { scanDeviceCves(cid); } catch (e) { console.error('cve scan err:', e.message); }
+    }
+  }, 2 * 60_000);
+}, 5000);
+
+// Also scan when /api/box/devices fires (new device just appeared).
+// We monkey-wrap by adding a route AFTER the original; the original already
+// responded, so we just queue a scan asynchronously via setImmediate.
+// Implementation note: use express middleware that runs AFTER the original
+// route — done by registering an app.use for the same path that calls next()
+// quietly. Simpler: schedule scan on every device-bucket update via a tick.
+let _lastDevTick = 0;
+setInterval(() => {
+  // If state.box_devices was touched in the last 60s, rescan affected customers.
+  const now = Date.now();
+  for (const [mac, bucket] of Object.entries(state.box_devices || {})) {
+    const mostRecent = Math.max(0, ...Object.values(bucket).map(d => d.last_seen || 0));
+    if (mostRecent > _lastDevTick) {
+      const m = state.authorized_macs[mac];
+      if (m && m.customer_id) {
+        try { scanDeviceCves(m.customer_id); } catch {}
+      }
+    }
+  }
+  _lastDevTick = now;
+}, 5 * 60_000);
+
+// Customer endpoint: list CVE matches for a specific device.
+app.get('/api/customer/devices/:mac/cves', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = normalizeMac(req.params.mac);
+  const myMacs = Object.values(state.authorized_macs).filter(m => m.customer_id === c.id);
+  let device = null;
+  for (const b of myMacs) {
+    const bucket = state.box_devices[b.mac] || {};
+    if (bucket[mac]) { device = bucket[mac]; break; }
+  }
+  if (!device) return res.status(404).json({ error: 'device_not_found' });
+  const matches = cvesForDevice(device).map(c => ({
+    cve: c.cve,
+    severity: c.severity,
+    description: c.description,
+    vendor_pattern: c.vendor_pattern,
+    nvd_url: `https://nvd.nist.gov/vuln/detail/${c.cve}`,
+  }));
+  res.json({ mac, device: { mac: device.mac, vendor: device.vendor, hostname: device.hostname }, matches });
+});
+
+// ─── (D) PCAP upload + download endpoints ───────────────────────────────
+const PCAP_DIR = process.env.PCAP_DIR || '/data/pcaps';
+try { fs.mkdirSync(PCAP_DIR, { recursive: true }); } catch {}
+
+// Box uploads the captured .pcap as base64 in JSON (simpler than multipart,
+// keeps the existing JSON-only request pipeline working).
+app.post('/api/box/pcap-upload/:alarm_id', boxAuth, express.json({ limit: '12mb' }), (req, res) => {
+  const id = String(req.params.alarm_id).replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!id || id.length < 4) return res.status(400).json({ error: 'bad_alarm_id' });
+  const b64 = String(req.body.b64 || '');
+  if (!b64 || b64.length > 12 * 1024 * 1024) return res.status(400).json({ error: 'bad_payload' });
+  try {
+    const buf = Buffer.from(b64, 'base64');
+    const out = path.join(PCAP_DIR, id + '.pcap');
+    fs.writeFileSync(out, buf);
+    // Bind to alarm record
+    const a = state.alarms.find(x => x.id === id);
+    if (a) {
+      a.pcap_path = out;
+      a.pcap_size = buf.length;
+      a.pcap_uploaded_at = Date.now();
+      if (a.customer_id && typeof customerSseEmit === 'function') {
+        customerSseEmit(a.customer_id, 'alarm-update', { id: a.id, pcap_path: out, pcap_size: buf.length });
+      }
+    }
+    res.json({ ok: true, alarm_id: id, size: buf.length, path: out, bound_to_alarm: !!a });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Customer downloads the pcap.
+app.get('/api/customer/alarms/:id/pcap', customerAuth, (req, res) => {
+  const id = String(req.params.id).replace(/[^a-zA-Z0-9_-]/g, '');
+  const a = state.alarms.find(x => x.id === id);
+  if (!a) return res.status(404).json({ error: 'alarm_not_found' });
+  if (a.customer_id !== req.customer.id) return res.status(403).json({ error: 'forbidden' });
+  if (!a.pcap_path || !fs.existsSync(a.pcap_path)) return res.status(404).json({ error: 'pcap_not_available' });
+  res.setHeader('Content-Type', 'application/vnd.tcpdump.pcap');
+  res.setHeader('Content-Disposition', `attachment; filename="alarm-${id}.pcap"`);
+  res.sendFile(a.pcap_path);
+});
+
+// Trigger pcap-capture on the box when a high/critical alarm has both IPs.
+// Privacy: skip if dst_domain hits financial / health / government TLDs.
+const PCAP_SKIP_TLD_RE = /(^|\.)(bank|health|gov|mil)(\.|$)/i;
+function maybeQueuePcapCapture(a) {
+  if (!a) return;
+  if (a.severity !== 'high' && a.severity !== 'critical') return;
+  if (!a.box_mac) return;
+  // Pull src/dst IPs from extras or top-level fields
+  const src = a.src_ip || (a.extras && a.extras.src_ip) || '';
+  const dst = a.dst_ip || (a.extras && a.extras.dst_ip) || '';
+  if (!src || !dst) return;
+  if (a.dst_domain && PCAP_SKIP_TLD_RE.test(String(a.dst_domain).toLowerCase())) {
+    console.log(`         🔒 pcap skipped (sensitive TLD): ${a.dst_domain}`);
+    return;
+  }
+  // Make sure the box is online
+  const bs = state.box_state[a.box_mac];
+  if (!bs || (Date.now() - bs.last_heartbeat) > 5 * 60_000) return;
+  if (!state.box_commands[a.box_mac]) state.box_commands[a.box_mac] = [];
+  // Don't queue twice for the same alarm
+  if (state.box_commands[a.box_mac].some(c => c.action === 'pcap-capture' && c.args && c.args.alarm_id === a.id)) return;
+  state.box_commands[a.box_mac].push({
+    id: (typeof shortId === 'function' ? shortId(16) : ('cmd' + Math.random().toString(36).slice(2, 14))),
+    action: 'pcap-capture',
+    args: { alarm_id: a.id, src_ip: src, dst_ip: dst, duration_s: 8, max_packets: 100, dst_domain: a.dst_domain || '' },
+    status: 'pending',
+    created_at: Date.now(),
+    result: null,
+    completed_at: null,
+  });
+  if (state.box_commands[a.box_mac].length > 100) state.box_commands[a.box_mac].shift();
+  console.log(`         📸 pcap queued for alarm ${a.id} (${a.severity}, ${src}→${dst})`);
+}
+
+// Customer-facing IDS status (for the PWA's Suricata sub-view)
+app.get('/api/customer/ids-status', customerAuth, (req, res) => {
+  const c = req.customer;
+  const myMacs = Object.values(state.authorized_macs).filter(m => m.customer_id === c.id);
+  const alerts = state.alarms.filter(a => a.customer_id === c.id && a.kind === 'ids_match').slice(0, 20);
+  // Total alerts recorded by this customer in last 24h
+  const cutoff = Date.now() - 24 * 3600_000;
+  const recent = state.alarms.filter(a => a.customer_id === c.id && a.kind === 'ids_match' && a.ts >= cutoff).length;
+  // Pull `state.suricata_alerts[box_mac]` size as a coarse rule-hit metric
+  let hits = 0;
+  for (const m of myMacs) {
+    hits += Object.keys(state.suricata_alerts[m.mac] || {}).length;
+  }
+  res.json({
+    boxes: myMacs.map(m => m.mac),
+    recent_24h: recent,
+    total_known: hits,
+    last_20: alerts.map(a => ({
+      id: a.id, ts: a.ts, severity: a.severity, title: a.title, body: a.body,
+      signature_id: a.signature_id, src_ip: a.src_ip, dst_ip: a.dst_ip, category: a.category,
+    })),
+  });
+});
+
+// Customer-facing IDS commands (proxy to box via existing /box/action plumbing).
+// We use the same pattern as /api/customer/box/action — enqueue + wait 15s.
+app.post('/api/customer/ids-action', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const action = String(req.body.action || '');
+  const allowed = ['suricata-status', 'suricata-restart', 'suricata-update-rules', 'suricata-install'];
+  if (!allowed.includes(action)) return res.status(400).json({ error: 'unknown_action', allowed });
+  const myMacs = Object.values(state.authorized_macs).filter(m => m.customer_id === c.id);
+  if (!myMacs.length) return res.status(404).json({ error: 'no_box' });
+  const targetMac = myMacs[0].mac;
+  const bs = state.box_state[targetMac];
+  if (!bs || (Date.now() - bs.last_heartbeat) > 5 * 60_000) return res.status(503).json({ error: 'box_offline' });
+  if (!state.box_commands[targetMac]) state.box_commands[targetMac] = [];
+  const cmd = {
+    id: (typeof shortId === 'function' ? shortId(16) : ('cmd' + Math.random().toString(36).slice(2, 14))),
+    action, args: {}, status: 'pending', created_at: Date.now(), result: null, completed_at: null,
+  };
+  state.box_commands[targetMac].push(cmd);
+  if (state.box_commands[targetMac].length > 100) state.box_commands[targetMac].shift();
+  // Wait up to 30s for the box (rule-update can be slow)
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 250));
+    const c2 = (state.box_commands[targetMac] || []).find(x => x.id === cmd.id);
+    if (c2 && c2.status === 'completed') return res.json({ ok: true, result: c2.result });
+    if (c2 && c2.status === 'failed')    return res.json({ ok: false, error: c2.result && c2.result.error });
+  }
+  res.json({ ok: true, status: 'queued', mac: targetMac });
+});
+
 
 // Catch-all 404 — JSON for API/box paths, branded HTML for everything else
 app.use((req, res) => {
@@ -16941,6 +17808,7 @@ refresh = async function() { await _origRefresh(); applyAdminLang(); };
 </script>
 </body></html>`;
 
+// ════════════════════════════════════════════════════════════════════════
 // ─── Start ───
 const PORT = parseInt(process.env.PORT) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';

@@ -1275,6 +1275,8 @@ a { color: var(--brand); text-decoration: none; }
           <button class="sheet-action" data-subview="iot"><span class="si">🔒</span><span>IoT lockdown</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="quarantine"><span class="si">🚫</span><span>Quarantine new devices</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="secscan"><span class="si">🛡</span><span>Security scans</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="secoverview"><span class="si">🛡</span><span>Security overview</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="ids"><span class="si">🛡</span><span>IDS / Suricata</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="kidlock"><span class="si">🔢</span><span>Kid lock (PIN)</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="speed"><span class="si">📊</span><span data-i="more.speed">Speed history</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="flowhist"><span class="si">📜</span><span>Flow history (90d archive)</span><span class="si" style="margin-left:auto">›</span></button>
@@ -1550,6 +1552,41 @@ a { color: var(--brand); text-decoration: none; }
         <div class="card">
           <div class="card-title">Recent scans</div>
           <div class="list" id="scan-history"><div class="empty">No scans yet.</div></div>
+        </div>
+      </div>
+
+      <!-- Tier-2 Threat-Detection-Depth: Suricata IDS sub-view -->
+      <div id="more-ids" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>🛡 IDS / Suricata</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Status</div>
+          <div id="ids-status-card"><div class="empty">Loading…</div></div>
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn ghost sm" id="ids-refresh">↻ Refresh</button>
+            <button class="btn ghost sm" id="ids-update-rules">⬇ Update rules</button>
+            <button class="btn ghost sm" id="ids-restart">⟳ Restart</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Recent IDS alerts</div>
+          <div class="hint">Last 20 alerts from ET-OPEN ruleset matches on your traffic.</div>
+          <div class="list" id="ids-alerts"><div class="empty">No alerts yet.</div></div>
+        </div>
+      </div>
+
+      <!-- Tier-2 Feature A: Security overview sub-view -->
+      <div id="more-secoverview" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>🛡 Security overview</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Top 10 highest-risk devices</div>
+          <div class="hint">Risk score combines vulnerabilities, behavior anomalies, threat intel hits, and IoT exposure. Tap a device to see details.</div>
+          <div class="list" id="secov-list"><div class="empty">Loading…</div></div>
         </div>
       </div>
 
@@ -1849,7 +1886,7 @@ function bootApp() {
 
 async function refreshAll() {
   try {
-    const [me, boxes, devices, flows, alarms, throughput, pause, usageToday] = await Promise.all([
+    const [me, boxes, devices, flows, alarms, throughput, pause, usageToday, riskOv] = await Promise.all([
       api('/customer/me').catch(() => null),
       api('/customer/boxes').catch(() => []),
       api('/customer/devices').catch(() => []),
@@ -1858,6 +1895,7 @@ async function refreshAll() {
       api('/customer/throughput').catch(() => null),
       api('/customer/pause/status').catch(() => null),
       api('/customer/usage-today').catch(() => null),
+      api('/customer/risk-overview').catch(() => null),
     ]);
     state.me = me?.user || me || null;
     state.boxes = Array.isArray(boxes) ? boxes : (boxes?.boxes || []);
@@ -1866,6 +1904,11 @@ async function refreshAll() {
     state.alarms = Array.isArray(alarms) ? alarms : (alarms?.alarms || []);
     state.pause = pause;
     state.usageToday = usageToday;
+    // Tier-2 Feature A — risk map by MAC (mac → {score, severity, factors}) for device-list dot
+    state.riskByMac = {};
+    if (riskOv && Array.isArray(riskOv.devices)) {
+      for (const r of riskOv.devices) state.riskByMac[(r.mac||'').toLowerCase()] = r;
+    }
     if (throughput) updateThroughput(throughput);
     renderHome();
     // Re-render whichever sub-tab is currently visible so the user sees the
@@ -2141,6 +2184,12 @@ function renderDevices() {
     const avCls = _avatarClass(d);
     const sub1 = d.vendor ? `${esc(d.vendor)}` : esc(d.hostname || d.mac);
     const sub2 = d.ip ? esc(d.ip) : '';
+    // Tier-2 Feature A — colored risk dot
+    const risk = (state.riskByMac || {})[(d.mac||'').toLowerCase()] || null;
+    const dotColor = risk ? ({ low:'#34d399', medium:'#fbbf24', high:'#fb923c', critical:'#f87171' }[risk.severity] || '#34d399') : null;
+    const riskDot = dotColor
+      ? `<span title="Risk: ${risk.severity} (${risk.score})" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};margin-right:6px;vertical-align:middle"></span>`
+      : '';
     // Format monthly usage as human-readable
     const gb = d.total_month_gb || 0;
     const usageLbl = gb >= 1
@@ -2159,7 +2208,7 @@ function renderDevices() {
       <div class="avatar ${avCls}">${ic}<div class="online ${d.online?'':'off'}"></div></div>
       <div class="lr-meta">
         <div class="nm">
-          <span>${esc(d.name || d.hostname || 'device')}</span>
+          ${riskDot}<span>${esc(d.name || d.hostname || 'device')}</span>
           ${d.blocked ? '<span class="chip bad">Blocked</span>' : ''}
         </div>
         <div class="sub">
@@ -2255,6 +2304,22 @@ function openDeviceSheet(mac) {
     { i: '👨‍👩‍👧', l: t('dev.family'), fn: () => { activateTab('more'); showMoreSubview('family'); } },
     { i: '🗑', l: 'Forget this device', danger: true, fn: () => forgetDevice(d) },
   ];
+  // Tier-2 Feature A — risk score bar (rendered first, tap to expand factors)
+  const riskHtml = `<div id="dev-risk-card" class="card" style="margin-bottom:12px;padding:12px;cursor:pointer">
+      <div class="row between" style="margin-bottom:6px">
+        <div class="card-title" style="margin:0">🛡 Risk score</div>
+        <div class="tabular" style="font-size:14px;font-weight:700" id="dev-risk-score">—</div>
+      </div>
+      <div style="background:var(--elev2);border-radius:6px;height:8px;overflow:hidden">
+        <div id="dev-risk-fill" style="height:100%;width:0;transition:width .5s ease;background:#34d399"></div>
+      </div>
+      <div id="dev-risk-factors" class="dim" style="font-size:11px;margin-top:6px">Tap to view factors</div>
+    </div>`;
+  // Tier-2 Feature B — baseline card (4 mini-bars)
+  const baselineHtml = `<div id="dev-baseline-card" class="card" style="margin-bottom:12px;padding:12px">
+      <div class="card-title" style="margin:0 0 8px 0">📊 This week vs baseline</div>
+      <div id="dev-baseline-body" class="dim" style="font-size:12px">Loading…</div>
+    </div>`;
   const liveHtml = `<div class="card" style="margin-bottom:12px;padding:12px">
       <div class="row between" style="margin-bottom:8px">
         <div class="card-title" style="margin:0">Live traffic</div>
@@ -2275,13 +2340,123 @@ function openDeviceSheet(mac) {
         <polyline id="dtp-tx-line" fill="none" stroke="var(--brand)" stroke-width="1.5" points=""/>
       </svg>
     </div>`;
-  const html = liveHtml + `<div class="sheet-actions">${acts.map((a,i) => `
+  // Tier-2 Threat-Detection-Depth — CVE banner (red strip above actions; populated lazily)
+  const cveBannerHtml = `<div id="dev-cve-banner" style="display:none;margin-bottom:12px"></div>`;
+  const html = riskHtml + liveHtml + baselineHtml + cveBannerHtml + `<div class="sheet-actions">${acts.map((a,i) => `
     <button class="sheet-action ${a.danger?'danger':''}" data-i="${i}"><span class="si">${a.i}</span><span>${a.l}</span></button>
   `).join('')}</div>`;
   sheet(esc(d.name || d.mac), `<span class="mono">${esc(d.mac)}</span> · ${d.ip||''}`, html, body => {
     body.querySelectorAll('.sheet-action').forEach(b => b.onclick = () => { closeSheet(); acts[+b.dataset.i].fn(); });
     startLiveDeviceTraffic(d.mac, body);
+    // Tier-2 Feature A — render risk bar + tap-to-expand
+    loadDeviceRiskInSheet(d.mac, body);
+    // Tier-2 Feature B — render baseline card
+    loadDeviceBaselineInSheet(d.mac, body);
+    // Tier-2 Threat-Detection-Depth — CVE banner
+    loadDeviceCvesInSheet(d.mac, body);
   });
+}
+
+// Fetch the device's CVE matches; if any, render a red banner with expand toggle.
+async function loadDeviceCvesInSheet(mac, body) {
+  const el = body && body.querySelector('#dev-cve-banner');
+  if (!el) return;
+  try {
+    const r = await api('/customer/devices/' + encodeURIComponent(mac) + '/cves');
+    const matches = (r && r.matches) || [];
+    if (!matches.length) return;
+    el.style.display = 'block';
+    el.innerHTML = `<div class="card" style="padding:10px;background:#3b1f1f;border:1px solid #6b2c2c;cursor:pointer" id="cve-strip">
+        <div class="row between">
+          <div style="color:#ffb4b4;font-weight:700">⚠ ${matches.length} known vulnerabilit${matches.length===1?'y':'ies'}</div>
+          <div class="dim" style="font-size:11px" id="cve-expand">tap to expand ▾</div>
+        </div>
+        <div id="cve-body" style="display:none;margin-top:8px">
+          ${matches.map(c => `
+            <div style="border-top:1px solid #5a2424;padding:6px 0;font-size:12px">
+              <div style="font-weight:700;color:#ffd1d1">${esc(c.cve)} <span class="chip" style="font-size:10px;background:#5a2424;color:#ffd1d1">${esc(c.severity)}</span></div>
+              <div style="margin-top:2px;color:#ffd1d1">${esc(c.description)}</div>
+              <a href="${esc(c.nvd_url)}" target="_blank" rel="noopener" style="color:#ffb4b4;text-decoration:underline;font-size:11px">nvd.nist.gov/vuln/detail/${esc(c.cve)} →</a>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    const strip = el.querySelector('#cve-strip');
+    if (strip) strip.onclick = () => {
+      const b = el.querySelector('#cve-body');
+      const ex = el.querySelector('#cve-expand');
+      const shown = b.style.display !== 'none';
+      b.style.display = shown ? 'none' : 'block';
+      if (ex) ex.textContent = shown ? 'tap to expand ▾' : 'tap to collapse ▴';
+    };
+  } catch (e) {
+    // Silent — endpoint may 404 if device unknown to cloud; banner stays hidden.
+  }
+}
+
+// Tier-2 Feature A — fetch + render the device's risk score in the device sheet
+async function loadDeviceRiskInSheet(mac, body) {
+  try {
+    const r = await api('/customer/devices/' + encodeURIComponent(mac) + '/risk');
+    const card  = body.querySelector('#dev-risk-card');
+    const fill  = body.querySelector('#dev-risk-fill');
+    const scEl  = body.querySelector('#dev-risk-score');
+    const facEl = body.querySelector('#dev-risk-factors');
+    if (!fill || !scEl) return;
+    const color = ({ low:'#34d399', medium:'#fbbf24', high:'#fb923c', critical:'#f87171' })[r.severity] || '#34d399';
+    fill.style.width = (r.score || 0) + '%';
+    fill.style.background = color;
+    scEl.innerHTML = `${r.score} <span class="dim" style="font-size:10px;font-weight:500;text-transform:uppercase">${r.severity}</span>`;
+    scEl.style.color = color;
+    const factorsList = (r.factors || []).map(f => {
+      const lbl = ({ cve_hits: 'Vulnerabilities (CVE)', behaviour_deviation: 'Behavior anomaly', threat_intel_hits: 'Threat intel hits', iot_baseline: 'IoT device baseline' })[f.name] || f.name;
+      return `<div class="row between" style="margin-top:4px"><span>${esc(lbl)}${f.count ? ` <span class="dim">(${f.count})</span>` : ''}</span><span class="tabular" style="font-weight:600">+${f.weight}</span></div>`;
+    }).join('');
+    if (card) card.onclick = () => {
+      const open = card.dataset.expanded === '1';
+      if (open) {
+        facEl.innerHTML = 'Tap to view factors';
+        card.dataset.expanded = '0';
+      } else {
+        facEl.innerHTML = factorsList || '<div class="dim" style="font-size:11px">No risk factors — device looks clean ✓</div>';
+        card.dataset.expanded = '1';
+      }
+    };
+  } catch (e) {}
+}
+
+// Tier-2 Feature B — fetch + render the device's baseline card
+async function loadDeviceBaselineInSheet(mac, body) {
+  try {
+    const r = await api('/customer/devices/' + encodeURIComponent(mac) + '/baseline');
+    const el = body.querySelector('#dev-baseline-body');
+    if (!el) return;
+    if (!r.baseline || !r.baseline.samples) {
+      el.innerHTML = '<div class="dim">Collecting data — baseline ready after a few days of usage.</div>';
+      return;
+    }
+    const fmtBytes = b => b >= 1024*1024*1024 ? (b/1024/1024/1024).toFixed(1)+' GB' : b >= 1024*1024 ? (b/1024/1024).toFixed(0)+' MB' : (b/1024).toFixed(0)+' KB';
+    const metrics = [
+      { key: 'bytes',     lbl: 'Bytes',        actual: r.today.bytes,     mean: r.baseline.avg_bytes,     std: r.baseline.std_bytes,     fmt: fmtBytes },
+      { key: 'dests',     lbl: 'Destinations', actual: r.today.dests,     mean: r.baseline.avg_dests,     std: r.baseline.std_dests,     fmt: v => v },
+      { key: 'countries', lbl: 'Countries',    actual: r.today.countries, mean: r.baseline.avg_countries, std: r.baseline.std_countries, fmt: v => v },
+      { key: 'ports',     lbl: 'Ports',        actual: r.today.ports,     mean: r.baseline.avg_ports,     std: r.baseline.std_ports,     fmt: v => v },
+    ];
+    el.innerHTML = metrics.map(m => {
+      const ratio = m.mean > 0 ? (m.actual / m.mean) : (m.actual > 0 ? 2 : 0);
+      const sigma = (m.std > 0) ? (m.actual - m.mean) / m.std : 0;
+      const color = sigma > 3 ? '#f87171' : sigma > 2 ? '#fbbf24' : '#34d399';
+      const widthPct = Math.max(3, Math.min(100, ratio * 50));
+      return `<div style="margin-bottom:6px">
+        <div class="row between" style="font-size:11px">
+          <span>${m.lbl}</span>
+          <span class="tabular dim">${m.fmt(m.actual)} <span style="opacity:0.6">/ ${m.fmt(Math.round(m.mean))}</span></span>
+        </div>
+        <div style="background:var(--elev2);border-radius:3px;height:5px;overflow:hidden;margin-top:2px">
+          <div style="height:100%;width:${widthPct.toFixed(0)}%;background:${color};transition:width .4s ease"></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {}
 }
 
 // Live per-device traffic: poll the cloud's per-device endpoint every 2s
@@ -2573,8 +2748,10 @@ async function timeLimitDevice(d) {
   const fmtMin = m => m >= 60 ? `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}` : `${m}m`;
   const presets = [30, 60, 120, 240, 480]; // minutes
   const bonus = (existing && existing.bonus_minutes_today) || 0;
+  // Tier-2 Feature D — rolled-over minutes from yesterday
+  const rolled = (existing && existing.rolled_minutes_today) || 0;
   const usageLine = existing
-    ? `<div class="muted" style="font-size:12px;margin-bottom:10px">Used today: <strong>${fmtMin(existing.used_minutes||0)}</strong> of <strong>${fmtMin((existing.daily_minutes||0) + bonus)}</strong>${bonus?` <span class="chip ok" style="padding:1px 6px;font-size:10px">+${fmtMin(bonus)} bonus 🎁</span>`:''}</div>`
+    ? `<div class="muted" style="font-size:12px;margin-bottom:10px">Used today: <strong>${fmtMin(existing.used_minutes||0)}</strong> of <strong>${fmtMin((existing.daily_minutes||0) + bonus + rolled)}</strong>${bonus?` <span class="chip ok" style="padding:1px 6px;font-size:10px">+${fmtMin(bonus)} bonus 🎁</span>`:''}${rolled?` <span class="chip ok" style="padding:1px 6px;font-size:10px;background:#a3a3a322">+${fmtMin(rolled)} rolled-over 💰</span>`:''}</div>`
     : '';
   const currentLine = existing
     ? `<div class="chip ok" style="margin-bottom:10px">Current limit: ${fmtMin(existing.daily_minutes)} / day</div>`
@@ -2588,6 +2765,21 @@ async function timeLimitDevice(d) {
          <button class="chip tl-bonus" data-bonus="60" style="padding:8px 12px;font-size:13px;cursor:pointer">+60m</button>
        </div>`
     : '';
+  // Tier-2 Feature D — rollover row, only when a limit exists
+  const rolloverRow = existing
+    ? `<div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:10px 0 4px 0;padding:0 2px">💰 Rollover unused time</div>
+       <div class="row between" style="gap:8px;margin-bottom:8px;padding:0 2px">
+         <label class="row" style="gap:8px;cursor:pointer;flex:1">
+           <input id="tl-rollover-enabled" type="checkbox"${existing.rollover_enabled ? ' checked' : ''}>
+           <span style="font-size:13px">Carry unused minutes to next day</span>
+         </label>
+       </div>
+       <div class="field" style="margin-bottom:12px">
+         <label style="font-size:12px">Max carry-over (minutes)</label>
+         <input id="tl-rollover-max" type="number" min="0" max="1440" step="1" inputmode="numeric" value="${(typeof existing.max_rollover_minutes === 'number') ? existing.max_rollover_minutes : (existing.daily_minutes||0)}">
+         <div class="hint">Cap on how many leftover minutes roll over (max 1440 = 24h).</div>
+       </div>`
+    : '';
   const html = `${currentLine}${usageLine}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       ${presets.map(m => `<button class="chip tl-preset" data-m="${m}" style="padding:8px 12px;font-size:13px;cursor:pointer">${fmtMin(m)}</button>`).join('')}
@@ -2599,6 +2791,7 @@ async function timeLimitDevice(d) {
       <div class="hint">Box blocks this device once today's minutes are used. Resets at midnight.</div>
     </div>
     ${bonusRow}
+    ${rolloverRow}
     <div class="btn-row" style="margin-top:10px">
       <button class="btn ghost" id="tl-cancel">${t('sheet.cancel')}</button>
       <button class="btn primary" id="tl-save">${t('sheet.save')}</button>
@@ -2656,6 +2849,21 @@ async function timeLimitDevice(d) {
           toast('Limit removed — unrestricted', 'info');
         } else {
           await api('/customer/time-bank/set', { method: 'POST', body: JSON.stringify({ device_mac: d.mac, daily_minutes }) });
+          // Tier-2 Feature D — also persist rollover prefs
+          const rolloverEl = body.querySelector('#tl-rollover-enabled');
+          const rolloverMaxEl = body.querySelector('#tl-rollover-max');
+          if (rolloverEl) {
+            try {
+              await api('/customer/time-bank/rollover-prefs', {
+                method: 'POST',
+                body: JSON.stringify({
+                  device_mac: d.mac,
+                  enabled: rolloverEl.checked,
+                  max_rollover_minutes: parseInt(rolloverMaxEl ? rolloverMaxEl.value : daily_minutes, 10) || daily_minutes,
+                }),
+              });
+            } catch (_) {}
+          }
           closeSheet();
           toast(`Limit set: ${fmtMin(daily_minutes)} / day`, 'info');
         }
@@ -2736,9 +2944,11 @@ async function renderAlarms() {
               <div class="row gap-8" style="margin-top:6px">
                 ${canBlock ? `<button class="btn sm danger" data-block="${esc(a.id)}">🚫 Block source</button>` : ''}
                 ${(a.kind === 'quota_exceeded' && a.device_mac) ? `<button class="btn sm ghost" data-bonus-mac="${esc(a.device_mac)}">🎁 Grant bonus…</button>` : ''}
+                ${a.pcap_path ? `<button class="btn sm ghost" data-pcap="${esc(a.id)}">📥 Download .pcap</button>` : ''}
                 <button class="btn sm ghost" data-ack-cluster="${ids}">✓ Ack ${cnt>1?`all ${cnt}`:''}</button>
                 <button class="btn sm ghost" data-archive-cluster="${ids}">📁 Archive${cnt>1?` all`:''}</button>
               </div>` : ''}
+            ${(a.pcap_path && (a.acked || a.archived)) ? `<div class="row gap-8" style="margin-top:6px"><button class="btn sm ghost" data-pcap="${esc(a.id)}">📥 Download .pcap</button></div>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -2753,6 +2963,18 @@ async function renderAlarms() {
     const shown = body.style.display !== 'none';
     body.style.display = shown ? 'none' : 'block';
     link.textContent = (shown ? '▸ Show ' : '▾ Hide ') + (link.textContent.replace(/^[▾▸]\s*(Show|Hide)\s*/, ''));
+  });
+  // Tier-2: PCAP download — proxies through the customer auth, downloads file.
+  el.querySelectorAll('[data-pcap]').forEach(b => b.onclick = async (e) => {
+    e.preventDefault();
+    const id = b.dataset.pcap;
+    try {
+      const url = '/api/customer/alarms/' + encodeURIComponent(id) + '/pcap';
+      // Open via anchor (browser handles Content-Disposition)
+      const a = document.createElement('a');
+      a.href = url; a.download = 'alarm-' + id + '.pcap';
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (err) { toast(err.message || 'Failed', 'bad'); }
   });
   // Ack/archive an entire cluster — iterate the alarm_ids list
   el.querySelectorAll('[data-ack-cluster]').forEach(b => b.onclick = async () => {
@@ -3049,50 +3271,137 @@ function pauseFor(minutes, label) {
     })
     .catch(e => toast(e.message || 'Failed', 'bad'));
 }
-document.getElementById('m-pause').onclick = () => {
-  // 1h / 2h / until tomorrow morning / cancel — matches Firewalla style.
+document.getElementById('m-pause').onclick = () => openSelectivePauseSheet();
+
+// Tier-2 Feature C — selective family pause UI.
+// Three modes: "Pause everyone" (legacy), "Pause kids only" (auto-exclude
+// Admin/Adult members + router/IoT MACs), and "Custom" (user-picks exempted
+// family members + duration). Active-pause card shows time remaining + a
+// one-tap Resume button.
+async function openSelectivePauseSheet() {
   const tomorrow7am = new Date();
   tomorrow7am.setDate(tomorrow7am.getDate() + 1);
   tomorrow7am.setHours(7, 0, 0, 0);
   const minsUntilMorning = Math.max(60, Math.round((tomorrow7am - Date.now()) / 60000));
-  const opts = [
-    { v: 60,  l: '1 hour',          s: 'Resume manually anytime' },
-    { v: 120, l: '2 hours',          s: 'Quick break' },
-    { v: minsUntilMorning, l: 'Until tomorrow 7 AM', s: 'School-night mode' },
+  const durations = [
+    { v: 5,   l: '5 min' },
+    { v: 15,  l: '15 min' },
+    { v: 60,  l: '1 hour' },
+    { v: 120, l: '2 hours' },
+    { v: minsUntilMorning, l: 'Until tomorrow 7 AM' },
   ];
-  const isPaused = state.pause && state.pause.paused;
-  const cancelBtn = isPaused ? `<button class="btn danger" id="p-cancel-now" style="margin-bottom:10px">▶ Resume now</button>` : '';
-  const html = cancelBtn + `<div class="radio-cards" id="p-opts">
-    ${opts.map((o,i) => `<label class="radio-card"><input type="radio" name="m" value="${o.v}" data-i="${i}">
-      <div class="rc-icon">⏸</div><div style="flex:1"><div class="rc-title">${o.l}</div><div class="rc-sub">${o.s}</div></div></label>`).join('')}
-  </div>
-  <div class="btn-row" style="margin-top:14px">
-    <button class="btn ghost" id="p-cancel">${t('sheet.cancel')}</button>
-    <button class="btn primary" id="p-go">Pause</button>
+  // Pull current state in parallel
+  let family = [], spState = null;
+  try {
+    const [famR, spR] = await Promise.all([
+      api('/customer/family').catch(() => ({ family: [] })),
+      api('/customer/selective-pause').catch(() => ({ selective_pause: null, active: false })),
+    ]);
+    family = famR.family || famR.members || famR || [];
+    spState = spR;
+  } catch (_) {}
+  const isGlobalPaused = state.pause && state.pause.paused;
+  const isSelectivePaused = !!(spState && spState.active);
+
+  const activeCard = (isGlobalPaused || isSelectivePaused) ? `<div class="card" style="background:var(--warn-bg, rgba(251,191,36,0.1));border:1px solid var(--warn,#fbbf24);margin-bottom:12px;padding:12px">
+    <div class="card-title" style="margin:0 0 6px 0">${isSelectivePaused ? '⏸ Selective pause active' : '⏸ Paused — everyone'}</div>
+    ${isSelectivePaused
+      ? `<div class="dim" style="font-size:12px">Resumes ${esc(timeAgo ? timeAgo(spState.selective_pause.until) : new Date(spState.selective_pause.until).toLocaleString())} · ${(spState.exempted_macs||[]).length} device${(spState.exempted_macs||[]).length===1?'':'s'} exempted${spState.selective_pause.reason ? ' · '+esc(spState.selective_pause.reason) : ''}</div>`
+      : `<div class="dim" style="font-size:12px">Resumes ${esc(state.pause.paused_until ? new Date(state.pause.paused_until).toLocaleString() : 'soon')}</div>`}
+    <div class="btn-row" style="margin-top:8px"><button class="btn danger" id="sp-resume-all">▶ Resume all</button></div>
+  </div>` : '';
+
+  const modeCardsHtml = `<div class="radio-cards" id="sp-mode-cards">
+    <label class="radio-card"><input type="radio" name="spmode" value="everyone">
+      <div class="rc-icon">⏸</div><div style="flex:1"><div class="rc-title">Pause everyone</div><div class="rc-sub">Block all internet on the home network.</div></div>
+    </label>
+    <label class="radio-card"><input type="radio" name="spmode" value="kids">
+      <div class="rc-icon">👨‍👩‍👧</div><div style="flex:1"><div class="rc-title">Pause kids only</div><div class="rc-sub">Keeps adults, routers, and smart-home devices online.</div></div>
+    </label>
+    <label class="radio-card"><input type="radio" name="spmode" value="custom">
+      <div class="rc-icon">🎯</div><div style="flex:1"><div class="rc-title">Custom pause</div><div class="rc-sub">Pick which family members stay online.</div></div>
+    </label>
   </div>`;
-  sheet(t('more.pause'), isPaused ? 'Currently paused — pick another duration or resume now.' : 'Internet will pause for everyone on the network.', html, body => {
+
+  const customPicker = `<div id="sp-custom-picker" hidden style="margin-top:10px">
+    <div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:8px 0 4px 0">Exempt from pause (stay online)</div>
+    ${family.length ? family.map(m => `<label class="row" style="gap:8px;padding:6px 4px;cursor:pointer">
+      <input type="checkbox" name="sp-exempt" value="${esc(m.id)}" data-role="${esc(m.role||'')}" data-name="${esc(m.name||'')}">
+      <span style="font-size:18px">${esc(m.icon||'👤')}</span>
+      <span style="flex:1">${esc(m.name||'')} <span class="dim" style="font-size:11px">${esc(m.role||'')}</span></span>
+    </label>`).join('') : '<div class="dim" style="font-size:12px">No family members yet. Add some in Family & profiles.</div>'}
+  </div>`;
+
+  const durationRow = `<div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:12px 0 4px 0">Duration</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    ${durations.map(d => `<button class="chip sp-dur" data-min="${d.v}" style="padding:8px 12px;font-size:13px;cursor:pointer">${d.l}</button>`).join('')}
+  </div>`;
+
+  const html = activeCard + modeCardsHtml + customPicker + durationRow + `
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn ghost" id="sp-cancel">${t('sheet.cancel')}</button>
+      <button class="btn primary" id="sp-go">Pause</button>
+    </div>`;
+  sheet(t('more.pause'), '', html, body => {
+    let mode = 'everyone';
+    let duration = 60;
     body.querySelectorAll('.radio-card').forEach(c => c.onclick = () => {
       body.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
       c.classList.add('selected'); c.querySelector('input').checked = true;
+      mode = c.querySelector('input').value;
+      const picker = body.querySelector('#sp-custom-picker');
+      if (picker) picker.hidden = (mode !== 'custom');
     });
-    body.querySelector('#p-cancel').onclick = closeSheet;
-    const cancelNow = body.querySelector('#p-cancel-now');
-    if (cancelNow) cancelNow.onclick = async () => {
-      // Cancel = pause for 0 minutes (server clamps but we trust resume by sending 1)
+    body.querySelectorAll('.sp-dur').forEach(b => b.onclick = () => {
+      duration = parseInt(b.dataset.min, 10);
+      body.querySelectorAll('.sp-dur').forEach(x => x.classList.toggle('ok', x === b));
+    });
+    // Highlight default 1h
+    const def = body.querySelector('.sp-dur[data-min="60"]'); if (def) def.classList.add('ok');
+    // Resume-all
+    const resumeBtn = body.querySelector('#sp-resume-all');
+    if (resumeBtn) resumeBtn.onclick = async () => {
       try {
-        await api('/customer/pause', { method: 'POST', body: JSON.stringify({ duration_min: 1 }) });
-        state.pause = null; closeSheet(); toast('Resuming…', 'info');
+        if (isGlobalPaused) await api('/customer/pause', { method: 'POST', body: JSON.stringify({ resume: true }) });
+        if (isSelectivePaused) await api('/customer/selective-pause/cancel', { method: 'POST', body: '{}' });
+        state.pause = null;
+        toast('Resuming…', 'info'); closeSheet();
       } catch (e) { toast(e.message || 'Failed', 'bad'); }
     };
-    body.querySelector('#p-go').onclick = async () => {
-      const sel = body.querySelector('input[name="m"]:checked');
-      if (!sel) { toast('Pick a duration', 'warn'); return; }
-      const idx = +sel.dataset.i;
-      await pauseFor(+sel.value, opts[idx].l);
-      closeSheet();
+    body.querySelector('#sp-cancel').onclick = closeSheet;
+    body.querySelector('#sp-go').onclick = async () => {
+      try {
+        if (mode === 'everyone') {
+          await pauseFor(duration, durations.find(x => x.v === duration)?.l || (duration + 'm'));
+          closeSheet();
+          return;
+        }
+        let exclude_member_ids = [];
+        let reason = '';
+        if (mode === 'kids') {
+          // Auto-exempt admins/adults; assemble list
+          exclude_member_ids = family.filter(m => /admin|adult|parent/i.test(m.role || '')).map(m => m.id);
+          reason = 'Kids only';
+        } else if (mode === 'custom') {
+          const checks = body.querySelectorAll('input[name="sp-exempt"]:checked');
+          exclude_member_ids = Array.from(checks).map(c => c.value);
+          reason = 'Custom';
+        }
+        // Also auto-exempt router / iot / camera devices (always-keep-online safety net)
+        const exclude_device_macs = (state.devices || [])
+          .filter(d => /router|gateway/i.test(d.device_type || '') || /router|gateway|iot/i.test((d.vendor||'') + (d.hostname||'')))
+          .map(d => (d.mac || '').toLowerCase())
+          .slice(0, 50);
+        await api('/customer/selective-pause', {
+          method: 'POST',
+          body: JSON.stringify({ minutes: duration, exclude_member_ids, exclude_device_macs, reason }),
+        });
+        toast(`Paused — ${reason || 'Selective'} · ${duration}m`, 'info');
+        closeSheet();
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
     };
   });
-};
+}
 document.getElementById('m-claim').onclick = () => {
   const html = `<div class="field">
     <label>Pairing code</label>
@@ -3117,7 +3426,7 @@ document.getElementById('m-logout').onclick = logout;
 document.getElementById('btn-add-box').onclick = () => document.getElementById('m-claim').click();
 
 /* ──────── More sub-views (inline pages) ──────── */
-const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','qos','iot','quarantine','secscan','kidlock','speed','plan','flowhist','topology'];
+const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','qos','iot','quarantine','secscan','secoverview','ids','kidlock','speed','plan','flowhist','topology'];
 let _moreCurrent = 'main';
 
 function showMoreSubview(name) {
@@ -3141,6 +3450,8 @@ function showMoreSubview(name) {
   else if (name === 'iot') renderIotSub();
   else if (name === 'quarantine') renderQuarantineSub();
   else if (name === 'secscan') renderSecScanSub();
+  else if (name === 'secoverview') renderSecOverviewSub();
+  else if (name === 'ids') renderIdsSub();
   else if (name === 'kidlock') renderKidlockSub();
   else if (name === 'speed') renderSpeedSub();
   else if (name === 'plan') renderPlanSub();
@@ -4281,6 +4592,108 @@ document.getElementById('int-scan-btn').onclick = async () => {
     setTimeout(renderSecScanSub, 5000);
   } catch (e) { toast(e.message || 'Failed', 'bad'); }
 };
+
+/* ──────── Tier-2 Feature A: Security overview sub-view ──────── */
+async function renderSecOverviewSub() {
+  const el = document.getElementById('secov-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r = await api('/customer/risk-overview');
+    const list = (r.devices || []).slice(0, 10);
+    if (!list.length) { el.innerHTML = '<div class="empty">No devices yet.</div>'; return; }
+    const palette = { low:'#34d399', medium:'#fbbf24', high:'#fb923c', critical:'#f87171' };
+    el.innerHTML = list.map(d => {
+      const color = palette[d.severity] || palette.low;
+      const dot = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:8px;vertical-align:middle"></span>`;
+      return `<div class="list-row" data-mac="${esc(d.mac)}" style="cursor:pointer">
+        <div class="avatar">🛡</div>
+        <div class="lr-meta">
+          <div class="nm">${dot}${esc(d.name || d.mac)}</div>
+          <div class="sub"><span class="mono">${esc(d.mac)}</span>${d.ip ? ' · <span class="mono">'+esc(d.ip)+'</span>' : ''}${d.online ? ' · online' : ' · offline'}</div>
+          <div class="sub" style="font-size:11px;color:${color};font-weight:600;text-transform:uppercase">${d.severity} · score ${d.score}</div>
+        </div>
+        <div class="lr-right tabular" style="font-weight:700;color:${color}">${d.score}</div>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.list-row').forEach(row => row.addEventListener('click', () => {
+      const mac = row.dataset.mac;
+      // Make sure the device list has it (refresh devices state first)
+      const dev = (state.devices || []).find(x => (x.mac || '').toLowerCase() === (mac || '').toLowerCase());
+      if (dev) openDeviceSheet(dev.mac);
+      else toast('Open the Devices tab to inspect this device', 'info');
+    }));
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`; }
+}
+
+/* ──────── Tier-2 Suricata IDS sub-view ──────── */
+async function renderIdsSub() {
+  const card = document.getElementById('ids-status-card');
+  const list = document.getElementById('ids-alerts');
+  if (card) card.innerHTML = '<div class="empty">Loading…</div>';
+  if (list) list.innerHTML = '<div class="empty">Loading…</div>';
+  // Pull cloud-side IDS summary + ask box for live status (best-effort, may time out).
+  let live = null;
+  try {
+    const r = await api('/customer/ids-action', { method: 'POST', body: JSON.stringify({ action: 'suricata-status' }) });
+    live = r.result || null;
+  } catch {}
+  try {
+    const r = await api('/customer/ids-status');
+    const isRunning = live && live.running;
+    const ruleCount = (live && live.rule_count) || 0;
+    const lastUpd = (live && live.last_update) || 0;
+    if (card) card.innerHTML = `
+      <div class="row" style="gap:14px;flex-wrap:wrap">
+        <div class="chip ${isRunning ? 'ok' : 'bad'}" style="font-weight:700">${isRunning ? '● Running' : '○ Not running'}</div>
+        <div class="chip">${ruleCount} rules</div>
+        <div class="chip">${r.recent_24h || 0} alerts / 24h</div>
+        <div class="chip">${lastUpd ? 'Rules updated ' + new Date(lastUpd).toLocaleString() : 'Rules not yet refreshed'}</div>
+      </div>`;
+    const alerts = r.last_20 || [];
+    if (!alerts.length) {
+      if (list) list.innerHTML = '<div class="empty">No alerts yet. Suricata will populate this list as ET-OPEN rules match traffic.</div>';
+      return;
+    }
+    const sevPalette = { critical:'#f87171', high:'#fb923c', medium:'#fbbf24', low:'#a3a3a3' };
+    if (list) list.innerHTML = alerts.map(a => {
+      const col = sevPalette[a.severity] || sevPalette.low;
+      return `<div class="list-row">
+        <div class="avatar" style="background:${col}33;color:${col}">⚠</div>
+        <div class="lr-meta">
+          <div class="nm">${esc(a.title || 'IDS alert')}</div>
+          <div class="sub">${esc(a.category || '')}${a.signature_id ? ' · sig '+esc(String(a.signature_id)) : ''}</div>
+          <div class="sub mono" style="font-size:11px">${esc(a.src_ip || '')} → ${esc(a.dst_ip || '')}</div>
+          <div class="sub" style="font-size:11px;color:${col};text-transform:uppercase;font-weight:700">${esc(a.severity)} · ${new Date(a.ts).toLocaleString()}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    if (card) card.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`;
+  }
+}
+// Wire up IDS sub-view buttons (idempotent — these listeners are no-ops if elements missing)
+(function wireIdsSubButtons() {
+  const ref = document.getElementById('ids-refresh');
+  const upd = document.getElementById('ids-update-rules');
+  const res = document.getElementById('ids-restart');
+  if (ref) ref.onclick = () => renderIdsSub();
+  if (upd) upd.onclick = async () => {
+    try {
+      toast('Updating ET-OPEN rules (this can take up to 30s)…', 'info');
+      const r = await api('/customer/ids-action', { method: 'POST', body: JSON.stringify({ action: 'suricata-update-rules' }) });
+      if (r.ok) toast('Rules updated · ' + ((r.result && r.result.rule_count) || '?') + ' rules', 'info');
+      else toast(r.error || 'Rule update queued', 'warn');
+      setTimeout(renderIdsSub, 1000);
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
+  if (res) res.onclick = async () => {
+    try {
+      await api('/customer/ids-action', { method: 'POST', body: JSON.stringify({ action: 'suricata-restart' }) });
+      toast('Suricata restarted', 'info');
+      setTimeout(renderIdsSub, 1500);
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
+})();
 
 /* ──────── Kid lock sub-view ──────── */
 function _kidlockHash(pin) {
