@@ -65,6 +65,7 @@ for m in sig-engine.js sni-parser.js openvpn.js dns-stack.js multi-wan.js \
          ntp-intercept.js disturb.js bridge-mode.js upnp.js simple-mode.js \
          dhcp-mode.js router-mode.js wg-client.js \
          qos.js iot-lockdown.js quarantine.js vuln-scan.js openvpn-client.js \
+         tailscale.js ipsec.js amnezia-wg.js \
          install-full.sh; do
   if [[ -f "$AGENT_DIR/$m" ]]; then
     cp "$AGENT_DIR/$m" "$STAGE/opt/mes-box/$m"
@@ -267,7 +268,8 @@ e2cp -P 755 "$STAGE/etc/update-motd.d/99-mes-box"                  "$P2_IMG":/et
 # Copy ALL the feature modules baked into the image
 for m in sig-engine.js sni-parser.js openvpn.js dns-stack.js multi-wan.js \
          ntp-intercept.js disturb.js bridge-mode.js upnp.js \
-         qos.js iot-lockdown.js quarantine.js vuln-scan.js openvpn-client.js; do
+         qos.js iot-lockdown.js quarantine.js vuln-scan.js openvpn-client.js \
+         tailscale.js ipsec.js amnezia-wg.js; do
   if [[ -f "$STAGE/opt/mes-box/$m" ]]; then
     e2cp -P 644 "$STAGE/opt/mes-box/$m" "$P2_IMG":/opt/mes-box/$m
     echo "  ✓ $m baked into rootfs"

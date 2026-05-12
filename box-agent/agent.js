@@ -53,6 +53,16 @@ let suricata = null;
 try { suricata     = require('./suricata');     } catch (e) { console.error('[agent] suricata missing:', e.message); }
 let pcapCapture = null;
 try { pcapCapture  = require('./pcap-capture'); } catch (e) { console.error('[agent] pcap-capture missing:', e.message); }
+// Tier 3 — VPN expansion (Tailscale, IPsec/strongSwan, AmneziaWG)
+let tailscale = null;
+try { tailscale    = require('./tailscale');    } catch (e) { console.error('[agent] tailscale missing:', e.message); }
+let ipsecMod = null;
+try { ipsecMod     = require('./ipsec');        } catch (e) { console.error('[agent] ipsec missing:', e.message); }
+let amneziaWg = null;
+try { amneziaWg    = require('./amnezia-wg');   } catch (e) { console.error('[agent] amnezia-wg missing:', e.message); }
+// Tier 3 — IoT default-credential check (safe, opt-in, token-gated, NEVER returns working creds)
+let iotCredtest = null;
+try { iotCredtest  = require('./iot-credtest'); } catch (e) { console.error('[agent] iot-credtest missing:', e.message); }
 
 // Read MAC of the requested interface (defaults to eth0)
 function readMac(iface) {
@@ -1608,6 +1618,108 @@ async function runAction(action, args) {
     } catch (e) {
       return { error: e.message, logs: '' };
     }
+  }
+  // ─── Tier 3 Feature A: Tailscale / Headscale ──────────────────────────
+  if (action === 'tailscale-install') {
+    if (!tailscale) throw new Error('tailscale module not loaded');
+    return tailscale.install();
+  }
+  if (action === 'tailscale-up') {
+    if (!tailscale) throw new Error('tailscale module not loaded');
+    return tailscale.up(args || {});
+  }
+  if (action === 'tailscale-down') {
+    if (!tailscale) throw new Error('tailscale module not loaded');
+    return tailscale.down();
+  }
+  if (action === 'tailscale-status') {
+    if (!tailscale) throw new Error('tailscale module not loaded');
+    return tailscale.getStatus();
+  }
+  if (action === 'tailscale-set-routes') {
+    if (!tailscale) throw new Error('tailscale module not loaded');
+    return tailscale.setRoutes(args && args.cidrs);
+  }
+  if (action === 'tailscale-logout') {
+    if (!tailscale) throw new Error('tailscale module not loaded');
+    return tailscale.logout();
+  }
+  // ─── Tier 3 Feature B: IPsec / IKEv2 (strongSwan) ─────────────────────
+  if (action === 'ipsec-install') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return ipsecMod.install();
+  }
+  if (action === 'ipsec-setup') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return ipsecMod.setupServer(args || {});
+  }
+  if (action === 'ipsec-user-add') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return ipsecMod.addUser(args || {});
+  }
+  if (action === 'ipsec-user-remove') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return ipsecMod.removeUser(args || {});
+  }
+  if (action === 'ipsec-user-list') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return { users: ipsecMod.listUsers() };
+  }
+  if (action === 'ipsec-mobileconfig') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return ipsecMod.generateMobileConfig(args || {});
+  }
+  if (action === 'ipsec-status') {
+    if (!ipsecMod) throw new Error('ipsec module not loaded');
+    return ipsecMod.getStatus();
+  }
+  // ─── Tier 3 Feature C: AmneziaWG (obfuscated WireGuard) ───────────────
+  if (action === 'awg-install') {
+    if (!amneziaWg) throw new Error('amnezia-wg module not loaded');
+    return amneziaWg.install();
+  }
+  if (action === 'awg-setup') {
+    if (!amneziaWg) throw new Error('amnezia-wg module not loaded');
+    return amneziaWg.setupServer(args || {});
+  }
+  if (action === 'awg-peer-add') {
+    if (!amneziaWg) throw new Error('amnezia-wg module not loaded');
+    return amneziaWg.addPeer(args || {});
+  }
+  if (action === 'awg-peer-remove') {
+    if (!amneziaWg) throw new Error('amnezia-wg module not loaded');
+    return amneziaWg.removePeer(args && args.peer_id);
+  }
+  if (action === 'awg-peer-list') {
+    if (!amneziaWg) throw new Error('amnezia-wg module not loaded');
+    return { peers: amneziaWg.listPeers() };
+  }
+  if (action === 'awg-status') {
+    if (!amneziaWg) throw new Error('amnezia-wg module not loaded');
+    return amneziaWg.getStatus();
+  }
+  // ─── Tier 3 Feature C: IoT default-credential check (SAFE / OPT-IN) ─────
+  // Token-gated; module refuses to run if token missing/mismatched. Results
+  // are POSTed back via a dedicated endpoint (NOT the generic cmd-result
+  // path) so the cloud can verify NO leaked credentials are in the response.
+  if (action === 'iot-credtest') {
+    if (!iotCredtest) throw new Error('iot-credtest module not loaded');
+    const r = await iotCredtest.runScan({
+      devices: args.devices || [],
+      opt_in_token: args.opt_in_token,
+      expected_token: args.expected_token,
+    });
+    try {
+      await api('POST', '/api/box/iot/credtest/result', {
+        token: args.opt_in_token,
+        scanned: r.scanned,
+        findings: r.findings,
+      });
+    } catch (e) {
+      console.error('[agent] iot-credtest result POST failed:', e.message);
+    }
+    // Summary only — full findings already POSTed above.
+    return { ok: true, scanned: r.scanned, vulnerable_count: (r.findings || []).filter(f => f.vulnerable).length };
   }
   throw new Error(`unknown action: ${action}`);
 }

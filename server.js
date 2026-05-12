@@ -7992,6 +7992,14 @@ app.post('/api/box/flows', boxAuth, (req, res) => {
       if (typeof broadcastSSE === 'function') broadcastSSE('flow', enriched);
       if (req.boxCustomerId && typeof customerSseEmit === 'function') customerSseEmit(req.boxCustomerId, 'flow', enriched);
     }
+    // Tier-3 Feature B: optionally forward each enriched flow to the
+    // customer's SIEM. Default OFF — volume is huge — only fires when the
+    // customer flipped forward_flows: true in the SIEM config.
+    try {
+      if (!privacy && req.boxCustomerId && typeof cloudSiemForwarder !== 'undefined' && cloudSiemForwarder) {
+        cloudSiemForwarder.forward(req.boxCustomerId, { type: 'flow', ...enriched }).catch(()=>{});
+      }
+    } catch {}
   }
   if (state.flows.length > FLOWS_MAX) {
     state.flows.splice(0, state.flows.length - FLOWS_MAX);
@@ -8324,6 +8332,11 @@ app.get('/api/box/policy/:mac', (req, res) => {
       ...(state.global_ip_bans || []),   // admin-maintained global ban list
       ...custom_blocked_ips,             // Fix 5: per-customer `type:"ip"` rules
       ...geo_cidrs,                      // Fix 6: country → CIDRs from dbip DB
+      // Tier-3 Feature A: community threat intel (CrowdSec-style, pull-only).
+      // Opt-in (default true for new customers). Domains are merged separately
+      // below (cap-aware) so the bundle doesn't ship 1M entries.
+      ...((c && c.community_intel_enabled !== false && cloudCommunityIntel)
+            ? cloudCommunityIntel.getIpsArray() : []),
     ],
     rules: enabled,
     schedules: enabledSchedules,
@@ -8376,6 +8389,16 @@ app.get('/api/box/policy/:mac', (req, res) => {
     // Dedupe
     bundle.blocked_categories = Array.from(new Set(bundle.blocked_categories));
     bundle.blocked_domains = Array.from(new Set(bundle.blocked_domains));
+  }
+  // Tier-3 Feature A: append community-intel domains (cap 50k by recency).
+  // We dedupe by Set + cap; the IP list is already injected up in `blocked_ips`.
+  if (c && c.community_intel_enabled !== false && cloudCommunityIntel) {
+    const ciDomains = cloudCommunityIntel.getDomainsArray(50000);
+    if (ciDomains.length) {
+      const merged = new Set(bundle.blocked_domains);
+      for (const d of ciDomains) merged.add(d);
+      bundle.blocked_domains = Array.from(merged);
+    }
   }
   // Include global policy version in the etag so a fleet-wide bump forces re-sync everywhere
   const etag = crypto.createHash('sha256')
@@ -10868,6 +10891,259 @@ app.delete('/api/customer/openvpn-client/:id', customerAuth, (req, res) => {
 // endpoint; mirror it into state.box_internal_scans for fast retrieval.
 // Hooked into the existing result handler below — see "_recordCommandResult".
 
+// ════════════════════════════════════════════════════════════════════════
+//  Tier 3 — VPN expansion: Tailscale, IPsec/IKEv2, AmneziaWG
+// ════════════════════════════════════════════════════════════════════════
+if (!state.ipsec_users) state.ipsec_users = {};        // customer_id → [ { id, username, created_at } ]
+if (!state.tailscale_state) state.tailscale_state = {};// customer_id → { connected_at, hostname, advertise_routes, exit_node }
+if (!state.awg_peers) state.awg_peers = {};            // customer_id → [ { id, label, ip, pubkey, created_at } ]
+
+// Wait up to `timeout_ms` for an enqueued command to complete; resolve with
+// the command's result (or null on timeout/missing). Avoids hard-coupling
+// each consumer to the same polling loop.
+async function _waitForCmd(mac, cmdId, timeout_ms = 12_000) {
+  const deadline = Date.now() + timeout_ms;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 250));
+    const q = state.box_commands[mac] || [];
+    const c = q.find(x => x.id === cmdId);
+    if (c && (c.status === 'completed' || c.status === 'failed')) {
+      return { status: c.status, result: c.result };
+    }
+  }
+  return { status: 'queued', result: null };
+}
+
+// ─── Feature A: Tailscale ─────────────────────────────────────────────────
+app.post('/api/customer/tailscale/connect', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const auth_key = String(req.body.auth_key || '').trim();
+  if (!auth_key) return res.status(400).json({ error: 'auth_key_required', hint: 'Generate at https://login.tailscale.com/admin/settings/keys' });
+  const hostname = String(req.body.hostname || '').trim() || ('mes-box-' + mac.slice(-5).replace(/:/g, ''));
+  const advertise_routes = Array.isArray(req.body.advertise_routes) ? req.body.advertise_routes :
+                           (typeof req.body.advertise_routes === 'string' ? req.body.advertise_routes.split(',').map(s => s.trim()).filter(Boolean) : []);
+  const exit_node_advertise = !!req.body.advertise_exit_node;
+  const accept_routes = !!req.body.accept_routes;
+  const login_server = req.body.login_server ? String(req.body.login_server).trim() : undefined;
+  // Auto-discover LAN /24 if "advertise_lan" was passed and no explicit routes
+  if (req.body.advertise_lan && advertise_routes.length === 0) {
+    const bs = state.box_state[mac] || {};
+    if (bs.internal_ip && /^\d+\.\d+\.\d+\.\d+$/.test(bs.internal_ip)) {
+      advertise_routes.push(bs.internal_ip.split('.').slice(0, 3).join('.') + '.0/24');
+    }
+  }
+  _queueBoxCmd(mac, 'tailscale-install', {});
+  const upArgs = { auth_key, hostname, accept_routes, login_server };
+  if (advertise_routes.length) upArgs.advertise_routes = advertise_routes;
+  if (exit_node_advertise) upArgs.advertise_exit_node = true;
+  const cmd = _queueBoxCmd(mac, 'tailscale-up', upArgs);
+  state.tailscale_state[c.id] = {
+    connected_at: Date.now(),
+    hostname,
+    advertise_routes,
+    advertise_exit_node: exit_node_advertise,
+  };
+  saveState();
+  res.json({ ok: true, queued_cmd_id: cmd.id, hostname, advertise_routes });
+});
+app.post('/api/customer/tailscale/disconnect', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const cmd = _queueBoxCmd(mac, 'tailscale-down', {});
+  if (state.tailscale_state[c.id]) delete state.tailscale_state[c.id];
+  saveState();
+  res.json({ ok: true, queued_cmd_id: cmd.id });
+});
+app.get('/api/customer/tailscale/status', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const bs = state.box_state[mac];
+  const online = bs && (Date.now() - bs.last_heartbeat) < 5 * 60_000;
+  if (!online) return res.json({ ok: false, error: 'box_offline', cloud_state: state.tailscale_state[c.id] || null });
+  const cmd = _queueBoxCmd(mac, 'tailscale-status', {});
+  saveState();
+  const r = await _waitForCmd(mac, cmd.id, 8000);
+  res.json({ ok: true, status: r.status, result: r.result, cloud_state: state.tailscale_state[c.id] || null });
+});
+app.post('/api/customer/tailscale/set-routes', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  let cidrs = req.body.cidrs;
+  if (typeof cidrs === 'string') cidrs = cidrs.split(',').map(s => s.trim()).filter(Boolean);
+  if (!Array.isArray(cidrs)) cidrs = [];
+  const cmd = _queueBoxCmd(mac, 'tailscale-set-routes', { cidrs });
+  if (state.tailscale_state[c.id]) state.tailscale_state[c.id].advertise_routes = cidrs;
+  saveState();
+  res.json({ ok: true, queued_cmd_id: cmd.id, cidrs });
+});
+app.post('/api/customer/tailscale/logout', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const cmd = _queueBoxCmd(mac, 'tailscale-logout', {});
+  if (state.tailscale_state[c.id]) delete state.tailscale_state[c.id];
+  saveState();
+  res.json({ ok: true, queued_cmd_id: cmd.id });
+});
+
+// ─── Feature B: IPsec / IKEv2 (strongSwan) ────────────────────────────────
+function _ipsecUsers(cid) { if (!state.ipsec_users[cid]) state.ipsec_users[cid] = []; return state.ipsec_users[cid]; }
+
+app.post('/api/customer/ipsec/setup', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const domain_or_ip = String(req.body.domain_or_ip || '').trim();
+  if (!domain_or_ip) return res.status(400).json({ error: 'domain_or_ip_required' });
+  _queueBoxCmd(mac, 'ipsec-install', {});
+  const cmd = _queueBoxCmd(mac, 'ipsec-setup', { domain_or_ip, ca_cn: req.body.ca_cn || undefined });
+  saveState();
+  res.json({ ok: true, queued_cmd_id: cmd.id, domain_or_ip });
+});
+app.get('/api/customer/ipsec/users/list', customerAuth, (req, res) => {
+  res.json({ users: _ipsecUsers(req.customer.id) });
+});
+app.post('/api/customer/ipsec/users/add', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  if (!/^[a-zA-Z0-9._-]{1,32}$/.test(username)) return res.status(400).json({ error: 'bad_username' });
+  if (!password || password.length < 6 || password.length > 128) return res.status(400).json({ error: 'bad_password' });
+  const list = _ipsecUsers(c.id);
+  if (list.find(u => u.username === username)) return res.status(409).json({ error: 'user_exists' });
+  const id = shortId(12);
+  list.push({ id, username, created_at: Date.now() });
+  // Stash password ONLY so the .mobileconfig endpoint can embed it later.
+  // Never expose it on any listing endpoint.
+  if (!state._ipsec_secrets) state._ipsec_secrets = {};
+  if (!state._ipsec_secrets[c.id]) state._ipsec_secrets[c.id] = {};
+  state._ipsec_secrets[c.id][id] = password;
+  _queueBoxCmd(mac, 'ipsec-user-add', { username, password });
+  saveState();
+  res.json({ ok: true, user: { id, username, created_at: list[list.length - 1].created_at } });
+});
+app.post('/api/customer/ipsec/users/delete', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const id = String(req.body.id || '');
+  const list = _ipsecUsers(c.id);
+  const idx = list.findIndex(u => u.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'user_not_found' });
+  const username = list[idx].username;
+  list.splice(idx, 1);
+  if (state._ipsec_secrets && state._ipsec_secrets[c.id]) delete state._ipsec_secrets[c.id][id];
+  _queueBoxCmd(mac, 'ipsec-user-remove', { username });
+  saveState();
+  res.json({ ok: true });
+});
+app.get('/api/customer/ipsec/status', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const bs = state.box_state[mac];
+  const online = bs && (Date.now() - bs.last_heartbeat) < 5 * 60_000;
+  if (!online) return res.json({ ok: false, error: 'box_offline', users: _ipsecUsers(c.id) });
+  const cmd = _queueBoxCmd(mac, 'ipsec-status', {});
+  saveState();
+  const r = await _waitForCmd(mac, cmd.id, 6000);
+  res.json({ ok: true, status: r.status, result: r.result, users: _ipsecUsers(c.id) });
+});
+app.get('/api/customer/ipsec/users/:id/mobileconfig.mobileconfig', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const id = String(req.params.id || '');
+  const list = _ipsecUsers(c.id);
+  const entry = list.find(u => u.id === id);
+  if (!entry) return res.status(404).json({ error: 'user_not_found' });
+  const password = (state._ipsec_secrets && state._ipsec_secrets[c.id] && state._ipsec_secrets[c.id][id]) || '';
+  if (!password) return res.status(410).json({ error: 'password_lost', hint: 'Delete + re-add this user to regenerate.' });
+  const cmd = _queueBoxCmd(mac, 'ipsec-mobileconfig', { username: entry.username, password, vpn_name: 'mes IPsec' });
+  saveState();
+  const r = await _waitForCmd(mac, cmd.id, 8000);
+  if (r.status === 'completed' && r.result && r.result.plist) {
+    res.setHeader('Content-Type', 'application/x-apple-aspen-config');
+    res.setHeader('Content-Disposition', `attachment; filename="mes-ipsec-${entry.username}.mobileconfig"`);
+    return res.send(r.result.plist);
+  }
+  res.status(503).json({ error: 'mobileconfig_unavailable', status: r.status, result: r.result });
+});
+
+// ─── Feature C: AmneziaWG (obfuscated WireGuard) ──────────────────────────
+function _awgPeers(cid) { if (!state.awg_peers[cid]) state.awg_peers[cid] = []; return state.awg_peers[cid]; }
+
+app.post('/api/customer/awg/setup', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  _queueBoxCmd(mac, 'awg-install', {});
+  const cmd = _queueBoxCmd(mac, 'awg-setup', {
+    listen_port: parseInt(req.body.listen_port, 10) || undefined,
+    network_cidr: req.body.network_cidr || undefined,
+  });
+  saveState();
+  res.json({ ok: true, queued_cmd_id: cmd.id });
+});
+app.get('/api/customer/awg/status', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const bs = state.box_state[mac];
+  const online = bs && (Date.now() - bs.last_heartbeat) < 5 * 60_000;
+  if (!online) return res.json({ ok: false, error: 'box_offline', peers: _awgPeers(c.id) });
+  const cmd = _queueBoxCmd(mac, 'awg-status', {});
+  saveState();
+  const r = await _waitForCmd(mac, cmd.id, 6000);
+  res.json({ ok: true, status: r.status, result: r.result, peers: _awgPeers(c.id) });
+});
+app.post('/api/customer/awg/peers/add', customerAuth, async (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const label = String(req.body.label || '').trim().slice(0, 40);
+  if (!label) return res.status(400).json({ error: 'label_required' });
+  const cmd = _queueBoxCmd(mac, 'awg-peer-add', { label });
+  saveState();
+  const r = await _waitForCmd(mac, cmd.id, 10_000);
+  if (r.status === 'completed' && r.result && r.result.ok && r.result.peer) {
+    const list = _awgPeers(c.id);
+    list.push({
+      id: r.result.peer.id,
+      label: r.result.peer.label,
+      ip: r.result.peer.ip,
+      pubkey: r.result.peer.pubkey,
+      created_at: r.result.peer.created_at || Date.now(),
+    });
+    saveState();
+    return res.json({ ok: true, peer: r.result.peer, conf_text: r.result.conf_text });
+  }
+  res.json({ ok: false, status: r.status, result: r.result });
+});
+app.post('/api/customer/awg/peers/delete', customerAuth, (req, res) => {
+  const c = req.customer;
+  const mac = _pickBoxForCust(c);
+  if (!mac) return res.status(404).json({ error: 'no_box_assigned' });
+  const id = String(req.body.id || '');
+  const list = _awgPeers(c.id);
+  const idx = list.findIndex(p => p.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'peer_not_found' });
+  list.splice(idx, 1);
+  _queueBoxCmd(mac, 'awg-peer-remove', { peer_id: id });
+  saveState();
+  res.json({ ok: true });
+});
+app.get('/api/customer/awg/peers', customerAuth, (req, res) => {
+  res.json({ peers: _awgPeers(req.customer.id) });
+});
+
 // ─── SMTP admin config ─────────────────────────────────────────────────────
 app.get('/admin/api/smtp-config', adminAuth, (req, res) => {
   const s = state.config.smtp || {};
@@ -11486,6 +11762,200 @@ try {
     cloudQuarantine.setNotifier((cid, title, body) => pushNotification(cid, 'security', title, body));
   }
 } catch (e) { console.error('quarantine module not available:', e.message); }
+
+// Tier-3 — community threat intel + SIEM forwarding
+let cloudCommunityIntel = null, cloudSiemForwarder = null;
+try { cloudCommunityIntel = require('./cloud-modules/community-intel'); cloudCommunityIntel.init(state); }
+catch (e) { console.error('community-intel module not available:', e.message); }
+try { cloudSiemForwarder = require('./cloud-modules/siem-forwarder'); cloudSiemForwarder.init(state); }
+catch (e) { console.error('siem-forwarder module not available:', e.message); }
+// Auto-refresh community intel every 6h (and once shortly after boot)
+if (cloudCommunityIntel) {
+  setTimeout(() => { cloudCommunityIntel.refresh().catch(e => console.error('community-intel refresh err:', e.message)); }, 30_000);
+  setInterval(() => { cloudCommunityIntel.refresh().catch(e => console.error('community-intel refresh err:', e.message)); }, 6 * 3600_000);
+}
+
+// ── Tier-3 Feature A: community-intel admin + customer endpoints ──────────
+app.post('/admin/api/community-intel/refresh', adminAuth, async (req, res) => {
+  if (!cloudCommunityIntel) return res.status(500).json({ error: 'community_intel_unavailable' });
+  try {
+    const r = await cloudCommunityIntel.refresh();
+    if (typeof logAdminAction === 'function') logAdminAction(req, 'community_intel.refresh', '', `${r.total_ips || 0} IPs, ${r.total_domains || 0} domains`);
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/admin/api/community-intel/status', adminAuth, (req, res) => {
+  if (!cloudCommunityIntel) return res.json({ enabled: false });
+  res.json(cloudCommunityIntel.status());
+});
+app.get('/api/customer/community-intel/status', customerAuth, (req, res) => {
+  if (!cloudCommunityIntel) return res.json({ enabled: false, available: false });
+  const c = state.customers[req.customer.id];
+  const enabled = c && c.community_intel_enabled !== false;  // default true (opt-out)
+  res.json({ enabled, available: true, ...cloudCommunityIntel.status() });
+});
+app.post('/api/customer/community-intel/toggle', customerAuth, (req, res) => {
+  const c = state.customers[req.customer.id];
+  if (!c) return res.status(404).json({ error: 'customer_not_found' });
+  c.community_intel_enabled = !!req.body.enabled;
+  saveState();
+  // Bump global policy version so boxes pick up the change on next pull
+  state._policy_global_version = (state._policy_global_version || 0) + 1;
+  res.json({ ok: true, enabled: c.community_intel_enabled });
+});
+
+// ── Tier-3 Feature B: SIEM-forwarding endpoints ───────────────────────────
+app.get('/api/customer/siem-config', customerAuth, (req, res) => {
+  if (!cloudSiemForwarder) return res.json({ available: false });
+  const cfg = cloudSiemForwarder.getConfig(req.customer.id) || { enabled: false };
+  // Don't leak internal counters' day-key — just the numbers
+  res.json({
+    available: true,
+    enabled: !!cfg.enabled,
+    transport: cfg.transport || 'tcp',
+    host: cfg.host || '',
+    port: cfg.port || 0,
+    format: cfg.format || 'json',
+    forward_alarms: cfg.forward_alarms !== false,
+    forward_flows:  !!cfg.forward_flows,
+    forwarded_today: cfg.forwarded_today || 0,
+    dropped_today:   cfg.dropped_today || 0,
+    last_error:      cfg.last_error || null,
+    last_error_at:   cfg.last_error_at || 0,
+    last_success_at: cfg.last_success_at || 0,
+  });
+});
+app.post('/api/customer/siem-config', customerAuth, (req, res) => {
+  if (!cloudSiemForwarder) return res.status(500).json({ error: 'siem_unavailable' });
+  try {
+    const cfg = cloudSiemForwarder.configure({
+      customer_id: req.customer.id,
+      transport:      req.body.transport,
+      host:           req.body.host,
+      port:           req.body.port,
+      format:         req.body.format,
+      enabled:        req.body.enabled,
+      forward_alarms: req.body.forward_alarms,
+      forward_flows:  req.body.forward_flows,
+    });
+    saveState();
+    res.json({ ok: true, enabled: cfg.enabled, transport: cfg.transport, host: cfg.host, port: cfg.port, format: cfg.format });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/customer/siem-test', customerAuth, async (req, res) => {
+  if (!cloudSiemForwarder) return res.status(500).json({ error: 'siem_unavailable' });
+  const cfg = cloudSiemForwarder.getConfig(req.customer.id);
+  if (!cfg || !cfg.enabled) return res.status(400).json({ error: 'siem_not_configured', message: 'Enable and save your SIEM config first.' });
+  const r = await cloudSiemForwarder.forward(req.customer.id, {
+    type: 'test',
+    severity: 'low',
+    kind: 'siem_test',
+    title: 'mes Network SIEM test',
+    message: 'mes Network SIEM test',
+    customer_id: req.customer.id,
+    ts: Date.now(),
+  });
+  res.json(r);
+});
+
+// ── Tier-3 Feature C: IoT default-credential test endpoints ───────────────
+// Tokens are short-lived (10 minutes), single-use, and the box echoes them
+// back to prove this scan was customer-authorized. NEVER auto-issue without
+// an explicit opt-in flag.
+if (!state.iot_credtest_tokens) state.iot_credtest_tokens = {};  // { token: { cid, mac, issued_at, used } }
+if (!state.iot_credtest_results) state.iot_credtest_results = {}; // { cid: [{ts, findings, scanned}] }
+
+app.post('/api/customer/iot/credtest/opt-in', customerAuth, (req, res) => {
+  const c = state.customers[req.customer.id];
+  if (!c) return res.status(404).json({ error: 'customer_not_found' });
+  c.iot_credtest_opted_in = !!req.body.opted_in;
+  c.iot_credtest_opted_in_at = c.iot_credtest_opted_in ? Date.now() : 0;
+  saveState();
+  res.json({ ok: true, opted_in: c.iot_credtest_opted_in });
+});
+app.get('/api/customer/iot/credtest/status', customerAuth, (req, res) => {
+  const c = state.customers[req.customer.id];
+  res.json({
+    opted_in: !!(c && c.iot_credtest_opted_in),
+    opted_in_at: (c && c.iot_credtest_opted_in_at) || 0,
+    last_results: (state.iot_credtest_results[req.customer.id] || []).slice(-5).reverse(),
+  });
+});
+app.post('/api/customer/iot/credtest/start', customerAuth, async (req, res) => {
+  const c = state.customers[req.customer.id];
+  if (!c || !c.iot_credtest_opted_in) {
+    return res.status(403).json({ error: 'opt_in_required', message: 'You must opt in before any scan runs.' });
+  }
+  // Find the customer's box
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === c.id);
+  if (!myBoxes.length) return res.status(404).json({ error: 'no_box_assigned' });
+  const boxMac = myBoxes[0].mac;
+  // Build a target device list — ONLY LAN devices that the box has reported
+  const seen = state.box_devices[boxMac] || {};
+  const devices = Object.values(seen)
+    .filter(d => d.ip && /^\d+\.\d+\.\d+\.\d+$/.test(d.ip))
+    .map(d => ({ mac: d.mac, ip: d.ip, vendor: d.vendor || '' }));
+  if (!devices.length) return res.status(400).json({ error: 'no_lan_devices_known' });
+  // Issue a one-time opt-in token
+  const token = shortId(32);
+  state.iot_credtest_tokens[token] = { cid: c.id, mac: boxMac, issued_at: Date.now(), used: false };
+  // Queue the action on the box
+  if (!state.box_commands[boxMac]) state.box_commands[boxMac] = [];
+  state.box_commands[boxMac].push({
+    id: shortId(16),
+    action: 'iot-credtest',
+    args: { devices, opt_in_token: token, expected_token: token },
+    status: 'pending',
+    created_at: Date.now(),
+    result: null,
+    completed_at: null,
+  });
+  saveState();
+  res.json({ ok: true, queued: true, devices_count: devices.length, token_issued: true });
+});
+// Box-side: report the credtest findings + raise an alarm per vulnerable finding
+app.post('/api/box/iot/credtest/result', boxAuth, (req, res) => {
+  const cid = req.boxCustomerId;
+  if (!cid) return res.status(400).json({ error: 'no_customer' });
+  const token = String(req.body.token || '');
+  const t = state.iot_credtest_tokens[token];
+  if (!t || t.cid !== cid || t.used) return res.status(403).json({ error: 'invalid_or_used_token' });
+  t.used = true;
+  const findings = Array.isArray(req.body.findings) ? req.body.findings : [];
+  // SAFETY check: refuse the report if any finding contains a 'credentials'
+  // / 'password' / 'user' field — module promises NOT to return working creds.
+  for (const f of findings) {
+    for (const banned of ['credentials','password','user','username','passphrase']) {
+      if (banned in f) {
+        console.log(`         🚨 credtest result contained banned field ${banned} — discarding`);
+        return res.status(400).json({ error: 'leaked_credentials_in_response' });
+      }
+    }
+  }
+  // Record the result
+  if (!state.iot_credtest_results[cid]) state.iot_credtest_results[cid] = [];
+  state.iot_credtest_results[cid].push({
+    ts: Date.now(),
+    scanned: req.body.scanned || findings.length,
+    findings,
+  });
+  // Keep only the last 20 runs per customer
+  if (state.iot_credtest_results[cid].length > 20) {
+    state.iot_credtest_results[cid] = state.iot_credtest_results[cid].slice(-20);
+  }
+  // Raise an alarm per vulnerable device
+  for (const f of findings) {
+    if (!f.vulnerable) continue;
+    if (typeof fireSyntheticAlarm === 'function') {
+      fireSyntheticAlarm(cid, req.boxMac, 'high', 'iot_default_creds_found',
+        '🔓 Device uses default credentials',
+        `Your ${f.vendor || 'device'} at ${f.ip} (${f.service.toUpperCase()}) uses default credentials — change immediately.`,
+        { device_mac: f.mac, dst_ip: f.ip, attempts: f.attempts, service: f.service });
+    }
+  }
+  saveState();
+  res.json({ ok: true, recorded: findings.length });
+});
 
 // Inject the box-command queue so portscan can enqueue internal scans on boxes
 if (cloudPortscan && cloudPortscan.setBoxQueue) {
@@ -14157,6 +14627,14 @@ function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body, e
   // have both src_ip and dst_ip in extras. Privacy filter is also enforced on
   // the box itself (pcap-capture.js), but we double-check here.
   try { maybeQueuePcapCapture(a); } catch (e) { console.error('pcap queue err:', e.message); }
+  // Tier-3 Feature B: fire-and-forget SIEM forward (alarms). The forwarder
+  // does its own enabled/rate-cap/retry handling and returns a promise we
+  // don't await.
+  try {
+    if (typeof cloudSiemForwarder !== 'undefined' && cloudSiemForwarder) {
+      cloudSiemForwarder.forward(customer_id, { type: 'alarm', ...a }).catch(()=>{});
+    }
+  } catch (e) { /* ignore */ }
 }
 
 // Per-kind mute: customer can silence specific alarm kinds for N hours.

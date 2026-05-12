@@ -1271,12 +1271,16 @@ a { color: var(--brand); text-decoration: none; }
           <button class="sheet-action" data-subview="wg"><span class="si">🔐</span><span data-i="more.wg">WireGuard VPN</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="vpnclient"><span class="si">🌍</span><span data-i="more.vpnclient">VPN client (route home through VPN)</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="ovpnclient"><span class="si">🛡</span><span>OpenVPN client (.ovpn)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="tailscale"><span class="si">🪢</span><span>Tailscale</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="ipsec"><span class="si">📱</span><span>IPsec VPN (iOS native)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="awg"><span class="si">🕶</span><span>AmneziaWG (obfuscated)</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="qos"><span class="si">⚡</span><span>Smart Queue (QoS)</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="iot"><span class="si">🔒</span><span>IoT lockdown</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="quarantine"><span class="si">🚫</span><span>Quarantine new devices</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="secscan"><span class="si">🛡</span><span>Security scans</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="secoverview"><span class="si">🛡</span><span>Security overview</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="ids"><span class="si">🛡</span><span>IDS / Suricata</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="siem"><span class="si">📡</span><span>SIEM forwarding</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="kidlock"><span class="si">🔢</span><span>Kid lock (PIN)</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="speed"><span class="si">📊</span><span data-i="more.speed">Speed history</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="flowhist"><span class="si">📜</span><span>Flow history (90d archive)</span><span class="si" style="margin-left:auto">›</span></button>
@@ -1461,6 +1465,105 @@ a { color: var(--brand); text-decoration: none; }
         </div>
       </div>
 
+      <!-- Tailscale sub-view (Tier 3 Feature A) -->
+      <div id="more-tailscale" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Tailscale</h2>
+          <button class="btn sm ghost" id="ts-refresh" style="margin-left:auto">↻</button>
+        </div>
+        <div class="card">
+          <div id="ts-banner" class="hint">Loading…</div>
+        </div>
+        <div class="card" id="ts-disconnected-card">
+          <div class="card-title">Connect to your tailnet</div>
+          <div class="hint" style="margin-bottom:8px">Generate a <b>reusable auth key</b> at <span class="mono">https://login.tailscale.com/admin/settings/keys</span> and paste it below.</div>
+          <div class="field"><label>Auth key</label>
+            <input id="ts-authkey" placeholder="tskey-auth-xxx..." style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);font-family:monospace;font-size:12px"></div>
+          <div class="field"><label>Hostname (optional)</label>
+            <input id="ts-hostname" placeholder="mes-home" maxlength="40" style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+          <div class="field"><label class="row gap-8"><input type="checkbox" id="ts-advlan"> Advertise LAN routes (share your home network with the tailnet)</label></div>
+          <div class="field"><label class="row gap-8"><input type="checkbox" id="ts-exitnode"> Advertise as exit node (route tailnet traffic OUT through this box)</label></div>
+          <div class="field"><label class="row gap-8"><input type="checkbox" id="ts-accept"> Accept tailnet routes from other peers</label></div>
+          <div class="btn-row"><button class="btn primary" id="ts-connect">Connect</button></div>
+        </div>
+        <div class="card" id="ts-connected-card" hidden>
+          <div class="card-title">Self</div>
+          <div id="ts-self"><div class="empty">—</div></div>
+          <div class="card-title" style="margin-top:14px">Tailnet peers</div>
+          <div class="list" id="ts-peers"><div class="empty">No peers yet.</div></div>
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn ghost" id="ts-disconnect">Disconnect</button>
+            <button class="btn danger" id="ts-logout">Logout</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- IPsec / IKEv2 sub-view (Tier 3 Feature B) -->
+      <div id="more-ipsec" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>IPsec VPN</h2>
+          <button class="btn sm ghost" id="ipsec-refresh" style="margin-left:auto">↻</button>
+        </div>
+        <div class="card">
+          <div id="ipsec-banner" class="hint">Loading…</div>
+          <div class="hint" style="margin-top:8px">For iOS / macOS / Windows native VPN — uses IKEv2 + username/password. Requires UDP/500 + UDP/4500 forwarded to the box from your gateway (only relevant in Bridge or Router mode).</div>
+        </div>
+        <div class="card" id="ipsec-setup-card">
+          <div class="card-title">Server setup</div>
+          <div class="hint">Enter the public hostname or IP that clients will connect to. The box generates a self-signed CA + server cert; clients trust it via the .mobileconfig profile.</div>
+          <div class="field"><label>Public domain or IP</label>
+            <input id="ipsec-domain" placeholder="vpn.example.com or 1.2.3.4" style="width:100%;height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+          <div class="btn-row"><button class="btn primary" id="ipsec-setup-btn">Install & setup</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">VPN users</div>
+          <div class="list" id="ipsec-user-list"><div class="empty">Loading…</div></div>
+          <div class="field" style="margin-top:14px">
+            <label>Add user</label>
+            <input id="ipsec-new-user" placeholder="username" maxlength="32" style="width:100%;height:44px;padding:0 12px;margin-bottom:6px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)">
+            <input id="ipsec-new-pass" type="password" placeholder="password (≥6 chars)" maxlength="128" style="width:100%;height:44px;padding:0 12px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)">
+            <div class="btn-row" style="margin-top:6px"><button class="btn primary" id="ipsec-add-user-btn">＋ Add user</button></div>
+            <div class="hint" style="margin-top:6px">Passwords are stored on the box (in <span class="mono">/etc/ipsec.secrets</span>). The cloud keeps a copy only to embed in the .mobileconfig download — never shown anywhere else.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AmneziaWG sub-view (Tier 3 Feature C) -->
+      <div id="more-awg" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>AmneziaWG</h2>
+          <button class="btn sm ghost" id="awg-refresh" style="margin-left:auto">↻</button>
+        </div>
+        <div class="card">
+          <div id="awg-banner" class="hint">Loading…</div>
+          <div class="hint" style="margin-top:8px">Obfuscated WireGuard — packets look like random TCP/noise instead of a fingerprintable WG handshake. Useful in DPI-blocking networks (Iran, China, work firewalls). Uses a separate port (51821) from regular WireGuard.</div>
+        </div>
+        <div class="card" id="awg-manual-install" hidden>
+          <div class="card-title">Manual install required</div>
+          <div class="hint" id="awg-manual-text" style="white-space:pre-wrap;font-family:monospace;font-size:11px"></div>
+          <div class="hint" style="margin-top:8px">Once you finish the manual install above, return here and tap "Set up server".</div>
+        </div>
+        <div class="card" id="awg-setup-card">
+          <div class="card-title">Server</div>
+          <div class="btn-row"><button class="btn primary" id="awg-setup-btn">Set up server</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Peers</div>
+          <div class="list" id="awg-peer-list"><div class="empty">Loading…</div></div>
+          <div class="field" style="margin-top:14px">
+            <label>Add peer</label>
+            <div class="row gap-8">
+              <input id="awg-new-label" placeholder="iPhone" maxlength="40" style="height:50px;padding:0 14px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);flex:1">
+              <button class="btn sm primary" id="awg-add-peer-btn" style="width:auto;flex-shrink:0;height:50px">＋</button>
+            </div>
+            <div class="hint">Peer .awg config is shown once at creation — copy/save it.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- OpenVPN client sub-view -->
       <div id="more-ovpnclient" class="subview" hidden>
         <div class="subview-header">
@@ -1583,10 +1686,99 @@ a { color: var(--brand); text-decoration: none; }
           <button class="subview-back" data-back>←</button>
           <h2>🛡 Security overview</h2>
         </div>
+        <!-- Tier-3 Feature A: community threat intel panel (sits ABOVE device risk list) -->
+        <div class="card">
+          <div class="card-title">🌐 Community threat intel</div>
+          <div class="hint">Pulls from public OSS feeds (blocklist.de, abuse.ch, AlienVault OTX, ISC, URLhaus). We do NOT share your traffic — pull-only.</div>
+          <div class="row" id="ci-toggle-row" style="gap:10px;align-items:center;margin:10px 0">
+            <label class="switch"><input type="checkbox" id="ci-toggle"><span class="slider"></span></label>
+            <span id="ci-toggle-label" style="font-weight:600">…</span>
+          </div>
+          <div class="row" style="gap:14px;flex-wrap:wrap" id="ci-stats">
+            <div class="chip" id="ci-ips">— IPs</div>
+            <div class="chip" id="ci-domains">— domains</div>
+            <div class="chip" id="ci-refreshed">last refresh —</div>
+          </div>
+          <div class="hint" id="ci-sources" style="margin-top:8px;font-size:11px"></div>
+        </div>
+        <!-- Tier-3 Feature C: IoT default-credentials check (SAFE, opt-in) -->
+        <div class="card">
+          <div class="card-title">🔓 IoT default-credentials check</div>
+          <div class="hint" id="iotc-hint">Scans your LAN devices for well-known default credentials (admin/admin, root/root, etc.) on HTTP/HTTPS/SSH/Telnet/RTSP. Slow, 3 attempts per device max, NEVER reports the working credentials.</div>
+          <div id="iotc-optin-block">
+            <div class="card" style="background:#fbe6e6;color:#7a1a1a;border:1px solid #f5b5b5;padding:12px;margin:10px 0;border-radius:8px;font-size:13px">
+              <b>⚠️ Legal disclaimer</b><br>
+              This feature scans devices on <b>YOUR</b> LAN only. By opting in you acknowledge you have permission to test these devices. Do not enable this on a network you don't own or aren't authorized to audit.
+            </div>
+            <button class="btn" id="iotc-optin-btn">I understand — opt me in</button>
+          </div>
+          <div id="iotc-active-block" hidden>
+            <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0">
+              <button class="btn" id="iotc-scan-btn">Run scan now</button>
+              <button class="btn ghost" id="iotc-optout-btn">Opt out</button>
+              <span class="chip" id="iotc-status">…</span>
+            </div>
+            <div class="list" id="iotc-results"></div>
+          </div>
+        </div>
         <div class="card">
           <div class="card-title">Top 10 highest-risk devices</div>
           <div class="hint">Risk score combines vulnerabilities, behavior anomalies, threat intel hits, and IoT exposure. Tap a device to see details.</div>
           <div class="list" id="secov-list"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Tier-3 Feature B: SIEM forwarding sub-view -->
+      <div id="more-siem" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>📡 SIEM forwarding</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Ship alarms (and optionally flows) to your SIEM</div>
+          <div class="hint">Splunk / Elastic / Wazuh / Graylog — anything that accepts JSON lines over TCP/UDP or RFC-5424 syslog. Rate-capped at 1000 events/min.</div>
+          <div class="form-row" style="margin-top:10px">
+            <label>Transport</label>
+            <select id="siem-transport">
+              <option value="tcp">TCP (JSON line)</option>
+              <option value="udp">UDP (JSON line)</option>
+              <option value="syslog-rfc5424">Syslog RFC 5424 (over TCP)</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Host</label><input id="siem-host" placeholder="siem.example.com" /></div>
+          <div class="form-row"><label>Port</label><input id="siem-port" type="number" placeholder="514" /></div>
+          <div class="form-row">
+            <label>Format</label>
+            <select id="siem-format">
+              <option value="json">JSON</option>
+              <option value="cef">CEF</option>
+            </select>
+          </div>
+          <div class="row" style="gap:10px;align-items:center;margin:8px 0">
+            <label class="switch"><input type="checkbox" id="siem-alarms" checked><span class="slider"></span></label>
+            <span>Forward alarms</span>
+          </div>
+          <div class="row" style="gap:10px;align-items:center;margin:8px 0">
+            <label class="switch"><input type="checkbox" id="siem-flows"><span class="slider"></span></label>
+            <span>Forward flows <b style="color:#c25a1a">(⚠ HIGH volume — usually leave OFF)</b></span>
+          </div>
+          <div class="row" style="gap:10px;align-items:center;margin:8px 0">
+            <label class="switch"><input type="checkbox" id="siem-enabled"><span class="slider"></span></label>
+            <span>SIEM forwarding enabled</span>
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn" id="siem-save">Save</button>
+            <button class="btn ghost" id="siem-test">Send test event</button>
+          </div>
+          <div id="siem-result" class="hint" style="margin-top:8px"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Stats</div>
+          <div class="row" style="gap:14px;flex-wrap:wrap" id="siem-stats">
+            <div class="chip" id="siem-forwarded">— forwarded today</div>
+            <div class="chip" id="siem-dropped">— dropped today</div>
+            <div class="chip" id="siem-lastok">last success —</div>
+          </div>
         </div>
       </div>
 
@@ -3426,7 +3618,7 @@ document.getElementById('m-logout').onclick = logout;
 document.getElementById('btn-add-box').onclick = () => document.getElementById('m-claim').click();
 
 /* ──────── More sub-views (inline pages) ──────── */
-const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','qos','iot','quarantine','secscan','secoverview','ids','kidlock','speed','plan','flowhist','topology'];
+const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','tailscale','ipsec','awg','qos','iot','quarantine','secscan','secoverview','ids','siem','kidlock','speed','plan','flowhist','topology'];
 let _moreCurrent = 'main';
 
 function showMoreSubview(name) {
@@ -3446,12 +3638,16 @@ function showMoreSubview(name) {
   else if (name === 'wg') renderWgSub();
   else if (name === 'vpnclient') renderVpnClientSub();
   else if (name === 'ovpnclient') renderOvpnClientSub();
+  else if (name === 'tailscale') renderTailscaleSub();
+  else if (name === 'ipsec') renderIpsecSub();
+  else if (name === 'awg') renderAwgSub();
   else if (name === 'qos') renderQosSub();
   else if (name === 'iot') renderIotSub();
   else if (name === 'quarantine') renderQuarantineSub();
   else if (name === 'secscan') renderSecScanSub();
   else if (name === 'secoverview') renderSecOverviewSub();
   else if (name === 'ids') renderIdsSub();
+  else if (name === 'siem') renderSiemSub();
   else if (name === 'kidlock') renderKidlockSub();
   else if (name === 'speed') renderSpeedSub();
   else if (name === 'plan') renderPlanSub();
@@ -4423,6 +4619,257 @@ document.getElementById('ovpnc-add-btn').onclick = () => {
   });
 };
 
+/* ──────── Tailscale sub-view (Tier 3 Feature A) ──────── */
+async function renderTailscaleSub() {
+  const banner = document.getElementById('ts-banner');
+  const discCard = document.getElementById('ts-disconnected-card');
+  const connCard = document.getElementById('ts-connected-card');
+  banner.textContent = 'Loading…';
+  banner.style.color = '';
+  try {
+    const r = await api('/customer/tailscale/status');
+    if (!r.ok) {
+      banner.textContent = r.error === 'box_offline' ? 'Box offline — check that it’s online and try again.' : ('Status failed: ' + (r.error || 'unknown'));
+      banner.style.color = 'var(--bad)';
+      discCard.hidden = false; connCard.hidden = true;
+      return;
+    }
+    const result = r.result || {};
+    if (!result.installed) {
+      banner.textContent = 'Tailscale not installed yet — installing on connect…';
+      discCard.hidden = false; connCard.hidden = true;
+      return;
+    }
+    const state = result.state || 'Unknown';
+    const colorMap = { 'Running': 'var(--ok)', 'NeedsLogin': '#f5a623', 'Stopped': 'var(--bad)' };
+    banner.innerHTML = `<b>State:</b> ${esc(state)} &nbsp; <b>Version:</b> ${esc(result.version || '?')}`;
+    banner.style.color = colorMap[state] || '';
+    if (state === 'Running' && result.self && result.self.ip) {
+      discCard.hidden = true; connCard.hidden = false;
+      const s = result.self;
+      document.getElementById('ts-self').innerHTML = `
+        <div class="list-row">
+          <div class="avatar">🟢</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(s.name || 'self')}</div>
+            <div class="sub mono">${esc(s.ip)} · ${esc(s.os || '')}</div>
+          </div>
+        </div>`;
+      const peersEl = document.getElementById('ts-peers');
+      const peers = result.peers || [];
+      if (!peers.length) {
+        peersEl.innerHTML = '<div class="empty">No other tailnet peers.</div>';
+      } else {
+        peersEl.innerHTML = peers.map(p => `
+          <div class="list-row">
+            <div class="avatar">${p.online ? '🟢' : '⚪'}</div>
+            <div class="lr-meta">
+              <div class="nm">${esc(p.name || p.dns_name || '?')}</div>
+              <div class="sub mono">${esc(p.ip || '—')} · ${esc(p.os || '')}${p.exit_node ? ' · exit' : ''}</div>
+            </div>
+            <div class="sub">${p.online ? 'online' : 'offline'}</div>
+          </div>`).join('');
+      }
+    } else {
+      discCard.hidden = false; connCard.hidden = true;
+      if (result.auth_url) {
+        banner.innerHTML += `<br><b>Auth URL:</b> <a href="${esc(result.auth_url)}" target="_blank">${esc(result.auth_url)}</a>`;
+      }
+    }
+  } catch (e) {
+    banner.textContent = 'Failed: ' + (e.message || 'unknown'); banner.style.color = 'var(--bad)';
+  }
+}
+document.getElementById('ts-refresh').onclick = renderTailscaleSub;
+document.getElementById('ts-connect').onclick = async () => {
+  const auth_key = document.getElementById('ts-authkey').value.trim();
+  const hostname = document.getElementById('ts-hostname').value.trim();
+  const advertise_lan = document.getElementById('ts-advlan').checked;
+  const advertise_exit_node = document.getElementById('ts-exitnode').checked;
+  const accept_routes = document.getElementById('ts-accept').checked;
+  if (!auth_key) { toast('Auth key required', 'bad'); return; }
+  try {
+    await api('/customer/tailscale/connect', { method: 'POST', body: JSON.stringify({
+      auth_key, hostname: hostname || undefined, advertise_lan, advertise_exit_node, accept_routes,
+    }) });
+    toast('Connecting to tailnet…', 'info');
+    setTimeout(renderTailscaleSub, 4000);
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+document.getElementById('ts-disconnect').onclick = async () => {
+  if (!await confirmSheet('Disconnect from tailnet?', { okLabel: 'Disconnect' })) return;
+  try { await api('/customer/tailscale/disconnect', { method: 'POST', body: '{}' }); toast('Disconnecting…', 'info'); setTimeout(renderTailscaleSub, 1500); }
+  catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+document.getElementById('ts-logout').onclick = async () => {
+  if (!await confirmSheet('Log out of Tailscale entirely? You’ll need a new auth key to reconnect.', { okLabel: 'Logout', danger: true })) return;
+  try { await api('/customer/tailscale/logout', { method: 'POST', body: '{}' }); toast('Logged out', 'info'); setTimeout(renderTailscaleSub, 1500); }
+  catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── IPsec / IKEv2 sub-view (Tier 3 Feature B) ──────── */
+async function renderIpsecSub() {
+  const banner = document.getElementById('ipsec-banner');
+  const setupCard = document.getElementById('ipsec-setup-card');
+  banner.textContent = 'Loading…'; banner.style.color = '';
+  try {
+    const r = await api('/customer/ipsec/status');
+    if (!r.ok) {
+      banner.textContent = r.error === 'box_offline' ? 'Box offline.' : ('Status: ' + (r.error || 'unknown'));
+      banner.style.color = 'var(--bad)'; setupCard.hidden = false;
+    } else {
+      const result = r.result || {};
+      if (!result.installed) {
+        banner.innerHTML = '<b>Not installed.</b> Tap "Install & setup" below.'; banner.style.color = '#f5a623';
+        setupCard.hidden = false;
+      } else if (!result.configured) {
+        banner.innerHTML = '<b>Installed.</b> Configure the public hostname/IP below to enable IKEv2.'; banner.style.color = '#f5a623';
+        setupCard.hidden = false;
+      } else {
+        const running = result.running;
+        banner.innerHTML = `<b>${running ? '🟢 Running' : '🔴 Not running'}</b> · server: <span class="mono">${esc(result.domain_or_ip)}</span> · ${result.users || 0} user(s) · ${(result.connections || []).length} connected`;
+        banner.style.color = running ? 'var(--ok)' : 'var(--bad)';
+        setupCard.hidden = true;
+      }
+    }
+    // Always render the users list from cloud state
+    const list = document.getElementById('ipsec-user-list');
+    const users = (r.users || []);
+    if (!users.length) {
+      list.innerHTML = '<div class="empty">No users yet — add one below.</div>';
+    } else {
+      list.innerHTML = users.map(u => `
+        <div class="list-row">
+          <div class="avatar">👤</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(u.username)}</div>
+            <div class="sub">added ${new Date(u.created_at).toLocaleDateString()}</div>
+          </div>
+          <a class="btn sm ghost" href="/api/customer/ipsec/users/${encodeURIComponent(u.id)}/mobileconfig.mobileconfig" download="mes-ipsec-${esc(u.username)}.mobileconfig">⬇ iOS</a>
+          <button class="btn sm ghost" data-ipsec-del="${esc(u.id)}">✕</button>
+        </div>`).join('');
+      list.querySelectorAll('[data-ipsec-del]').forEach(b => b.onclick = async () => {
+        if (!await confirmSheet('Delete this VPN user?', { okLabel: 'Delete', danger: true })) return;
+        try { await api('/customer/ipsec/users/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.ipsecDel }) });
+          toast('Deleted', 'info'); renderIpsecSub();
+        } catch (e) { toast(e.message || 'Failed', 'bad'); }
+      });
+    }
+  } catch (e) {
+    banner.textContent = 'Failed: ' + (e.message || 'unknown'); banner.style.color = 'var(--bad)';
+  }
+}
+document.getElementById('ipsec-refresh').onclick = renderIpsecSub;
+document.getElementById('ipsec-setup-btn').onclick = async () => {
+  const domain_or_ip = document.getElementById('ipsec-domain').value.trim();
+  if (!domain_or_ip) { toast('Enter a public hostname or IP', 'bad'); return; }
+  try {
+    await api('/customer/ipsec/setup', { method: 'POST', body: JSON.stringify({ domain_or_ip }) });
+    toast('Installing strongSwan + generating PKI… may take ~1 minute', 'info');
+    setTimeout(renderIpsecSub, 5000);
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+document.getElementById('ipsec-add-user-btn').onclick = async () => {
+  const username = document.getElementById('ipsec-new-user').value.trim();
+  const password = document.getElementById('ipsec-new-pass').value;
+  if (!username) { toast('Username required', 'bad'); return; }
+  if (!password || password.length < 6) { toast('Password ≥ 6 chars', 'bad'); return; }
+  try {
+    await api('/customer/ipsec/users/add', { method: 'POST', body: JSON.stringify({ username, password }) });
+    document.getElementById('ipsec-new-user').value = '';
+    document.getElementById('ipsec-new-pass').value = '';
+    toast('User added', 'info'); renderIpsecSub();
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
+/* ──────── AmneziaWG sub-view (Tier 3 Feature C) ──────── */
+async function renderAwgSub() {
+  const banner = document.getElementById('awg-banner');
+  const manualCard = document.getElementById('awg-manual-install');
+  const setupCard  = document.getElementById('awg-setup-card');
+  banner.textContent = 'Loading…'; banner.style.color = '';
+  try {
+    const r = await api('/customer/awg/status');
+    if (!r.ok) {
+      banner.textContent = r.error === 'box_offline' ? 'Box offline.' : ('Status: ' + (r.error || 'unknown'));
+      banner.style.color = 'var(--bad)'; manualCard.hidden = true; setupCard.hidden = false;
+    } else {
+      const result = r.result || {};
+      if (result.manual_install_required) {
+        banner.innerHTML = '<b>⚠ Manual install required.</b> AmneziaWG binaries aren’t in apt yet — install them on the box, then return here.';
+        banner.style.color = '#f5a623';
+        manualCard.hidden = false;
+        document.getElementById('awg-manual-text').textContent = result.manual_install_hint || 'See https://github.com/amnezia-vpn/amneziawg-tools';
+        setupCard.hidden = true;
+      } else if (!result.configured) {
+        banner.innerHTML = '<b>Installed.</b> Tap "Set up server" to create the awg0 interface.';
+        banner.style.color = '#f5a623';
+        manualCard.hidden = true; setupCard.hidden = false;
+      } else {
+        const up = result.iface_up;
+        banner.innerHTML = `<b>${up ? '🟢 Running' : '🔴 Down'}</b> · port ${result.port} · ${result.peers_total} peer(s) · ${result.peers_connected} connected`;
+        banner.style.color = up ? 'var(--ok)' : '#f5a623';
+        manualCard.hidden = true; setupCard.hidden = true;
+      }
+    }
+    const list = document.getElementById('awg-peer-list');
+    const peers = (r.peers || []);
+    if (!peers.length) {
+      list.innerHTML = '<div class="empty">No peers yet — add one below.</div>';
+    } else {
+      list.innerHTML = peers.map(p => `
+        <div class="list-row">
+          <div class="avatar">🕶</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(p.label)}</div>
+            <div class="sub mono">${esc(p.ip)} · ${esc((p.pubkey || '').slice(0, 14))}…</div>
+          </div>
+          <button class="btn sm ghost" data-awg-del="${esc(p.id)}">✕</button>
+        </div>`).join('');
+      list.querySelectorAll('[data-awg-del]').forEach(b => b.onclick = async () => {
+        if (!await confirmSheet('Delete this AmneziaWG peer?', { okLabel: 'Delete', danger: true })) return;
+        try { await api('/customer/awg/peers/delete', { method: 'POST', body: JSON.stringify({ id: b.dataset.awgDel }) });
+          toast('Deleted', 'info'); renderAwgSub();
+        } catch (e) { toast(e.message || 'Failed', 'bad'); }
+      });
+    }
+  } catch (e) {
+    banner.textContent = 'Failed: ' + (e.message || 'unknown'); banner.style.color = 'var(--bad)';
+  }
+}
+document.getElementById('awg-refresh').onclick = renderAwgSub;
+document.getElementById('awg-setup-btn').onclick = async () => {
+  try {
+    await api('/customer/awg/setup', { method: 'POST', body: '{}' });
+    toast('Installing + setting up awg0… ', 'info');
+    setTimeout(renderAwgSub, 4000);
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+document.getElementById('awg-add-peer-btn').onclick = async () => {
+  const label = document.getElementById('awg-new-label').value.trim();
+  if (!label) { toast('Label required', 'bad'); return; }
+  try {
+    const r = await api('/customer/awg/peers/add', { method: 'POST', body: JSON.stringify({ label }) });
+    document.getElementById('awg-new-label').value = '';
+    if (r.ok && r.conf_text) {
+      // Show the peer config in a sheet so the user can copy it
+      const html = `
+        <div class="hint" style="margin-bottom:8px"><b>Save this config now</b> — for security the peer's private key won't be shown again.</div>
+        <textarea readonly style="width:100%;min-height:300px;padding:10px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text);font-family:monospace;font-size:11px">${esc(r.conf_text)}</textarea>
+        <div class="btn-row" style="margin-top:8px"><button class="btn ghost" id="awg-close">Done</button><button class="btn primary" id="awg-copy">Copy</button></div>`;
+      sheet('Peer config: ' + label, '', html, body => {
+        body.querySelector('#awg-close').onclick = closeSheet;
+        body.querySelector('#awg-copy').onclick = () => {
+          try { navigator.clipboard.writeText(r.conf_text); toast('Copied', 'info'); } catch { toast('Copy failed', 'bad'); }
+        };
+      });
+      renderAwgSub();
+    } else {
+      toast((r.result && r.result.error) || 'Peer add failed', 'bad');
+    }
+  } catch (e) { toast(e.message || 'Failed', 'bad'); }
+};
+
 /* ──────── QoS / Smart Queue sub-view ──────── */
 async function renderQosSub() {
   // Devices list w/ priority pickers
@@ -4597,6 +5044,9 @@ document.getElementById('int-scan-btn').onclick = async () => {
 async function renderSecOverviewSub() {
   const el = document.getElementById('secov-list');
   el.innerHTML = '<div class="empty">Loading…</div>';
+  // Tier-3: render the community-intel + IoT credtest panels in parallel
+  renderCommunityIntelPanel();
+  renderIotCredtestPanel();
   try {
     const r = await api('/customer/risk-overview');
     const list = (r.devices || []).slice(0, 10);
@@ -4623,6 +5073,181 @@ async function renderSecOverviewSub() {
       else toast('Open the Devices tab to inspect this device', 'info');
     }));
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message || 'Failed')}</div>`; }
+}
+
+/* ──────── Tier-3 Feature A: Community threat-intel panel ──────── */
+async function renderCommunityIntelPanel() {
+  const tog = document.getElementById('ci-toggle');
+  const lab = document.getElementById('ci-toggle-label');
+  const ipsChip = document.getElementById('ci-ips');
+  const domChip = document.getElementById('ci-domains');
+  const refChip = document.getElementById('ci-refreshed');
+  const srcEl   = document.getElementById('ci-sources');
+  if (!tog) return;
+  try {
+    const r = await api('/customer/community-intel/status');
+    tog.checked = !!r.enabled;
+    lab.textContent = r.enabled ? 'Enabled' : 'Disabled';
+    ipsChip.textContent = (r.total_ips || 0).toLocaleString() + ' IPs';
+    domChip.textContent = (r.total_domains || 0).toLocaleString() + ' domains';
+    refChip.textContent = r.last_refresh_at
+      ? 'refreshed ' + new Date(r.last_refresh_at).toLocaleString()
+      : 'not refreshed yet';
+    const counts = r.source_counts || {};
+    const errs   = r.errors || {};
+    const okList = Object.entries(counts).map(([u, n]) => {
+      let host = u; try { host = new URL(u).hostname; } catch {}
+      return `<span style="opacity:.8">${esc(host)} ${n.toLocaleString()}</span>`;
+    }).join(' · ');
+    const failList = Object.keys(errs).map(u => { try { return esc(new URL(u).hostname); } catch { return esc(u); } }).join(', ');
+    srcEl.innerHTML = okList
+      ? 'Sources: ' + okList + (failList ? '<br><span style="color:#c25a1a">Failing: ' + failList + '</span>' : '')
+      : '';
+  } catch (e) {
+    lab.textContent = 'Unavailable';
+  }
+  tog.onchange = async () => {
+    try {
+      await api('/customer/community-intel/toggle', { method: 'POST', body: JSON.stringify({ enabled: tog.checked }) });
+      lab.textContent = tog.checked ? 'Enabled' : 'Disabled';
+      toast(tog.checked ? 'Community intel ON' : 'Community intel OFF', 'ok');
+    } catch (e) {
+      toast(e.message || 'Failed', 'bad');
+      tog.checked = !tog.checked;
+    }
+  };
+}
+
+/* ──────── Tier-3 Feature C: IoT default-credential check ──────── */
+async function renderIotCredtestPanel() {
+  const optBlock = document.getElementById('iotc-optin-block');
+  const actBlock = document.getElementById('iotc-active-block');
+  const optBtn   = document.getElementById('iotc-optin-btn');
+  const outBtn   = document.getElementById('iotc-optout-btn');
+  const scanBtn  = document.getElementById('iotc-scan-btn');
+  const stat     = document.getElementById('iotc-status');
+  const list     = document.getElementById('iotc-results');
+  if (!optBlock) return;
+  let s;
+  try { s = await api('/customer/iot/credtest/status'); }
+  catch (e) { if (stat) stat.textContent = e.message || 'failed'; return; }
+  if (!s.opted_in) {
+    optBlock.hidden = false;
+    actBlock.hidden = true;
+  } else {
+    optBlock.hidden = true;
+    actBlock.hidden = false;
+    const last = (s.last_results || [])[0];
+    if (last) {
+      const vulnCount = (last.findings || []).filter(f => f.vulnerable).length;
+      stat.textContent = `Last scan: ${last.scanned} devices · ${vulnCount} vulnerable · ${new Date(last.ts).toLocaleString()}`;
+      list.innerHTML = (last.findings || []).map(f => {
+        const color = f.vulnerable ? '#dc2626' : '#16a34a';
+        return `<div class="list-row">
+          <div class="avatar" style="background:${color}22;color:${color}">${f.vulnerable ? '🔓' : '🔒'}</div>
+          <div class="lr-meta">
+            <div class="nm">${esc(f.vendor || 'Device')} · <span class="mono">${esc(f.ip)}</span></div>
+            <div class="sub mono" style="font-size:11px">${esc(f.mac)}</div>
+            <div class="sub" style="font-size:11px;color:${color};font-weight:700;text-transform:uppercase">
+              ${esc((f.service || '').toUpperCase())}:${f.port} · ${f.vulnerable ? 'VULNERABLE' : 'no default creds'} · ${f.attempts} attempts
+            </div>
+          </div>
+        </div>`;
+      }).join('') || '<div class="empty">No findings yet.</div>';
+    } else {
+      stat.textContent = 'No scans yet';
+      list.innerHTML = '<div class="empty">Tap "Run scan now" to start.</div>';
+    }
+  }
+  optBtn.onclick = async () => {
+    try {
+      await api('/customer/iot/credtest/opt-in', { method: 'POST', body: JSON.stringify({ opted_in: true }) });
+      toast('Opted in', 'ok');
+      renderIotCredtestPanel();
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
+  outBtn.onclick = async () => {
+    try {
+      await api('/customer/iot/credtest/opt-in', { method: 'POST', body: JSON.stringify({ opted_in: false }) });
+      toast('Opted out', 'ok');
+      renderIotCredtestPanel();
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
+  scanBtn.onclick = async () => {
+    try {
+      stat.textContent = 'Scanning… (slow — 10s pacing per device, can take several minutes)';
+      const r = await api('/customer/iot/credtest/start', { method: 'POST', body: '{}' });
+      toast(`Scan queued for ${r.devices_count} devices`, 'info');
+      setTimeout(() => renderIotCredtestPanel(), 30000);
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
+}
+
+/* ──────── Tier-3 Feature B: SIEM forwarding sub-view ──────── */
+async function renderSiemSub() {
+  const tEl  = document.getElementById('siem-transport');
+  const hEl  = document.getElementById('siem-host');
+  const pEl  = document.getElementById('siem-port');
+  const fEl  = document.getElementById('siem-format');
+  const aEl  = document.getElementById('siem-alarms');
+  const flEl = document.getElementById('siem-flows');
+  const enEl = document.getElementById('siem-enabled');
+  const sEl  = document.getElementById('siem-save');
+  const tsEl = document.getElementById('siem-test');
+  const res  = document.getElementById('siem-result');
+  const fwd  = document.getElementById('siem-forwarded');
+  const drp  = document.getElementById('siem-dropped');
+  const ok   = document.getElementById('siem-lastok');
+  if (!tEl) return;
+  try {
+    const c = await api('/customer/siem-config');
+    tEl.value = c.transport || 'tcp';
+    hEl.value = c.host || '';
+    pEl.value = c.port || '';
+    fEl.value = c.format || 'json';
+    aEl.checked  = c.forward_alarms !== false;
+    flEl.checked = !!c.forward_flows;
+    enEl.checked = !!c.enabled;
+    fwd.textContent = (c.forwarded_today || 0) + ' forwarded today';
+    drp.textContent = (c.dropped_today   || 0) + ' dropped today';
+    ok.textContent  = c.last_success_at
+      ? 'last success ' + new Date(c.last_success_at).toLocaleString()
+      : 'never delivered';
+    if (c.last_error) {
+      res.textContent = 'Last error: ' + c.last_error + ' · ' + new Date(c.last_error_at).toLocaleString();
+      res.style.color = '#c25a1a';
+    } else {
+      res.textContent = '';
+    }
+  } catch (e) { res.textContent = e.message || 'Failed'; res.style.color = '#dc2626'; }
+  sEl.onclick = async () => {
+    try {
+      await api('/customer/siem-config', { method: 'POST', body: JSON.stringify({
+        transport: tEl.value, host: hEl.value.trim(), port: parseInt(pEl.value) || 0,
+        format: fEl.value, enabled: enEl.checked,
+        forward_alarms: aEl.checked, forward_flows: flEl.checked,
+      }) });
+      toast('SIEM config saved', 'ok');
+      renderSiemSub();
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
+  tsEl.onclick = async () => {
+    res.textContent = 'Sending…'; res.style.color = '';
+    try {
+      const r = await api('/customer/siem-test', { method: 'POST', body: '{}' });
+      if (r.ok) {
+        res.textContent = `✓ Delivered (attempts=${r.attempts})`;
+        res.style.color = '#16a34a';
+      } else {
+        res.textContent = `✗ Failed: ${r.error || 'unknown'}`;
+        res.style.color = '#dc2626';
+      }
+      renderSiemSub();
+    } catch (e) {
+      res.textContent = '✗ ' + (e.message || 'Failed');
+      res.style.color = '#dc2626';
+    }
+  };
 }
 
 /* ──────── Tier-2 Suricata IDS sub-view ──────── */
