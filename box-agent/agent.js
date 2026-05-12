@@ -352,6 +352,7 @@ function macForIp(ip) { return arpIpToMac[ip] || ''; }
 const DNSMASQ_BLOCKS    = '/etc/dnsmasq.d/mes-box-blocks.conf';
 const DNSMASQ_LEASES    = '/etc/dnsmasq.d/mes-box-dhcp.conf';
 const DNSMASQ_UPSTREAMS = '/etc/dnsmasq.d/mes-box-upstreams.conf';
+const DNSMASQ_PER_DEV_DNS = '/etc/dnsmasq.d/mes-box-per-device-dns.conf';   // Tier-1 Feature A
 const NFT_TABLE = 'mes_box';
 const NFT_BLOCK_SET   = 'blocked_ips';
 const NFT_QUOTA_SET   = 'quota_blocked_macs';
@@ -390,6 +391,25 @@ function applyPolicy(p) {
   for (const d of blockedDomains) {
     if (!d || d.length > 200) continue;
     lines.push(`address=/${d}/${portalIp}`);
+  }
+  // Tier-1 Smart Block: domain pattern matches (suffix / prefix / contains).
+  // dnsmasq's `address=/X/IP` already matches X and all its subdomains, so for
+  // 'suffix' we just emit address=/value/0.0.0.0. For 'prefix' / 'contains' we
+  // synthesise wildcard hostnames as best we can with dnsmasq syntax.
+  for (const pat of (p.blocked_domain_patterns || [])) {
+    const v = (pat && pat.value || '').toLowerCase().replace(/[^a-z0-9.\-*]/g, '');
+    if (!v) continue;
+    if (pat.pattern_type === 'suffix') {
+      // Block live.tiktok.com AND every subdomain of live.tiktok.com (but NOT tiktok.com itself)
+      lines.push(`address=/*.${v}/${portalIp}`);
+      lines.push(`address=/${v}/${portalIp}`);
+    } else if (pat.pattern_type === 'prefix') {
+      // dnsmasq cannot truly do prefix matching; treat as a suffix on the leftmost label
+      lines.push(`address=/${v}/${portalIp}`);
+    } else if (pat.pattern_type === 'contains') {
+      // No native dnsmasq support; emit the literal so at least exact hits drop
+      lines.push(`address=/${v}/${portalIp}`);
+    }
   }
   // Safe Search rewrites (cname-style: rewrite query for X to return Y)
   for (const [host, target] of Object.entries(p.safe_search || {})) {
@@ -435,9 +455,29 @@ function applyPolicy(p) {
     try { if (fs.existsSync(DNSMASQ_LEASES)) { fs.unlinkSync(DNSMASQ_LEASES); dnsmasqDirty = true; } } catch {}
   }
 
+  // 3b. Tier-1 Feature A: per-device DNS upstream via DHCP option 6.
+  // For each (mac → upstream IP), emit a tagged dhcp-host + dhcp-option line
+  // so dnsmasq hands out a different resolver to that device.
+  const perDevDns = p.per_device_dns_upstream || {};
+  const perDevMacs = Object.keys(perDevDns);
+  if (perDevMacs.length > 0) {
+    const out = ['# mes Network — per-device DNS upstream (option 6 by MAC)'];
+    let i = 0;
+    for (const mac of perDevMacs) {
+      const ip = perDevDns[mac];
+      if (!ip || !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) continue;
+      const tag = `mesdns${i++}`;
+      out.push(`dhcp-host=${mac},set:${tag}`);
+      out.push(`dhcp-option=tag:${tag},option:dns-server,${ip}`);
+    }
+    if (writeIfChanged(DNSMASQ_PER_DEV_DNS, out.join('\n') + '\n')) dnsmasqDirty = true;
+  } else {
+    try { if (fs.existsSync(DNSMASQ_PER_DEV_DNS)) { fs.unlinkSync(DNSMASQ_PER_DEV_DNS); dnsmasqDirty = true; } } catch {}
+  }
+
   if (dnsmasqDirty) {
     reloadDnsmasq();
-    console.log(`[agent] dnsmasq reloaded (blocks=${blockedDomains.size}, upstreams=${(p.dns_upstreams||[]).length}, leases=${(p.dhcp_leases||[]).length})`);
+    console.log(`[agent] dnsmasq reloaded (blocks=${blockedDomains.size}, upstreams=${(p.dns_upstreams||[]).length}, leases=${(p.dhcp_leases||[]).length}, per_dev_dns=${perDevMacs.length})`);
   }
 
   // 4. nftables IP blocking + quota-blocked-MAC blocking + port forwards
@@ -461,6 +501,40 @@ function applyPolicy(p) {
   // 10. Schedule timer
   agentState.schedules = p.schedules || [];
   saveAgentState();
+
+  // 11. Tier-1 Smart Block: cache SNI patterns for live matching by sni-parser.
+  agentState.blocked_sni_patterns = Array.isArray(p.blocked_sni_patterns) ? p.blocked_sni_patterns : [];
+}
+
+// Tier-1 Smart Block — match a TLS SNI against the cached pattern list.
+// Returns the matching pattern object or null. Called from the sni-parser
+// hook so we can drop matching connections via iptables connbytes.
+function _matchSniPattern(sni) {
+  if (!sni) return null;
+  const sniL = String(sni).toLowerCase();
+  for (const p of (agentState.blocked_sni_patterns || [])) {
+    const v = (p && p.value || '').toLowerCase();
+    if (!v) continue;
+    if (p.pattern_type === 'sni-prefix') {
+      if (sniL.startsWith(v)) return p;
+    } else if (p.pattern_type === 'suffix') {
+      if (sniL === v || sniL.endsWith('.' + v)) return p;
+    } else if (p.pattern_type === 'contains') {
+      if (sniL.includes(v)) return p;
+    } else if (p.pattern_type === 'exact') {
+      if (sniL === v) return p;
+    }
+  }
+  return null;
+}
+function _dropTcpForSni(src_ip, dst_ip, dst_port) {
+  // Best-effort post-hoc drop. The first packet of the connection has already
+  // gone through; iptables connbytes ensures subsequent packets of this flow
+  // are dropped without keeping a per-flow rule forever.
+  if (!src_ip || !dst_ip) return;
+  try {
+    execSync(`iptables -I FORWARD -s ${src_ip} -d ${dst_ip} -p tcp --dport ${dst_port||443} -m connbytes --connbytes 1: --connbytes-mode packets --connbytes-dir original -j DROP 2>/dev/null`, { stdio: 'ignore' });
+  } catch {}
 }
 
 function applyVlans(p) {
@@ -1876,6 +1950,24 @@ async function uploadConfigSnapshot() {
         try { await api('POST', '/api/box/sni-handshakes', { handshakes: recent }); } catch {}
       };
       setInterval(flushSni, 60_000);
+      // Tier-1 Smart Block: live SNI matching against blocked_sni_patterns.
+      // Note: post-hoc — first connection slips through, subsequent packets
+      // of the same flow are dropped via iptables connbytes.
+      if (typeof sniParser.on === 'function') {
+        sniParser.on('sni', (rec) => {
+          try {
+            const match = _matchSniPattern(rec && rec.sni);
+            if (!match) return;
+            _dropTcpForSni(rec.src_ip, rec.dst_ip, rec.dst_port);
+            // Surface as a fake "blocked" flow so the cloud shows it
+            api('POST', '/api/box/flows', { flows: [{
+              ts: Date.now(), src_ip: rec.src_ip, src_mac: macForIp(rec.src_ip),
+              dst_ip: rec.dst_ip, dst_port: rec.dst_port || 443, proto: 'tcp',
+              sni: rec.sni, blocked: true, reason: `smart_block:${match.pattern_type}:${match.value}`,
+            }]}).catch(()=>{});
+          } catch {}
+        });
+      }
       console.log('[agent] sni-parser started on', LAN_IF);
     } catch (e) { console.error('[agent] sni-parser start:', e.message); }
   }

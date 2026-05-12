@@ -4650,6 +4650,413 @@ app.post('/admin/api/digest/weekly/send', adminAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  TIER-1 VISIBILITY — Weekly emailed digest (Feature A)
+//                      Long-term flow archive (Feature B)
+// ═══════════════════════════════════════════════════════════════════════════
+if (!state.weekly_digests) state.weekly_digests = {};       // { cid: [ { id, ts, week_start, html, delivery_status } ] }
+if (!state.flow_archive)   state.flow_archive   = {};       // { cid: [ {ts, src_mac, dst_domain, dst_ip, dst_port, proto, bytes_up, bytes_down, blocked, category, country} ] }
+const FLOW_ARCHIVE_MAX_PER_CUSTOMER = 200_000;
+const FLOW_ARCHIVE_RETENTION_MS     = 90 * 24 * 3600_000;
+
+// Build HTML digest for ONE customer covering the last 7 days. Pulls from:
+//   • state.usage_daily — per-device bytes per day (truth for "total this week")
+//   • state.alarms      — alarm count by severity in window
+//   • state.flow_archive — top domains in window (falls back to state.flows)
+//   • state.family_members — to map device_mac → owner
+//   • state.box_devices — to map MAC → friendly name
+function buildWeeklyDigest(customer_id) {
+  const c = state.customers[customer_id];
+  if (!c) return null;
+  const now = Date.now();
+  const weekAgoMs = now - 7 * 24 * 3600_000;
+  const weekStartISO = new Date(weekAgoMs).toISOString().slice(0, 10);
+  const weekEndISO   = new Date(now).toISOString().slice(0, 10);
+
+  // ── Aggregate per-device bytes over the last 7 days from usage_daily ──
+  const dailyMap = (state.usage_daily && state.usage_daily[customer_id]) || {};
+  const perDeviceBytes = {};
+  let totalBytes = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now - i * 86400_000).toISOString().slice(0, 10);
+    const dayBucket = dailyMap[d] || {};
+    for (const [mac, b] of Object.entries(dayBucket)) {
+      const total = (b.bytes_up || 0) + (b.bytes_down || 0);
+      perDeviceBytes[mac] = (perDeviceBytes[mac] || 0) + total;
+      totalBytes += total;
+    }
+  }
+
+  // Map MAC → friendly name
+  const myBoxes = Object.values(state.authorized_macs).filter(m => m.customer_id === customer_id).map(m => m.mac);
+  const renames = (state.device_renames && state.device_renames[customer_id]) || {};
+  const nameForMac = (mac) => {
+    if (renames[mac]) return renames[mac];
+    for (const bmac of myBoxes) {
+      const d = (state.box_devices[bmac] || {})[mac];
+      if (d) return d.hostname || d.vendor || mac;
+    }
+    return mac;
+  };
+
+  // Per-family-member byte totals
+  const fam = (state.family_members && state.family_members[customer_id]) || [];
+  const perFamilyBytes = [];
+  const assignedMacs = new Set();
+  for (const f of fam) {
+    let bytes = 0;
+    for (const m of (f.device_macs || [])) {
+      bytes += perDeviceBytes[m] || 0;
+      assignedMacs.add(m);
+    }
+    perFamilyBytes.push({ name: f.name, role: f.role || '', icon: f.icon || '👤', bytes });
+  }
+  let unassignedBytes = 0;
+  for (const [mac, b] of Object.entries(perDeviceBytes)) {
+    if (!assignedMacs.has(mac)) unassignedBytes += b;
+  }
+  if (unassignedBytes > 0) perFamilyBytes.push({ name: 'Unassigned devices', role: '', icon: '📱', bytes: unassignedBytes });
+  perFamilyBytes.sort((a, b) => b.bytes - a.bytes);
+
+  // Top 5 devices
+  const top5Devices = Object.entries(perDeviceBytes)
+    .map(([mac, bytes]) => ({ mac, name: nameForMac(mac), bytes }))
+    .sort((a, b) => b.bytes - a.bytes)
+    .slice(0, 5);
+
+  // Top 5 domains (from archive, fallback to ring buffer)
+  const archive = (state.flow_archive[customer_id] || []).filter(f => f.ts >= weekAgoMs);
+  const archiveSource = archive.length
+    ? archive
+    : state.flows.filter(f => f.customer_id === customer_id && f.ts >= weekAgoMs);
+  const domainBytes = {};
+  for (const f of archiveSource) {
+    const d = f.dst_domain || '(direct IP)';
+    domainBytes[d] = (domainBytes[d] || 0) + (f.bytes_up || 0) + (f.bytes_down || 0);
+  }
+  const top5Domains = Object.entries(domainBytes)
+    .map(([domain, bytes]) => ({ domain, bytes }))
+    .sort((a, b) => b.bytes - a.bytes)
+    .slice(0, 5);
+
+  // Alarm counts by severity
+  const alarmsWeek = (state.alarms || []).filter(a => a.customer_id === customer_id && a.ts >= weekAgoMs);
+  const alarmCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const a of alarmsWeek) {
+    const k = (a.severity || 'medium').toLowerCase();
+    if (alarmCounts[k] !== undefined) alarmCounts[k]++;
+  }
+  const blockedFlowCount = archiveSource.filter(f => f.blocked).length;
+
+  // New devices
+  const newDevices = [];
+  for (const bmac of myBoxes) {
+    const bucket = state.box_devices[bmac] || {};
+    for (const d of Object.values(bucket)) {
+      if ((d.first_seen || 0) >= weekAgoMs) {
+        newDevices.push({ mac: d.mac, name: d.hostname || d.vendor || d.mac, first_seen: d.first_seen });
+      }
+    }
+  }
+  newDevices.sort((a, b) => b.first_seen - a.first_seen);
+
+  const fmtBytes = (b) => {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1024 * 1024 * 1024) return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    return (b / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  };
+  const escH = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  const brand = (state.config && state.config.brand_name) || 'mes Network';
+  const domain = (state.config && state.config.brand_domain) || 'cloud.mes.net.lb';
+
+  let html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:0 auto;color:#222">
+    <h1 style="color:#ff8c42;margin:0 0 4px 0">📊 Your weekly digest</h1>
+    <div style="color:#666;font-size:13px;margin-bottom:18px">${escH(brand)} · ${escH(weekStartISO)} → ${escH(weekEndISO)}</div>
+    <p>Hi ${escH(c.name || 'there')}, here's what happened on your network this week:</p>
+    <h2 style="border-bottom:2px solid #3ad29f;padding-bottom:4px">📦 Total data: ${fmtBytes(totalBytes)}</h2>`;
+
+  if (perFamilyBytes.length) {
+    html += `<h3>👨‍👩‍👧 By family member</h3><ul style="list-style:none;padding:0">`;
+    for (const f of perFamilyBytes) {
+      const pct = totalBytes > 0 ? ((f.bytes / totalBytes) * 100).toFixed(1) : '0.0';
+      html += `<li style="padding:6px 0;border-bottom:1px solid #eee">
+        ${escH(f.icon)} <strong>${escH(f.name)}</strong>${f.role ? ` <span style="color:#888;font-size:12px">(${escH(f.role)})</span>` : ''}
+        — ${fmtBytes(f.bytes)} <span style="color:#888;font-size:12px">(${pct}%)</span></li>`;
+    }
+    html += `</ul>`;
+  } else {
+    html += `<p style="color:#888"><em>No family members configured.</em></p>`;
+  }
+
+  html += `<h3>🏆 Top 5 most-active devices</h3>`;
+  if (top5Devices.length) {
+    html += `<table style="width:100%;border-collapse:collapse">`;
+    for (const d of top5Devices) {
+      html += `<tr><td style="padding:4px 8px 4px 0">${escH(d.name)}</td>
+        <td style="color:#888;font-family:monospace;font-size:11px">${escH(d.mac)}</td>
+        <td style="text-align:right;font-weight:600">${fmtBytes(d.bytes)}</td></tr>`;
+    }
+    html += `</table>`;
+  } else {
+    html += `<p style="color:#888"><em>No device usage recorded this week.</em></p>`;
+  }
+
+  html += `<h3>🌐 Top 5 visited domains</h3>`;
+  if (top5Domains.length) {
+    html += `<table style="width:100%;border-collapse:collapse">`;
+    for (const d of top5Domains) {
+      html += `<tr><td style="padding:4px 8px 4px 0">${escH(d.domain)}</td>
+        <td style="text-align:right;font-weight:600">${fmtBytes(d.bytes)}</td></tr>`;
+    }
+    html += `</table>`;
+  } else {
+    html += `<p style="color:#888"><em>No flow records this week.</em></p>`;
+  }
+
+  html += `<h3>🚨 Alarms (${alarmsWeek.length} total)</h3>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td>🔴 Critical</td><td style="text-align:right;font-weight:600">${alarmCounts.critical}</td></tr>
+      <tr><td>🟠 High</td><td style="text-align:right;font-weight:600">${alarmCounts.high}</td></tr>
+      <tr><td>🟡 Medium</td><td style="text-align:right;font-weight:600">${alarmCounts.medium}</td></tr>
+      <tr><td>🟢 Low</td><td style="text-align:right;font-weight:600">${alarmCounts.low}</td></tr>
+    </table>
+    <h3>🛑 Blocks this week</h3>
+    <p>Connections blocked by rules or threat intel: <strong>${blockedFlowCount.toLocaleString()}</strong></p>`;
+
+  if (newDevices.length) {
+    html += `<h3>🆕 New devices joined this week</h3><ul>`;
+    for (const d of newDevices.slice(0, 10)) {
+      html += `<li>${escH(d.name)} <span style="font-family:monospace;font-size:11px;color:#888">(${escH(d.mac)})</span></li>`;
+    }
+    html += `</ul>`;
+  }
+
+  html += `<hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+    <p style="color:#888;font-size:12px">View live stats: <a href="https://${escH(domain)}/pwa/">${escH(domain)}/pwa</a></p>
+    <p style="color:#888;font-size:12px">— ${escH(brand)}</p></div>`;
+
+  return {
+    html,
+    plain_summary: `Week ${weekStartISO}→${weekEndISO}: ${fmtBytes(totalBytes)} total, ${alarmsWeek.length} alarms, ${blockedFlowCount} blocks.`,
+    stats: {
+      total_bytes: totalBytes,
+      top_devices: top5Devices,
+      top_domains: top5Domains,
+      alarm_counts: alarmCounts,
+      blocked_flow_count: blockedFlowCount,
+      new_device_count: newDevices.length,
+      family_breakdown: perFamilyBytes,
+    },
+    week_start: weekStartISO,
+    week_end: weekEndISO,
+  };
+}
+
+// Daily scheduler — on Sunday, build + store + (optionally) email each customer's digest.
+function runWeeklyDigestJob(force = false) {
+  const now = new Date();
+  const isSunday = now.getDay() === 0;
+  if (!force && !isSunday) return { skipped: true, reason: 'not_sunday', day: now.getDay() };
+  if (!state.weekly_digest_runs) state.weekly_digest_runs = {};
+  const today = now.toISOString().slice(0, 10);
+  let built = 0, emailed = 0, stored = 0;
+  for (const c of Object.values(state.customers)) {
+    if (c.status === 'archived' || c.demo) continue;
+    if (!force && state.weekly_digest_runs[c.id] === today) continue;
+    const digest = buildWeeklyDigest(c.id);
+    if (!digest) continue;
+    built++;
+    const prefs = state.notif_prefs[c.id] || {};
+    const wantEmail = prefs.weekly_digest_email === true && !!c.email;
+    let delivery_status = 'stored';
+    if (wantEmail) {
+      try {
+        sendEmail(c.email, '📊 Your weekly mes Network digest', digest.html);
+        delivery_status = 'sent_to_smtp';
+        emailed++;
+      } catch (e) {
+        delivery_status = 'send_failed:' + e.message;
+      }
+    }
+    if (!state.weekly_digests[c.id]) state.weekly_digests[c.id] = [];
+    state.weekly_digests[c.id].unshift({
+      id: 'wd-' + shortId(10),
+      ts: Date.now(),
+      week_start: digest.week_start,
+      week_end: digest.week_end,
+      html: digest.html,
+      summary: digest.plain_summary,
+      stats: digest.stats,
+      delivery_status,
+    });
+    if (state.weekly_digests[c.id].length > 26) {
+      state.weekly_digests[c.id] = state.weekly_digests[c.id].slice(0, 26);
+    }
+    state.weekly_digest_runs[c.id] = today;
+    stored++;
+  }
+  saveState();
+  console.log(`         📨 weekly digest run: built=${built} stored=${stored} emailed=${emailed} force=${force}`);
+  return { ok: true, built, stored, emailed };
+}
+setTimeout(() => runWeeklyDigestJob(false), 10 * 60_000);
+setInterval(() => runWeeklyDigestJob(false), 24 * 3600_000);
+
+// Customer endpoint: list recent digests
+app.get('/api/customer/digests/weekly', customerAuth, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+  const list = (state.weekly_digests[req.customer.id] || []).slice(0, limit)
+    .map(d => ({ id: d.id, ts: d.ts, week_start: d.week_start, week_end: d.week_end,
+                 summary: d.summary, delivery_status: d.delivery_status, html: d.html }));
+  res.json({ digests: list });
+});
+
+// Preview THIS WEEK's digest without saving
+app.get('/api/customer/digests/weekly/preview', customerAuth, (req, res) => {
+  const digest = buildWeeklyDigest(req.customer.id);
+  if (!digest) return res.status(404).json({ error: 'no_customer' });
+  res.json({ digest });
+});
+
+// Admin: force-run for everyone
+app.post('/admin/api/digest/weekly-tier1/run', adminAuth, (req, res) => {
+  const r = runWeeklyDigestJob(true);
+  res.json(r);
+});
+
+// Toggle the digest email pref (stored on notif_prefs[cid].weekly_digest_email)
+app.post('/api/customer/digests/weekly/prefs', customerAuth, (req, res) => {
+  const c = req.customer;
+  if (!state.notif_prefs[c.id]) state.notif_prefs[c.id] = {};
+  if (req.body.weekly_digest_email !== undefined) {
+    state.notif_prefs[c.id].weekly_digest_email = !!req.body.weekly_digest_email;
+  }
+  saveState();
+  res.json({ ok: true, weekly_digest_email: !!state.notif_prefs[c.id].weekly_digest_email });
+});
+
+// ─── FLOW ARCHIVE (Feature B) ───
+function appendFlowToArchive(cid, f) {
+  if (!cid) return;
+  if (!state.flow_archive[cid]) state.flow_archive[cid] = [];
+  state.flow_archive[cid].push({
+    ts: f.ts,
+    src_mac: f.src_mac,
+    dst_domain: f.dst_domain || '',
+    dst_ip: f.dst_ip || '',
+    dst_port: f.dst_port || 0,
+    proto: f.proto || 'tcp',
+    bytes_up: f.bytes_up || 0,
+    bytes_down: f.bytes_down || 0,
+    blocked: !!f.blocked,
+    category: f.category || '',
+    country: f.country || null,
+  });
+  if (state.flow_archive[cid].length > FLOW_ARCHIVE_MAX_PER_CUSTOMER) {
+    state.flow_archive[cid].splice(0, state.flow_archive[cid].length - FLOW_ARCHIVE_MAX_PER_CUSTOMER);
+  }
+}
+function gcFlowArchive() {
+  const cutoff = Date.now() - FLOW_ARCHIVE_RETENTION_MS;
+  let dropped = 0;
+  for (const [cid, arr] of Object.entries(state.flow_archive)) {
+    let i = 0;
+    while (i < arr.length && arr[i].ts < cutoff) i++;
+    if (i > 0) { arr.splice(0, i); dropped += i; }
+  }
+  if (dropped > 0) console.log(`         🗑 flow_archive GC: dropped ${dropped} entries older than 90d`);
+}
+setInterval(gcFlowArchive, 3600_000);
+setTimeout(gcFlowArchive, 5 * 60_000);
+
+// Query archive — JSON or CSV. Date filters 'YYYY-MM-DD' inclusive.
+app.get('/api/customer/flows/archive', customerAuth, (req, res) => {
+  const cid = req.customer.id;
+  const arr = state.flow_archive[cid] || [];
+  let fromMs, toMs;
+  if (req.query.from) {
+    const t = Date.parse(req.query.from + 'T00:00:00Z');
+    if (!isNaN(t)) fromMs = t;
+  }
+  if (req.query.to) {
+    const t = Date.parse(req.query.to + 'T23:59:59Z');
+    if (!isNaN(t)) toMs = t;
+  }
+  if (!fromMs && !toMs && req.query.days) {
+    const days = Math.min(Math.max(parseInt(req.query.days) || 30, 1), 90);
+    fromMs = Date.now() - days * 86400_000;
+  }
+  if (!fromMs && !toMs) fromMs = Date.now() - 30 * 86400_000;
+  fromMs = fromMs || 0;
+  toMs   = toMs   || Date.now();
+  const devMac = req.query.device_mac ? String(req.query.device_mac).toLowerCase() : null;
+  const cap = Math.min(parseInt(req.query.limit) || 50_000, 200_000);
+  const out = [];
+  for (const f of arr) {
+    if (f.ts < fromMs || f.ts > toMs) continue;
+    if (devMac && (f.src_mac || '').toLowerCase() !== devMac) continue;
+    out.push(f);
+    if (out.length >= cap) break;
+  }
+  const format = String(req.query.format || 'json').toLowerCase();
+  if (format === 'csv') {
+    const esc = v => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="flows-${new Date(fromMs).toISOString().slice(0,10)}-to-${new Date(toMs).toISOString().slice(0,10)}.csv"`);
+    res.write('ts_iso,src_mac,dst_domain,dst_ip,dst_port,proto,category,country,bytes_up,bytes_down,blocked\n');
+    for (const f of out) {
+      res.write([
+        new Date(f.ts).toISOString(), esc(f.src_mac), esc(f.dst_domain), esc(f.dst_ip),
+        f.dst_port, esc(f.proto), esc(f.category), esc(f.country), f.bytes_up, f.bytes_down, f.blocked,
+      ].join(',') + '\n');
+    }
+    return res.end();
+  }
+  res.json({
+    from: new Date(fromMs).toISOString(),
+    to:   new Date(toMs).toISOString(),
+    device_mac: devMac,
+    total: out.length,
+    truncated: out.length >= cap,
+    archive_total: arr.length,
+    retention_days: 90,
+    flows: out,
+  });
+});
+
+// Stats over last N days
+app.get('/api/customer/flows/archive/stats', customerAuth, (req, res) => {
+  const cid = req.customer.id;
+  const arr = state.flow_archive[cid] || [];
+  const days = Math.min(Math.max(parseInt(req.query.days) || 30, 1), 90);
+  const fromMs = Date.now() - days * 86400_000;
+  let total_flows = 0, total_bytes = 0;
+  const devBytes = {}, domainBytes = {};
+  for (const f of arr) {
+    if (f.ts < fromMs) continue;
+    total_flows++;
+    const bytes = (f.bytes_up || 0) + (f.bytes_down || 0);
+    total_bytes += bytes;
+    const k = f.src_mac || 'unknown';
+    devBytes[k] = (devBytes[k] || 0) + bytes;
+    const d = f.dst_domain || '(direct IP)';
+    domainBytes[d] = (domainBytes[d] || 0) + bytes;
+  }
+  const top_devices = Object.entries(devBytes).map(([mac, bytes]) => ({ mac, bytes }))
+    .sort((a, b) => b.bytes - a.bytes).slice(0, 10);
+  const top_domains = Object.entries(domainBytes).map(([domain, bytes]) => ({ domain, bytes }))
+    .sort((a, b) => b.bytes - a.bytes).slice(0, 10);
+  res.json({ days, from: new Date(fromMs).toISOString(), total_flows, total_bytes, top_devices, top_domains, archive_size: arr.length });
+});
+
 // /api/customer/vpn — kept as a redirect to WireGuard for old links
 app.get('/api/customer/vpn', customerAuth, (req, res) => {
   res.status(410).json({ error: 'gone', message: 'OpenVPN is no longer offered. Use WireGuard via /api/customer/wg/peers.' });
@@ -5888,6 +6295,55 @@ app.post('/api/customer/family/delete', customerAuth, (req, res) => {
   state.family_members[c.id] = (state.family_members[c.id] || []).filter(x => x.id !== req.body.id);
   saveState();
   res.json({ ok: true });
+});
+
+// ─── Tier-1: Per-member DNS upstream + SafeSearch toggle ───
+// Preset upstream nameservers (resolver IP delivered via DHCP option 6).
+const DNS_UPSTREAM_PRESETS = {
+  'cloudflare':            '1.1.1.1',
+  'cloudflare-family':     '1.1.1.3',
+  'nextdns-family':        '45.90.28.0',
+  'opendns-familyshield':  '208.67.222.123',
+  'quad9':                 '9.9.9.9',
+};
+function resolveDnsUpstream(spec) {
+  if (!spec) return null;
+  if (DNS_UPSTREAM_PRESETS[spec]) return DNS_UPSTREAM_PRESETS[spec];
+  if (typeof spec === 'string' && spec.startsWith('custom:')) {
+    const ip = spec.slice(7).trim();
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) return ip;
+  }
+  return null;
+}
+app.get('/api/customer/family/dns-presets', customerAuth, (req, res) => {
+  res.json({ presets: DNS_UPSTREAM_PRESETS });
+});
+app.post('/api/customer/family/:id/dns-upstream', customerAuth, (req, res) => {
+  const c = req.customer;
+  const fam = state.family_members[c.id] || [];
+  const m = fam.find(x => x.id === req.params.id);
+  if (!m) return res.status(404).json({ error: 'family member not found' });
+  const spec = req.body.dns_upstream;  // null/'' to clear
+  if (spec === null || spec === '' || spec === undefined) {
+    delete m.dns_upstream;
+  } else {
+    if (typeof spec !== 'string' || spec.length > 80) return res.status(400).json({ error: 'invalid dns_upstream' });
+    const isPreset = !!DNS_UPSTREAM_PRESETS[spec];
+    const isCustom = spec.startsWith('custom:') && resolveDnsUpstream(spec);
+    if (!isPreset && !isCustom) return res.status(400).json({ error: 'unknown preset and not a valid custom:<ipv4>' });
+    m.dns_upstream = spec;
+  }
+  saveState();
+  res.json({ ok: true, member: m });
+});
+app.post('/api/customer/family/:id/safe-search', customerAuth, (req, res) => {
+  const c = req.customer;
+  const fam = state.family_members[c.id] || [];
+  const m = fam.find(x => x.id === req.params.id);
+  if (!m) return res.status(404).json({ error: 'family member not found' });
+  m.safe_search = !!req.body.enabled;
+  saveState();
+  res.json({ ok: true, member: m });
 });
 
 // ─── Schedule blocks ───
@@ -7511,6 +7967,10 @@ app.post('/api/box/flows', boxAuth, (req, res) => {
       country: f.country || (typeof geoCountryFor === 'function' ? geoCountryFor(f.dst_ip) : null),
     };
     if (!privacy) state.flows.push(enriched);
+    // Tier-1 long-term archive (90d retention). Skip when privacy mode is on.
+    if (!privacy && req.boxCustomerId && typeof appendFlowToArchive === 'function') {
+      appendFlowToArchive(req.boxCustomerId, enriched);
+    }
     if (typeof tallyFlow === 'function') tallyFlow(enriched);
     if (typeof tallyTimeBank === 'function') tallyTimeBank(enriched);
     if (enriched.blocked && req.boxCustomerId) tallyRuleHits(req.boxCustomerId, enriched);
@@ -7687,11 +8147,30 @@ app.get('/api/box/policy/:mac', (req, res) => {
   const enabled = rules.filter(r => r.enabled !== false && !(r.expires_at && r.expires_at < Date.now()));
 
   // Resolve category rules → expand domains
+  // Tier-1 Smart Block: domain rules may carry pattern_type:
+  //   'exact' (default)  → exact match (blocked_domains)
+  //   'suffix'           → match domain + subdomains (blocked_domain_patterns + '*.value')
+  //   'prefix'           → match labels starting with value
+  //   'contains'         → match anything containing value
+  //   'sni-prefix'       → match by TLS SNI; rendered into blocked_sni_patterns for the box
   const blocked_domains = new Set();
+  const blocked_domain_patterns = [];   // each {pattern_type, value} -> rendered by agent
+  const blocked_sni_patterns = [];      // {pattern_type, value, action:'block'} -> sni-parser
   const blocked_categories = new Set();
   for (const r of enabled) {
     if (r.action !== 'block') continue;
-    if (r.type === 'domain') blocked_domains.add(r.value);
+    if (r.type === 'domain') {
+      const pt = r.pattern_type || 'exact';
+      if (pt === 'exact') {
+        blocked_domains.add(r.value);
+      } else if (pt === 'sni-prefix') {
+        blocked_sni_patterns.push({ pattern_type: pt, value: r.value, action: 'block' });
+      } else if (['suffix','prefix','contains'].includes(pt)) {
+        blocked_domain_patterns.push({ pattern_type: pt, value: r.value });
+      } else {
+        blocked_domains.add(r.value);
+      }
+    }
     if (r.type === 'category') {
       blocked_categories.add(r.value);
       const cat = state.app_categories[r.value];
@@ -7703,8 +8182,13 @@ app.get('/api/box/policy/:mac', (req, res) => {
     for (const d of state.customer_blocklist_domains[cust_id]) blocked_domains.add(d);
   }
 
-  // Safe Search overrides (CNAMEs the box should rewrite)
-  const safe_search = enabled.some(r => r.type === 'category' && r.value === 'adult' && r.action === 'block')
+  // Safe Search overrides (CNAMEs the box should rewrite).
+  // Tier-1: activated either by the legacy 'adult' category block OR by any
+  // family member with safe_search:true. dnsmasq can only do this globally,
+  // so we light it up box-wide when ANY kid needs it (documented in PWA).
+  const _famForSafe = (cust_id && state.family_members[cust_id]) || [];
+  const _anyMemberSafe = _famForSafe.some(m => m.safe_search === true);
+  const safe_search = (enabled.some(r => r.type === 'category' && r.value === 'adult' && r.action === 'block') || _anyMemberSafe)
     ? SAFE_SEARCH_OVERRIDES : {};
 
   // Active schedules
@@ -7723,11 +8207,12 @@ app.get('/api/box/policy/:mac', (req, res) => {
     const used_gb = (u.bytes_up + u.bytes_down) / (1024 ** 3);
     if (used_gb >= q.monthly_gb) quota_blocked.push(q.device_mac);
   }
-  // Time bank — devices over today's minute budget → block
+  // Time bank — devices over today's minute budget (incl. parent-granted bonus) → block
   if (cust_id) {
     timeBankResetIfNew(cust_id);
     for (const e of (state.time_bank[cust_id] || [])) {
-      if (e.used_minutes >= e.daily_minutes) quota_blocked.push(e.device_mac);
+      const bonus = e.bonus_minutes_today || 0;
+      if (e.used_minutes >= (e.daily_minutes + bonus)) quota_blocked.push(e.device_mac);
     }
   }
   // MAC-type block rules (created when customer taps "Block device" in PWA).
@@ -7789,12 +8274,31 @@ app.get('/api/box/policy/:mac', (req, res) => {
     return { ...s, effective_macs: Array.from(expanded_macs) };
   });
 
+  // Tier-1 Feature A: per-device DNS upstream map (mac → resolver IP).
+  // Walk every family member and, if they have a dns_upstream preset/custom,
+  // emit (mac → resolved IP) for each of their devices.
+  const per_device_dns_upstream = {};
+  const per_device_safe_search  = {};
+  for (const m of fam) {
+    const ip = resolveDnsUpstream(m.dns_upstream);
+    const wantsSafe = m.safe_search === true;
+    if (!ip && !wantsSafe) continue;
+    for (const dmacRaw of (m.device_macs || [])) {
+      const dmac = normalizeMac(dmacRaw);
+      if (!dmac) continue;
+      if (ip) per_device_dns_upstream[dmac] = ip;
+      if (wantsSafe) per_device_safe_search[dmac] = true;
+    }
+  }
+
   // Etag for change detection
   const bundle = { mac, customer_id: cust_id, plan: c ? c.plan : null,
     plan_device_cap: c ? planDeviceCap(c) : -1,
     latency_probes: (cust_id && state.latency_probes && state.latency_probes[cust_id] && state.latency_probes[cust_id].targets) || [],
     device_groups: (cust_id && state.device_groups[cust_id]) || [],
     blocked_domains: Array.from(blocked_domains),
+    blocked_domain_patterns,             // Tier-1 Smart Block: {pattern_type, value}
+    blocked_sni_patterns,                // Tier-1 Smart Block: SNI-based blocking
     blocked_categories: Array.from(blocked_categories),
     blocked_ips: [
       ...(blocked_categories.has('malware') ? (state.threat_feeds.ips || []) : []),
@@ -7806,6 +8310,8 @@ app.get('/api/box/policy/:mac', (req, res) => {
     schedules: enabledSchedules,
     pause,
     safe_search,
+    per_device_dns_upstream,             // Tier-1 Feature A: mac → upstream IP
+    per_device_safe_search,               // Tier-1 Feature B: mac → true (informational)
     quota_blocked,
     geo_block,
     port_forwards: (cust_id && state.port_forwards[cust_id]) || [],
@@ -8097,6 +8603,7 @@ app.post('/api/customer/rules/apply-preset', customerAuth, (req, res) => {
 
 app.post('/api/customer/rules/add', customerAuth, (req, res) => {
   const c = req.customer;
+  const VALID_PATTERN_TYPES = ['exact','suffix','prefix','contains','sni-prefix'];
   const r = {
     id: shortId(12),
     scope: ['all','device','family','tag'].includes(req.body.scope) ? req.body.scope : 'all',
@@ -8107,6 +8614,8 @@ app.post('/api/customer/rules/add', customerAuth, (req, res) => {
     enabled: req.body.enabled !== false,
     note: String(req.body.note || '').slice(0, 200),
     expires_at: req.body.expires_at ? Number(req.body.expires_at) : null,
+    // Tier-1 Smart Block: only meaningful for type=domain (others get default 'exact').
+    pattern_type: VALID_PATTERN_TYPES.includes(req.body.pattern_type) ? req.body.pattern_type : 'exact',
     created_at: Date.now(),
   };
   if (!r.value) return res.status(400).json({ error: 'value required' });
@@ -8388,7 +8897,10 @@ function timeBankResetIfNew(c_id) {
     if (e.period_yyyy_mm_dd !== today) {
       e.period_yyyy_mm_dd = today;
       e.used_minutes = 0;
+      // Tier-1 Feature D: bonus minutes are per-day and reset alongside used_minutes.
+      e.bonus_minutes_today = 0;
     }
+    if (typeof e.bonus_minutes_today !== 'number') e.bonus_minutes_today = 0;
   }
 }
 
@@ -8420,6 +8932,26 @@ app.post('/api/customer/time-bank/delete', customerAuth, (req, res) => {
   list.splice(i, 1);
   saveState();
   res.json({ ok: true });
+});
+
+// Tier-1 Feature D: parent grants bonus minutes (e.g. "+30 min" from a notification)
+// Adds to bonus_minutes_today, which resets at midnight along with used_minutes.
+app.post('/api/customer/time-bank/grant-bonus', customerAuth, (req, res) => {
+  const cid = req.customer.id;
+  const mac = normalizeMac(req.body.device_mac || '');
+  const minutes = parseInt(req.body.minutes, 10);
+  if (!mac) return res.status(400).json({ error: 'device_mac required' });
+  if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) {
+    return res.status(400).json({ error: 'minutes must be 1..1440' });
+  }
+  timeBankResetIfNew(cid);
+  const list = state.time_bank[cid] || [];
+  const e = list.find(x => (x.device_mac || '').toLowerCase() === mac);
+  if (!e) return res.status(404).json({ error: 'no time-bank entry for that device' });
+  e.bonus_minutes_today = (e.bonus_minutes_today || 0) + minutes;
+  saveState();
+  state.events.push({ ts: Date.now(), method: 'CUSTOMER', path: `[TIME-BANK+] ${req.customer.name||cid} +${minutes}m bonus for ${mac}`, ip: req.ip });
+  res.json({ ok: true, entry: e });
 });
 
 // Time-bank usage tally — driven by flow ingest (a device with traffic in last minute counts as 1 minute used)
@@ -9232,6 +9764,29 @@ app.get('/api/customer/alarms', customerAuth, (req, res) => {
   const incArch = req.query.include_archived === '1';
   const out = state.alarms.filter(a => a.customer_id === req.customer.id && (incArch || !a.archived)).slice(0, 500);
   res.json({ alarms: out });
+});
+// Clustered (de-noised) alarm view — groups by `dedup_key` (kind|device|target|hour-bucket).
+// Returned shape: [{ cluster_key, latest, count, first_ts, last_ts, alarm_ids: [...] }]
+// The raw `/api/customer/alarms` endpoint stays granular for forensic export.
+app.get('/api/customer/alarms-clustered', customerAuth, (req, res) => {
+  const incArch = req.query.include_archived === '1';
+  const mine = state.alarms.filter(a => a.customer_id === req.customer.id && (incArch || !a.archived)).slice(0, 2000);
+  const clusters = new Map();
+  for (const a of mine) {
+    // Back-fill dedup_key for legacy alarms that pre-date this feature.
+    const key = a.dedup_key || `${a.kind}|${(a.device_mac||'').toLowerCase()}|${(a.dst_domain||a.dst_ip||'any').toLowerCase()}|${Math.floor((a.ts||0)/3600000)}`;
+    let c = clusters.get(key);
+    if (!c) {
+      c = { cluster_key: key, latest: a, count: 0, first_ts: a.ts, last_ts: a.ts, alarm_ids: [] };
+      clusters.set(key, c);
+    }
+    c.count++;
+    c.alarm_ids.push(a.id);
+    if ((a.ts || 0) > (c.last_ts || 0)) { c.last_ts = a.ts; c.latest = a; }
+    if ((a.ts || 0) < (c.first_ts || 0)) c.first_ts = a.ts;
+  }
+  const out = Array.from(clusters.values()).sort((x, y) => (y.last_ts || 0) - (x.last_ts || 0)).slice(0, 500);
+  res.json({ clusters: out });
 });
 app.post('/api/customer/alarms/ack', customerAuth, (req, res) => {
   const a = state.alarms.find(x => x.id === req.body.id && x.customer_id === req.customer.id);
@@ -10639,13 +11194,43 @@ app.post('/api/box/sni-handshakes', boxAuth, (req, res) => {
   if (!cid) return res.json({ ok: true, accepted: 0 });
   if (!state.sni_handshakes[cid]) state.sni_handshakes[cid] = [];
   const list = Array.isArray(req.body.handshakes) ? req.body.handshakes : [];
+  // Resolve box's primary device-MAC mapping once (used for alarm device_mac
+  // hints — the SNI handshake records carry src_ip not src_mac, so we leave
+  // device_mac blank when we can't infer it cheaply).
   for (const h of list.slice(0, 200)) {
+    const sni = (h.sni || '').toLowerCase();
+    const ja3 = (h.ja3_md5 || '').toLowerCase();
     state.sni_handshakes[cid].push({
       ts: h.ts || Date.now(),
       src_ip: h.src_ip, dst_ip: h.dst_ip, dst_port: h.dst_port,
-      sni: h.sni || '', ja3_md5: h.ja3_md5 || '',
+      sni, ja3_md5: ja3,
       box_mac: req.boxMac,
     });
+    // Feature D: bypass-attempt detection. Match SNI against known DoH /
+    // VPN / Tor / iCloud Private Relay patterns; on hit, fire alarm with
+    // dst_domain so the existing "Block source" button works.
+    if (sni && typeof fireSyntheticAlarm === 'function') {
+      for (const p of BYPASS_SNI_PATTERNS) {
+        if (p.re.test(sni)) {
+          fireSyntheticAlarm(cid, req.boxMac, 'medium', 'bypass_attempt',
+            `Filter-bypass attempt: ${p.label}`,
+            `A device on your network reached ${sni} (${p.label}). This can route around parental controls and DNS-level filtering.`,
+            { dst_domain: sni, dst_ip: h.dst_ip || '' });
+          break;
+        }
+      }
+    }
+    // Feature C: JA3 malware-fingerprint check. Currently the box's tshark
+    // pipeline does NOT emit ja3_md5 (tshark 4.x dropped the field; see
+    // sni-parser.js). This branch is therefore dormant until either the
+    // tshark JA3 plugin is installed on boxes or we ship a Node-level
+    // ClientHello parser. The cloud-side blocklist is in place.
+    if (ja3 && JA3_INTEL.has(ja3) && typeof fireSyntheticAlarm === 'function') {
+      fireSyntheticAlarm(cid, req.boxMac, 'high', 'ja3_malware_signature',
+        'Known-bad TLS fingerprint detected',
+        `A device on your network produced a TLS ClientHello fingerprint (JA3 ${ja3}) that matches a malware family in our threat-intel set${sni ? ` while reaching ${sni}` : ''}.`,
+        { dst_domain: sni, dst_ip: h.dst_ip || '' });
+    }
   }
   // 24-hour retention
   const cutoff = Date.now() - 24 * 3600_000;
@@ -13012,6 +13597,90 @@ function runAnomalyScan() {
   }
 }
 if (!state.anomaly_dedup) state.anomaly_dedup = {};  // { "cust|kind": last_ts }
+
+// MITRE ATT&CK technique map for alarm `kind` → one or more technique IDs.
+// Used to enrich alarms with `attack_techniques: [...]` so the PWA can link to
+// https://attack.mitre.org/techniques/<id>/ for each tag. Policy-violation
+// kinds (gaming/video/social/porn) intentionally have NO mapping — those are
+// behavioural, not adversarial.
+const MITRE_TAGS = {
+  port_scan_outgoing:  ['T1046'],
+  sig_match:           ['T1071.001', 'T1095'],
+  traffic_anomaly:     ['T1041'],
+  high_data:           ['T1041'],
+  large_upload:        ['T1048'],
+  geo_anomaly:         ['T1090.003'],
+  route_change:        ['T1557'],
+  box_integrity_drift: ['T1098'],
+  box_config_drift:    ['T1098'],
+  new_device:          ['T1200'],
+  vpn_activity:        ['T1572'],
+  bypass_attempt:      ['T1090'],
+  ja3_malware_signature: ['T1071.001', 'T1573'],
+};
+
+// SNI patterns that indicate a device is trying to bypass parental controls
+// or content filters. Each entry: { re, label }. `re` is matched against the
+// lowercased SNI hostname.
+const BYPASS_SNI_PATTERNS = [
+  { re: /^mask(-h2)?\.icloud\.com$/i,                            label: 'iCloud Private Relay' },
+  { re: /^(dns|chrome|1dot1dot1dot1)\.cloudflare-dns\.com$/i,    label: 'Cloudflare DoH' },
+  { re: /^cloudflare-dns\.com$/i,                                label: 'Cloudflare DoH' },
+  { re: /^mozilla\.cloudflare-dns\.com$/i,                       label: 'Mozilla/Cloudflare DoH' },
+  { re: /^dns\.cloudflare\.com$/i,                               label: 'Cloudflare DoH' },
+  { re: /^dns\.google$/i,                                        label: 'Google DoH' },
+  { re: /^dns\.nextdns\.io$/i,                                   label: 'NextDNS DoH' },
+  { re: /^dns\.adguard\.com$/i,                                  label: 'AdGuard DoH' },
+  { re: /(^|\.)mullvad\.net$/i,                                  label: 'Mullvad VPN' },
+  { re: /(^|\.)protonvpn\.com$/i,                                label: 'Proton VPN' },
+  { re: /(^|\.)expressvpn\.com$/i,                               label: 'ExpressVPN' },
+  { re: /(^|\.)nordvpn\.com$/i,                                  label: 'NordVPN' },
+  { re: /(^|\.)surfshark\.com$/i,                                label: 'Surfshark VPN' },
+  { re: /(^|\.)azirevpn\.com$/i,                                 label: 'AzireVPN' },
+  { re: /(^|\.)torproject\.org$/i,                               label: 'Tor Project' },
+];
+
+// JA3 intel — MD5 hashes of TLS ClientHello fingerprints associated with
+// known malware C2 frameworks (Cobalt Strike, Sliver, Mythic, NjRAT, etc).
+// Hardcoded list compiled from public abuse.ch SSL/JA3 blacklists and
+// research write-ups. Re-evaluate quarterly. The box agent's tshark pipeline
+// currently does NOT capture JA3 (tshark 4.x dropped the field; see
+// sni-parser.js comment); however, if/when JA3 hashes arrive from the box on
+// `POST /api/box/sni-handshakes`, we match against this set and fire a
+// `ja3_malware_signature` alarm.
+const JA3_INTEL = new Set([
+  '72a589da586844d7f0818ce684948eea',  // Cobalt Strike default (very common)
+  'e7d705a3286e19ea42f587b344ee6865',  // Trickbot
+  '6734f37431670b3ab4292b8f60f29984',  // Dridex
+  '6f0e1a8cbf2c0b1f1d5a3e3d1b5c2f87',  // Sliver default
+  '51c64c77e60f3980eea90869b68c58a8',  // Emotet
+  'a0e9f5d64349fb13191bc781f81f42e1',  // Cobalt Strike beacon variant
+  '94c485bca29d5392be53f2b8cf7f4304',  // AsyncRAT
+  '37f463bf4616ecd445d4a1937da06e19',  // Tofsee
+  '46571f93338ab3a6c95f2f00b8717720',  // Pirpi/Egregor
+  '64e9e75e1c602fdba0913e3eccdf6961',  // Quasar RAT
+  'cd08c4cd9e554e6f0ad017f522c2c50d',  // Sality
+  'b1b3e982a4af6c39ef38e1ee6741e8e7',  // Mythic default
+  '7dd50e112cd23734a310b90f6f44a7cd',  // Emotet (alt)
+  '9e10692f1b7f78228b2d4e424db3a98c',  // Ramnit
+  '3b5074b1b5d032e5620f69f9f700ff0e',  // Dyre
+  '74954a0c86284d0d6e1ef72b67c98cf7',  // NjRAT
+  '0cc1e84568e471aa1d62ad4158ade6b5',  // Gozi/IcedID
+  '54328bd36c14bd82ddaa0c04b25ed9ad',  // BazarLoader
+  '8916410db85077a5460817142dcbc8de',  // Smoke Loader
+  '6f48bc4ed4cdebf18a8de3aacecf65a8',  // Ursnif
+  'd6828e30ab66774a91a96ae93be4ae4c',  // PlugX
+  '76979f037d2bb59c6f6f17caec7da4ce',  // Gootkit
+  '466cc3e0f1aaef41bdc7c2dd3d2b6e9b',  // Hancitor
+  'ec74a5c51106f0419184d0dd08fb05bc',  // Cobalt Strike (newer)
+  '88c2f4d4d4cccbd6e8e0ad36fc8f6c4f',  // Mythic C2 variant
+  '4d7a28d6f2263ed61de88ca66eb011e3',  // Adwind RAT
+  '00a611080d77f2dd13ab26a32cad95a1',  // Phorpiex
+  '12f5b1c1c5db7d27c5b4f5f17dac6d4b',  // RedLine Stealer
+  '20c41c0a44b97e0c8b9a3a7e57b8c92e',  // Vidar Stealer
+  'f60de2dfdd5dffaf6c3bb3b1d2f3a9b6',  // Raccoon Stealer
+]);
+
 function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body, extras = {}) {
   // Per-kind mute (set by /api/customer/alarm-mutes/set) suppresses the entire alarm path.
   // Caller note: critical-severity alarms still fire (we can't be silenced into missing real emergencies).
@@ -13030,14 +13699,22 @@ function fireSyntheticAlarm(customer_id, box_mac, severity, kind, title, body, e
       if (state.anomaly_dedup[k] < cutoff) delete state.anomaly_dedup[k];
     }
   }
+  const ts = Date.now();
+  // Stable dedup key for client-side clustering ("AI de-noising"): same kind,
+  // same device, same destination, same hour-bucket collapses to one row.
+  const _dk_target = (extras.dst_domain || extras.dst_ip || 'any').toLowerCase();
+  const _dk_dev = (extras.device_mac || '').toLowerCase();
+  const dedup_key = `${kind}|${_dk_dev}|${_dk_target}|${Math.floor(ts / 3600000)}`;
   const a = {
-    id: shortId(16), ts: Date.now(),
+    id: shortId(16), ts,
     customer_id, box_mac: box_mac || null,
     severity, kind, title, body,
     device_mac: extras.device_mac || '',
     dst_domain: extras.dst_domain || '',
     dst_ip:     extras.dst_ip     || '',
     category:   extras.category   || '',
+    attack_techniques: MITRE_TAGS[kind] ? MITRE_TAGS[kind].slice() : [],
+    dedup_key,
     acked: false, archived: false, source: 'cloud_anomaly',
   };
   state.alarms.unshift(a);

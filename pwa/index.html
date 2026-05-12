@@ -1277,6 +1277,8 @@ a { color: var(--brand); text-decoration: none; }
           <button class="sheet-action" data-subview="secscan"><span class="si">🛡</span><span>Security scans</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="kidlock"><span class="si">🔢</span><span>Kid lock (PIN)</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="speed"><span class="si">📊</span><span data-i="more.speed">Speed history</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="flowhist"><span class="si">📜</span><span>Flow history (90d archive)</span><span class="si" style="margin-left:auto">›</span></button>
+          <button class="sheet-action" data-subview="topology"><span class="si">🗺</span><span>Network topology</span><span class="si" style="margin-left:auto">›</span></button>
           <button class="sheet-action" data-subview="plan"><span class="si">💳</span><span data-i="more.billing">Billing & plan</span><span class="si" style="margin-left:auto">›</span></button>
         </div>
 
@@ -1340,6 +1342,11 @@ a { color: var(--brand); text-decoration: none; }
         <div class="card">
           <div class="card-title">Channels</div>
           <div id="notif-chans"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Weekly digest</div>
+          <div id="notif-digest"><div class="empty">Loading…</div></div>
+          <div class="btn-row" style="margin-top:8px"><button class="btn ghost" id="digest-preview-btn">📄 Preview latest digest</button></div>
         </div>
       </div>
 
@@ -1414,6 +1421,42 @@ a { color: var(--brand); text-decoration: none; }
           <h2>Billing & plan</h2>
         </div>
         <div class="card" id="plan-card"><div class="empty">Loading…</div></div>
+      </div>
+
+      <!-- Flow history sub-view (Tier-1 long-term archive) -->
+      <div id="more-flowhist" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Flow history</h2>
+        </div>
+        <div class="card">
+          <div class="card-title">Last 30 days — overview</div>
+          <div id="flowhist-stats"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Download archive (CSV)</div>
+          <div class="hint" style="margin-bottom:8px">Up to 90 days of flow records — useful for forensics, billing disputes, or kid monitoring.</div>
+          <div class="field"><label>From</label><input id="fh-from" type="date" style="width:100%;height:44px;padding:0 12px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+          <div class="field"><label>To</label><input id="fh-to" type="date" style="width:100%;height:44px;padding:0 12px;background:var(--elev2);border:1px solid transparent;border-radius:var(--r-btn);color:var(--text)"></div>
+          <div class="btn-row"><button class="btn primary" id="fh-download">⬇ Download CSV</button><button class="btn ghost" id="fh-preview">Preview JSON</button></div>
+          <div id="fh-result" class="hint" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Network topology sub-view (Tier-1 L2/L3 view) -->
+      <div id="more-topology" class="subview" hidden>
+        <div class="subview-header">
+          <button class="subview-back" data-back>←</button>
+          <h2>Network topology</h2>
+          <button class="btn sm ghost" id="topo-refresh" style="margin-left:auto">↻</button>
+        </div>
+        <div class="card" style="padding:8px;overflow-x:auto">
+          <div id="topo-svg-wrap" style="min-width:100%"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Legend</div>
+          <div class="hint">Tap any node for details. Online devices appear in full colour; offline are dimmed. The router and box are inferred from your box's reported subnet.</div>
+        </div>
       </div>
 
       <!-- OpenVPN client sub-view -->
@@ -2529,11 +2572,21 @@ async function timeLimitDevice(d) {
   } catch (_) {}
   const fmtMin = m => m >= 60 ? `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}` : `${m}m`;
   const presets = [30, 60, 120, 240, 480]; // minutes
+  const bonus = (existing && existing.bonus_minutes_today) || 0;
   const usageLine = existing
-    ? `<div class="muted" style="font-size:12px;margin-bottom:10px">Used today: <strong>${fmtMin(existing.used_minutes||0)}</strong> of <strong>${fmtMin(existing.daily_minutes)}</strong></div>`
+    ? `<div class="muted" style="font-size:12px;margin-bottom:10px">Used today: <strong>${fmtMin(existing.used_minutes||0)}</strong> of <strong>${fmtMin((existing.daily_minutes||0) + bonus)}</strong>${bonus?` <span class="chip ok" style="padding:1px 6px;font-size:10px">+${fmtMin(bonus)} bonus 🎁</span>`:''}</div>`
     : '';
   const currentLine = existing
     ? `<div class="chip ok" style="margin-bottom:10px">Current limit: ${fmtMin(existing.daily_minutes)} / day</div>`
+    : '';
+  // Tier-1 Feature D: bonus-time row appears only when there's an active limit
+  const bonusRow = existing
+    ? `<div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:10px 0 4px 0;padding:0 2px">🎁 Grant bonus</div>
+       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+         <button class="chip tl-bonus" data-bonus="15" style="padding:8px 12px;font-size:13px;cursor:pointer">+15m</button>
+         <button class="chip tl-bonus" data-bonus="30" style="padding:8px 12px;font-size:13px;cursor:pointer">+30m</button>
+         <button class="chip tl-bonus" data-bonus="60" style="padding:8px 12px;font-size:13px;cursor:pointer">+60m</button>
+       </div>`
     : '';
   const html = `${currentLine}${usageLine}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -2545,6 +2598,7 @@ async function timeLimitDevice(d) {
       <input id="tl-custom" type="number" min="1" max="1440" step="1" inputmode="numeric" placeholder="e.g. 90"${existing?` value="${existing.daily_minutes}"`:''}>
       <div class="hint">Box blocks this device once today's minutes are used. Resets at midnight.</div>
     </div>
+    ${bonusRow}
     <div class="btn-row" style="margin-top:10px">
       <button class="btn ghost" id="tl-cancel">${t('sheet.cancel')}</button>
       <button class="btn primary" id="tl-save">${t('sheet.save')}</button>
@@ -2574,6 +2628,17 @@ async function timeLimitDevice(d) {
       highlight();
     };
     highlight();
+    // Tier-1 Feature D: grant bonus buttons
+    body.querySelectorAll('.tl-bonus').forEach(b => b.onclick = async () => {
+      const minutes = parseInt(b.dataset.bonus, 10);
+      try {
+        await api('/customer/time-bank/grant-bonus', { method: 'POST', body: JSON.stringify({ device_mac: d.mac, minutes }) });
+        toast(`+${minutes}m bonus granted 🎁`, 'info');
+        closeSheet();
+        // Re-open with refreshed data
+        setTimeout(() => timeLimitDevice(d), 200);
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    });
     body.querySelector('#tl-cancel').onclick = closeSheet;
     body.querySelector('#tl-save').onclick = async () => {
       const customVal = parseInt(inp.value);
@@ -2600,47 +2665,117 @@ async function timeLimitDevice(d) {
 }
 
 /* ──────── Alarms ──────── */
-function renderAlarms() {
+async function renderAlarms() {
   const el = document.getElementById('alarm-list');
-  if (!state.alarms.length) { el.innerHTML = `<div class="empty"><div class="em">🛡</div>All clear — no alarms.</div>`; return; }
+  // Pull the de-noised (clustered) view. Each cluster = same kind/device/target/hour.
+  // Falls back to the raw list (state.alarms) if the endpoint isn't available
+  // — keeps the page useful on older cloud builds.
+  let clusters = null;
+  try {
+    const r = await api('/customer/alarms-clustered');
+    clusters = Array.isArray(r) ? r : (r?.clusters || null);
+  } catch (_) { clusters = null; }
+  if (!clusters) {
+    clusters = (state.alarms || []).map(a => ({
+      cluster_key: a.dedup_key || a.id, latest: a, count: 1,
+      first_ts: a.ts, last_ts: a.ts, alarm_ids: [a.id],
+    }));
+  }
+  if (!clusters.length) { el.innerHTML = `<div class="empty"><div class="em">🛡</div>All clear — no alarms.</div>`; return; }
   const avMap = { critical: 'av-danger', high: 'av-danger', medium: 'av-warn', low: 'av-info' };
   const ts = a => a.ts ? timeAgo(a.ts) : '';
-  // Group by day: Today / Yesterday / Earlier
+  // Group by day: Today / Yesterday / Earlier (by the cluster's latest event)
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const yest = today - 86400000;
   const groups = { Today: [], Yesterday: [], Earlier: [] };
-  state.alarms.forEach(a => {
+  clusters.forEach(c => {
+    const a = c.latest || c; // back-compat fallback
     const at = typeof a.ts === 'string' ? new Date(a.ts).getTime() : (a.ts||0) * (a.ts < 2e10 ? 1000 : 1);
-    if (at >= today) groups.Today.push(a);
-    else if (at >= yest) groups.Yesterday.push(a);
-    else groups.Earlier.push(a);
+    if (at >= today) groups.Today.push(c);
+    else if (at >= yest) groups.Yesterday.push(c);
+    else groups.Earlier.push(c);
   });
+  // Render the MITRE ATT&CK chips row for an alarm — each chip links out to
+  // attack.mitre.org. We split on '.' to canonicalise the sub-technique path.
+  const renderMitre = a => {
+    const techs = Array.isArray(a.attack_techniques) ? a.attack_techniques : [];
+    if (!techs.length) return '';
+    return `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">` +
+      techs.map(t => {
+        const safe = String(t).replace(/[^A-Za-z0-9.]/g, '');
+        const urlId = safe.replace('.', '/');
+        return `<a href="https://attack.mitre.org/techniques/${urlId}/" target="_blank" rel="noopener" class="chip" style="font-size:10px;text-decoration:none">${esc(safe)}</a>`;
+      }).join('') + `</div>`;
+  };
   const renderGroup = (label, list) => {
     if (!list.length) return '';
     return `<div class="card-title" style="padding:0 4px;margin:6px 0 4px 0">${label}</div>` +
-      list.map(a => {
+      list.map(c => {
+        const a = c.latest || c;
         const sev = a.severity || 'info';
         const av = avMap[sev] || 'av-info';
         const target = a.dst_domain || a.dst_ip || a.device_mac;
         const canBlock = !!target && !a.archived;
+        const cnt = c.count || 1;
+        const badge = cnt > 1 ? ` <span class="chip" style="font-size:10px;background:#3b1f1f;color:#ffb4b4">×${cnt}</span>` : '';
+        const ck = esc(c.cluster_key || a.id);
+        const ids = (c.alarm_ids || [a.id]).map(esc).join(',');
         return `<div class="list-row" style="align-items:flex-start">
           <div class="avatar ${av}">⚠</div>
           <div class="lr-meta" style="flex:1">
-            <div class="nm">${esc(a.title || a.type || 'Alarm')} ${a.archived?'<span class="chip" style="font-size:10px">archived</span>':''}</div>
+            <div class="nm">${esc(a.title || a.type || 'Alarm')}${badge} ${a.archived?'<span class="chip" style="font-size:10px">archived</span>':''}</div>
             <div class="sub">${esc(a.message || a.body || a.desc || '')} ${ts(a) ? `· ${ts(a)}` : ''}</div>
             ${target ? `<div class="sub mono" style="font-size:11px;margin-top:2px">↪ ${esc(target)}</div>` : ''}
+            ${renderMitre(a)}
+            ${cnt > 1 ? `<div class="sub" style="font-size:11px;margin-top:4px"><a href="#" data-expand="${ck}" style="color:#7cd1ff">▸ Show ${cnt} occurrences</a></div>
+              <div data-cluster-body="${ck}" style="display:none;margin-top:6px;padding-left:6px;border-left:2px solid #2a2a2a">
+                ${(c.alarm_ids||[]).map(id => `<div class="sub mono" style="font-size:11px;opacity:0.75">• ${esc(id)}</div>`).join('')}
+              </div>` : ''}
             ${(!a.acked && !a.archived) ? `
               <div class="row gap-8" style="margin-top:6px">
                 ${canBlock ? `<button class="btn sm danger" data-block="${esc(a.id)}">🚫 Block source</button>` : ''}
-                <button class="btn sm ghost" data-ack="${esc(a.id)}">✓ Ack</button>
-                <button class="btn sm ghost" data-archive="${esc(a.id)}">📁 Archive</button>
+                ${(a.kind === 'quota_exceeded' && a.device_mac) ? `<button class="btn sm ghost" data-bonus-mac="${esc(a.device_mac)}">🎁 Grant bonus…</button>` : ''}
+                <button class="btn sm ghost" data-ack-cluster="${ids}">✓ Ack ${cnt>1?`all ${cnt}`:''}</button>
+                <button class="btn sm ghost" data-archive-cluster="${ids}">📁 Archive${cnt>1?` all`:''}</button>
               </div>` : ''}
           </div>
         </div>`;
       }).join('');
   };
   el.innerHTML = renderGroup('Today', groups.Today) + renderGroup('Yesterday', groups.Yesterday) + renderGroup('Earlier', groups.Earlier);
+  // Toggle the cluster-expand panel
+  el.querySelectorAll('[data-expand]').forEach(link => link.onclick = (e) => {
+    e.preventDefault();
+    const k = link.dataset.expand;
+    const body = el.querySelector(`[data-cluster-body="${CSS.escape(k)}"]`);
+    if (!body) return;
+    const shown = body.style.display !== 'none';
+    body.style.display = shown ? 'none' : 'block';
+    link.textContent = (shown ? '▸ Show ' : '▾ Hide ') + (link.textContent.replace(/^[▾▸]\s*(Show|Hide)\s*/, ''));
+  });
+  // Ack/archive an entire cluster — iterate the alarm_ids list
+  el.querySelectorAll('[data-ack-cluster]').forEach(b => b.onclick = async () => {
+    const ids = (b.dataset.ackCluster || '').split(',').filter(Boolean);
+    if (!ids.length) return;
+    try {
+      await api('/customer/alarms/ack', { method: 'POST', body: JSON.stringify({ ids, id: ids[0] }) });
+      ids.forEach(id => { const a = state.alarms.find(x => String(x.id) === id); if (a) a.ack = true; });
+      renderAlarms(); updateBell(); renderHome();
+      toast(ids.length>1 ? `${ids.length} alarms acknowledged` : 'Acknowledged', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+  el.querySelectorAll('[data-archive-cluster]').forEach(b => b.onclick = async () => {
+    const ids = (b.dataset.archiveCluster || '').split(',').filter(Boolean);
+    if (!ids.length) return;
+    try {
+      for (const id of ids) {
+        await api('/customer/alarms/archive', { method: 'POST', body: JSON.stringify({ id }) });
+        const a = state.alarms.find(x => String(x.id) === id); if (a) { a.archived = true; a.acked = true; }
+      }
+      renderAlarms(); updateBell(); toast(ids.length>1 ? `${ids.length} archived` : 'Archived', 'info');
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
   el.querySelectorAll('[data-block]').forEach(b => b.onclick = async () => {
     if (!await confirmSheet('Block this source for ALL devices?', { okLabel: 'Block', danger: true })) return;
     try {
@@ -2650,6 +2785,33 @@ function renderAlarms() {
       renderAlarms(); updateBell();
       toast(r.already_existed ? 'Already blocked' : `Blocked ${r.blocked.value}`, 'info');
     } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  });
+  // Tier-1 Feature D: grant bonus directly from a quota_exceeded alarm
+  el.querySelectorAll('[data-bonus-mac]').forEach(b => b.onclick = async () => {
+    const mac = b.dataset.bonusMac;
+    const html = `
+      <div style="margin-bottom:10px;font-size:13px">Grant bonus minutes to <span class="mono">${esc(mac)}</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="chip bn-q" data-m="15" style="padding:8px 14px;font-size:13px;cursor:pointer">+15m</button>
+        <button class="chip bn-q" data-m="30" style="padding:8px 14px;font-size:13px;cursor:pointer">+30m</button>
+        <button class="chip bn-q" data-m="60" style="padding:8px 14px;font-size:13px;cursor:pointer">+60m</button>
+      </div>
+      <div class="field"><label>Custom minutes</label><input id="bn-custom" type="number" min="1" max="1440" placeholder="e.g. 45"></div>
+      <div class="btn-row"><button class="btn ghost" id="bn-x">Cancel</button><button class="btn primary" id="bn-go">Grant</button></div>`;
+    sheet('🎁 Grant bonus', '', html, body => {
+      let picked = null;
+      body.querySelectorAll('.bn-q').forEach(q => q.onclick = () => { picked = parseInt(q.dataset.m, 10); body.querySelector('#bn-custom').value = String(picked); });
+      body.querySelector('#bn-x').onclick = closeSheet;
+      body.querySelector('#bn-go').onclick = async () => {
+        const v = parseInt(body.querySelector('#bn-custom').value, 10);
+        const minutes = (Number.isFinite(v) && v > 0) ? v : picked;
+        if (!minutes) { toast('Pick or enter minutes', 'warn'); return; }
+        try {
+          await api('/customer/time-bank/grant-bonus', { method: 'POST', body: JSON.stringify({ device_mac: mac, minutes }) });
+          closeSheet(); toast(`+${minutes}m granted 🎁`, 'info');
+        } catch (e) { toast(e.message || 'Failed', 'bad'); }
+      };
+    });
   });
   el.querySelectorAll('[data-archive]').forEach(b => b.onclick = async () => {
     try {
@@ -2751,10 +2913,20 @@ document.getElementById('btn-add-rule').onclick = () => {
         <option value="geo">Country code (e.g., RU)</option>
       </select>
     </div>
+    <div class="field" id="ru-pattern-wrap">
+      <label>Match style</label>
+      <select id="ru-pattern">
+        <option value="exact">Exact (only this hostname)</option>
+        <option value="suffix">Subdomains too (live.tiktok.com + *.live.tiktok.com)</option>
+        <option value="contains">Contains text (broad — use carefully)</option>
+        <option value="sni-prefix">TLS SNI prefix (advanced)</option>
+      </select>
+      <div class="hint">"Subdomains too" lets you block live.tiktok.com without breaking cdn.tiktok.com.</div>
+    </div>
     <div class="field">
       <label>Value</label>
       <input id="ru-val" placeholder="example.com">
-      <div class="hint">Exact match. Wildcards not supported here.</div>
+      <div class="hint">Wildcards are added automatically based on match style.</div>
     </div>
     <div class="field">
       <label>Action</label>
@@ -2771,14 +2943,20 @@ document.getElementById('btn-add-rule').onclick = () => {
       body.querySelectorAll('#ru-act .radio-card').forEach(x => x.classList.remove('selected'));
       c.classList.add('selected'); c.querySelector('input').checked = true;
     });
+    const typeSel = body.querySelector('#ru-type');
+    const patternWrap = body.querySelector('#ru-pattern-wrap');
+    const togglePattern = () => { patternWrap.style.display = (typeSel.value === 'domain') ? '' : 'none'; };
+    typeSel.onchange = togglePattern;
+    togglePattern();
     body.querySelector('#ru-cancel').onclick = closeSheet;
     body.querySelector('#ru-save').onclick = async () => {
-      const type = body.querySelector('#ru-type').value;
+      const type = typeSel.value;
       const value = body.querySelector('#ru-val').value.trim();
       const action = body.querySelector('input[name="act"]:checked').value;
+      const pattern_type = (type === 'domain') ? body.querySelector('#ru-pattern').value : 'exact';
       if (!value) { toast('Enter a value', 'warn'); return; }
       try {
-        await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type, value, action }) });
+        await api('/customer/rules/add', { method: 'POST', body: JSON.stringify({ type, value, action, pattern_type }) });
         closeSheet(); renderRules(); toast('Rule added', 'info');
       } catch (e) { toast(e.message || 'Failed', 'bad'); }
     };
@@ -2939,7 +3117,7 @@ document.getElementById('m-logout').onclick = logout;
 document.getElementById('btn-add-box').onclick = () => document.getElementById('m-claim').click();
 
 /* ──────── More sub-views (inline pages) ──────── */
-const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','qos','iot','quarantine','secscan','kidlock','speed','plan'];
+const MORE_SUBVIEWS = ['family','schedules','account','notifs','ddns','wg','vpnclient','ovpnclient','qos','iot','quarantine','secscan','kidlock','speed','plan','flowhist','topology'];
 let _moreCurrent = 'main';
 
 function showMoreSubview(name) {
@@ -2966,6 +3144,8 @@ function showMoreSubview(name) {
   else if (name === 'kidlock') renderKidlockSub();
   else if (name === 'speed') renderSpeedSub();
   else if (name === 'plan') renderPlanSub();
+  else if (name === 'flowhist') renderFlowHistSub();
+  else if (name === 'topology') renderTopologySub();
 }
 // Wire up open links
 document.querySelectorAll('#more-main [data-subview]').forEach(b => {
@@ -3199,13 +3379,68 @@ function openFamilyMemberSheet(famId) {
     <div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:4px;padding:0 2px">Add a device</div>
     ${pickHtml}
 
+    <div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:14px 0 4px 0;padding:0 2px">DNS profile</div>
+    <div class="field" style="margin-bottom:6px">
+      <select id="fa-dns" style="width:100%;height:38px;padding:0 10px;background:var(--bg-elev-2);border:1px solid var(--line);border-radius:var(--r-btn);color:var(--text);font-size:13px">
+        <option value="">Default (box upstream)</option>
+        <option value="cloudflare"${fam.dns_upstream==='cloudflare'?' selected':''}>Cloudflare (1.1.1.1)</option>
+        <option value="cloudflare-family"${fam.dns_upstream==='cloudflare-family'?' selected':''}>Cloudflare Family (1.1.1.3)</option>
+        <option value="nextdns-family"${fam.dns_upstream==='nextdns-family'?' selected':''}>NextDNS Family</option>
+        <option value="opendns-familyshield"${fam.dns_upstream==='opendns-familyshield'?' selected':''}>OpenDNS FamilyShield</option>
+        <option value="quad9"${fam.dns_upstream==='quad9'?' selected':''}>Quad9 (9.9.9.9)</option>
+        <option value="__custom"${(fam.dns_upstream||'').startsWith('custom:')?' selected':''}>Custom IPv4…</option>
+      </select>
+    </div>
+    <div class="field" id="fa-dns-custom-wrap" style="display:${(fam.dns_upstream||'').startsWith('custom:')?'block':'none'};margin-bottom:6px">
+      <input id="fa-dns-custom" placeholder="1.2.3.4" maxlength="15" value="${(fam.dns_upstream||'').startsWith('custom:') ? esc(fam.dns_upstream.slice(7)) : ''}">
+    </div>
+    <div class="hint" style="font-size:11px;margin-bottom:10px">Sent to this member's devices via DHCP option 6. Adults usually use Cloudflare; kids use a family filter.</div>
+
+    <div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:6px 0 4px 0;padding:0 2px">Force SafeSearch</div>
+    <label style="display:flex;align-items:center;gap:10px;padding:6px 2px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="fa-safe" ${fam.safe_search ? 'checked' : ''}>
+      <span style="flex:1">Force safe search on Google / YouTube / Bing / DDG</span>
+    </label>
+    <div class="hint" style="font-size:11px;margin-bottom:10px">Honored network-wide when ANY family member has this on (dnsmasq limitation). Default ON for Kid/Teen.</div>
+
     <div class="btn-row" style="margin-top:14px">
       <button class="btn ghost" id="fa-close" style="flex:1">Done</button>
+      <button class="btn primary" id="fa-save-dns" style="flex:1">Save DNS</button>
       <button class="btn danger" id="fa-delete" style="flex:1">Remove</button>
     </div>`;
   sheet(`${esc(fam.icon || '👤')} ${esc(memberName)}`, '', html, body => {
     body.querySelector('#fa-close').onclick = closeSheet;
     body.querySelector('#fa-edit').onclick = () => { closeSheet(); editFamilyMember(famId); };
+    // Tier-1 Feature A+B: DNS profile + SafeSearch save
+    const dnsSel = body.querySelector('#fa-dns');
+    const dnsCustomWrap = body.querySelector('#fa-dns-custom-wrap');
+    const dnsCustomInp = body.querySelector('#fa-dns-custom');
+    const safeChk = body.querySelector('#fa-safe');
+    if (dnsSel) dnsSel.onchange = () => {
+      dnsCustomWrap.style.display = (dnsSel.value === '__custom') ? 'block' : 'none';
+    };
+    const saveDnsBtn = body.querySelector('#fa-save-dns');
+    if (saveDnsBtn) saveDnsBtn.onclick = async () => {
+      let val = dnsSel.value;
+      if (val === '__custom') {
+        const ip = (dnsCustomInp.value || '').trim();
+        if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) { toast('Enter a valid IPv4 address', 'warn'); return; }
+        val = 'custom:' + ip;
+      }
+      try {
+        await api(`/customer/family/${encodeURIComponent(famId)}/dns-upstream`, {
+          method: 'POST', body: JSON.stringify({ dns_upstream: val || null })
+        });
+        await api(`/customer/family/${encodeURIComponent(famId)}/safe-search`, {
+          method: 'POST', body: JSON.stringify({ enabled: !!(safeChk && safeChk.checked) })
+        });
+        const r = await api('/customer/family');
+        _famCache = r.family || [];
+        const fm = _famCache.find(x => x.id === famId);
+        if (fm) { fam.dns_upstream = fm.dns_upstream; fam.safe_search = fm.safe_search; }
+        toast('DNS profile saved', 'info');
+      } catch (e) { toast(e.message || 'Failed', 'bad'); }
+    };
     body.querySelector('#fa-delete').onclick = async () => {
       if (!await confirmSheet(`Remove ${fam.name} from your family?`, { okLabel: 'Remove', danger: true })) return;
       try {
@@ -3541,9 +3776,37 @@ async function renderNotifsSub() {
         await api('/customer/notif-prefs', { method: 'POST', body: JSON.stringify({ channels: { [k]: newVal } }) });
       } catch (e) { toast(e.message || 'Failed', 'bad'); s.classList.toggle('on', !newVal); }
     });
+    // ─── Weekly email digest toggle (Tier-1 Feature A) ───
+    const dEl = document.getElementById('notif-digest');
+    if (dEl) {
+      const digestOn = !!p.weekly_digest_email;
+      dEl.innerHTML = `<div class="toggle-row"><div class="ic">📧</div>
+        <div class="meta"><div class="nm">Weekly email digest</div><div class="sub">Sunday morning summary: usage, top devices, alarms, blocks</div></div>
+        <div class="switch-mini ${digestOn?'on':''}" id="digest-toggle"></div></div>`;
+      const tEl = document.getElementById('digest-toggle');
+      tEl.onclick = async () => {
+        const newVal = !tEl.classList.contains('on');
+        tEl.classList.toggle('on', newVal);
+        try {
+          await api('/customer/digests/weekly/prefs', { method: 'POST', body: JSON.stringify({ weekly_digest_email: newVal }) });
+          toast(newVal ? 'Digest enabled — runs every Sunday' : 'Digest disabled', 'info');
+        } catch (e) { toast(e.message || 'Failed', 'bad'); tEl.classList.toggle('on', !newVal); }
+      };
+    }
   } catch (e) {
     cats.innerHTML = `<div class="empty">Failed to load</div>`;
   }
+}
+// Wire up the digest preview button (outside renderNotifsSub so it stays bound)
+const _digestPrevBtn = document.getElementById('digest-preview-btn');
+if (_digestPrevBtn) {
+  _digestPrevBtn.onclick = async () => {
+    try {
+      const r = await api('/customer/digests/weekly/preview');
+      const html = (r.digest && r.digest.html) || '<p>(no digest data)</p>';
+      sheet('📊 Weekly digest preview', '', `<div style="max-height:70vh;overflow:auto;background:var(--elev2,#fff);color:#222;padding:12px;border-radius:8px">${html}</div>`);
+    } catch (e) { toast(e.message || 'Failed', 'bad'); }
+  };
 }
 
 /* ──────── DDNS sub-view ──────── */
@@ -4263,6 +4526,163 @@ async function renderPlanSub() {
     card.innerHTML = `<div class="empty">Failed to load</div>`;
   }
 }
+
+/* ──────── Flow history sub-view (Tier-1 long-term archive) ──────── */
+function _fmtBytesH(b) {
+  if (!b) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1024*1024*1024) return (b/(1024*1024)).toFixed(1) + ' MB';
+  return (b/(1024*1024*1024)).toFixed(2) + ' GB';
+}
+async function renderFlowHistSub() {
+  const statsEl = document.getElementById('flowhist-stats');
+  statsEl.innerHTML = '<div class="empty">Loading…</div>';
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
+  const fromI = document.getElementById('fh-from'), toI = document.getElementById('fh-to');
+  if (!fromI.value) fromI.value = weekAgo;
+  if (!toI.value)   toI.value   = today;
+  try {
+    const r = await api('/customer/flows/archive/stats?days=30');
+    const top10dev = r.top_devices.slice(0, 5).map(d => `<tr><td style="padding:3px 6px 3px 0;font-family:monospace;font-size:11px">${esc(d.mac)}</td><td style="text-align:right;font-weight:600">${_fmtBytesH(d.bytes)}</td></tr>`).join('');
+    const top10dom = r.top_domains.slice(0, 5).map(d => `<tr><td style="padding:3px 6px 3px 0">${esc(d.domain)}</td><td style="text-align:right;font-weight:600">${_fmtBytesH(d.bytes)}</td></tr>`).join('');
+    statsEl.innerHTML = `
+      <div class="kv-row"><div class="k">Total flows</div><div class="v">${r.total_flows.toLocaleString()}</div></div>
+      <div class="kv-row"><div class="k">Total bytes</div><div class="v">${_fmtBytesH(r.total_bytes)}</div></div>
+      <div class="kv-row"><div class="k">Archive size</div><div class="v">${r.archive_size.toLocaleString()} records</div></div>
+      ${top10dev ? `<div class="card-title" style="margin-top:12px">Top devices</div><table style="width:100%">${top10dev}</table>` : ''}
+      ${top10dom ? `<div class="card-title" style="margin-top:12px">Top domains</div><table style="width:100%">${top10dom}</table>` : ''}
+    `;
+  } catch (e) {
+    statsEl.innerHTML = `<div class="empty">Failed to load stats</div>`;
+  }
+}
+document.getElementById('fh-download').onclick = () => {
+  const from = document.getElementById('fh-from').value;
+  const to   = document.getElementById('fh-to').value;
+  if (!from || !to) { toast('Pick both dates', 'warn'); return; }
+  const url = `/api/customer/flows/archive?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&format=csv&token=${encodeURIComponent(state.token)}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `flows-${from}-to-${to}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Download starting…', 'info');
+};
+document.getElementById('fh-preview').onclick = async () => {
+  const from = document.getElementById('fh-from').value;
+  const to   = document.getElementById('fh-to').value;
+  if (!from || !to) { toast('Pick both dates', 'warn'); return; }
+  const resEl = document.getElementById('fh-result');
+  resEl.textContent = 'Loading…';
+  try {
+    const r = await api(`/customer/flows/archive?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=500`);
+    resEl.innerHTML = `Found <strong>${r.total.toLocaleString()}</strong> flows in range. Archive holds ${r.archive_total.toLocaleString()} records (90-day retention). ${r.truncated ? '<br><em>Result capped at 500 — use CSV for full export.</em>' : ''}`;
+  } catch (e) { resEl.textContent = e.message || 'Failed'; }
+};
+
+/* ──────── Network topology sub-view (Tier-1 L2/L3 view) ──────── */
+async function renderTopologySub() {
+  const wrap = document.getElementById('topo-svg-wrap');
+  wrap.innerHTML = '<div class="empty">Loading…</div>';
+  let devices = state.devices || [];
+  let boxes = state.boxes || [];
+  if (!devices.length) {
+    try { const r = await api('/customer/devices'); devices = r.devices || []; }
+    catch (e) {}
+  }
+  if (!boxes.length) {
+    try { const r = await api('/customer/me'); boxes = r.boxes || r.box_macs || []; }
+    catch (e) {}
+  }
+  const box = (boxes && boxes[0]) || {};
+  const boxIp = box.internal_ip || box.public_ip || (devices[0] && devices[0].ip ? (devices[0].ip.split('.').slice(0,3).join('.') + '.20') : '?');
+  const subnetPrefix = (boxIp && boxIp.includes('.')) ? boxIp.split('.').slice(0,3).join('.') : '192.168.1';
+  const gwIp = subnetPrefix + '.1';
+  const cols = 6;
+  const devs = devices.filter(d => d.mac);
+  const rows = Math.max(1, Math.ceil(devs.length / cols));
+  const colW = 110;
+  const rowH = 110;
+  const svgW = Math.max(700, cols * colW + 40);
+  const fanTop = 360;
+  const svgH = fanTop + rows * rowH + 40;
+  const cx = svgW / 2;
+  const e = s => esc(String(s == null ? '' : s));
+  let svg = `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;min-width:${svgW}px">
+    <defs>
+      <linearGradient id="topoLink" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent,#3ad29f)" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="var(--brand,#ff8c42)" stop-opacity="0.4"/>
+      </linearGradient>
+    </defs>`;
+  svg += `<line x1="${cx}" y1="40" x2="${cx}" y2="${fanTop - 30}" stroke="url(#topoLink)" stroke-width="2"/>`;
+  svg += `<g class="topo-node" data-kind="internet" style="cursor:pointer">
+    <circle cx="${cx}" cy="60" r="28" fill="var(--elev2,#262626)" stroke="var(--accent,#3ad29f)" stroke-width="2"/>
+    <text x="${cx}" y="68" text-anchor="middle" font-size="28">🌐</text>
+    <text x="${cx}" y="105" text-anchor="middle" fill="var(--text,#fff)" font-size="11" font-weight="600">Internet</text>
+  </g>`;
+  svg += `<g class="topo-node" data-kind="gateway" data-gw-ip="${e(gwIp)}" style="cursor:pointer">
+    <rect x="${cx - 32}" y="140" width="64" height="44" rx="8" fill="var(--elev2,#262626)" stroke="var(--brand,#ff8c42)" stroke-width="2"/>
+    <text x="${cx}" y="170" text-anchor="middle" font-size="24">📡</text>
+    <text x="${cx}" y="200" text-anchor="middle" fill="var(--text,#fff)" font-size="11" font-weight="600">Your Router</text>
+    <text x="${cx}" y="213" text-anchor="middle" fill="var(--dim,#888)" font-size="10" font-family="monospace">${e(gwIp)}</text>
+  </g>`;
+  svg += `<g class="topo-node" data-kind="box" data-box-mac="${e(box.mac || '')}" style="cursor:pointer">
+    <rect x="${cx - 40}" y="245" width="80" height="50" rx="10" fill="var(--brand,#ff8c42)" stroke="var(--brand,#ff8c42)" stroke-width="2"/>
+    <text x="${cx}" y="278" text-anchor="middle" font-size="22">📦</text>
+    <text x="${cx}" y="310" text-anchor="middle" fill="var(--text,#fff)" font-size="11" font-weight="700">mes Box</text>
+    <text x="${cx}" y="324" text-anchor="middle" fill="var(--dim,#888)" font-size="10" font-family="monospace">${e(boxIp)}</text>
+  </g>`;
+  for (let i = 0; i < devs.length; i++) {
+    const d = devs[i];
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const dx = 20 + col * colW + colW / 2;
+    const dy = fanTop + row * rowH;
+    const online = d.online !== false;
+    const opacity = online ? 1.0 : 0.4;
+    const dotColor = online ? 'var(--accent,#3ad29f)' : 'var(--dim,#888)';
+    svg += `<line x1="${cx}" y1="295" x2="${dx}" y2="${dy - 28}" stroke="var(--accent,#3ad29f)" stroke-opacity="0.25" stroke-width="1"/>`;
+    svg += `<g class="topo-node topo-dev" data-mac="${e(d.mac)}" style="cursor:pointer;opacity:${opacity}">
+      <circle cx="${dx}" cy="${dy}" r="22" fill="var(--elev2,#262626)" stroke="var(--accent,#3ad29f)" stroke-width="${online ? 2 : 1}"/>
+      <text x="${dx}" y="${dy + 7}" text-anchor="middle" font-size="22">${e(d.icon || '💻')}</text>
+      <circle cx="${dx + 18}" cy="${dy - 18}" r="4" fill="${dotColor}"/>
+      <text x="${dx}" y="${dy + 40}" text-anchor="middle" fill="var(--text,#fff)" font-size="10" font-weight="600">${e((d.name || d.mac).slice(0, 14))}</text>
+      <text x="${dx}" y="${dy + 53}" text-anchor="middle" fill="var(--dim,#888)" font-size="9" font-family="monospace">${e(d.ip || '')}</text>
+    </g>`;
+  }
+  if (!devs.length) {
+    svg += `<text x="${cx}" y="${fanTop + 20}" text-anchor="middle" fill="var(--dim,#888)" font-size="12">No devices reported yet</text>`;
+  }
+  svg += `</svg>`;
+  wrap.innerHTML = svg;
+  wrap.querySelectorAll('.topo-node').forEach(g => {
+    g.addEventListener('click', () => {
+      const kind = g.dataset.kind;
+      if (kind === 'internet') {
+        sheet('🌐 Internet', '', `<p>This is the public internet — anything outside your home network.</p><p class="hint">Traffic flows: device → mes Box → router → ISP → internet.</p>`);
+      } else if (kind === 'gateway') {
+        sheet('📡 Your Router', '', `<p><strong>Gateway IP:</strong> <span class="mono">${e(g.dataset.gwIp)}</span></p>
+          <p>Your home router (not managed by mes Network). It assigns DHCP leases on your LAN.</p>
+          <p class="hint">If you see weird issues, your router is the most common culprit — try a reboot.</p>`);
+      } else if (kind === 'box') {
+        const bm = g.dataset.boxMac || '(no box)';
+        const b = (state.boxes || [])[0] || {};
+        const uptime = b.uptime_s ? Math.floor(b.uptime_s/3600) + 'h' : '—';
+        sheet('📦 mes Box', '', `<p><strong>MAC:</strong> <span class="mono">${e(bm)}</span></p>
+          <p><strong>Version:</strong> ${e(b.version || '—')}</p>
+          <p><strong>Uptime:</strong> ${e(uptime)}</p>
+          <p><strong>Temp:</strong> ${b.temp_c != null ? e(b.temp_c) + ' °C' : '—'}</p>
+          <p class="hint">This is your Pi running the mes agent.</p>`);
+      } else if (g.classList.contains('topo-dev')) {
+        const mac = g.dataset.mac;
+        if (mac && typeof openDeviceSheet === 'function') openDeviceSheet(mac);
+      }
+    });
+  });
+}
+document.getElementById('topo-refresh').onclick = renderTopologySub;
 
 /* ──────── Header buttons ──────── */
 document.getElementById('btn-theme').onclick = toggleTheme;
